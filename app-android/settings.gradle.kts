@@ -10,6 +10,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Pleos Playground SDK (document.pleos.ai › Vehicle / NaviHelper 프로젝트 설정)
+        maven {
+            url = uri("https://nexus-playground.pleos.ai/repository/maven-releases/")
+            content { includeGroup("ai.pleos.playground") }
+        }
     }
 }
 

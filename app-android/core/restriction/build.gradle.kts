@@ -5,6 +5,8 @@ plugins {
 
 android {
     namespace = "com.emop.pause.core.restriction"
+    // CarUxRestrictionsManager (AAOS 플랫폼 android.car 라이브러리)
+    useLibrary("android.car")
 }
 
 dependencies {
