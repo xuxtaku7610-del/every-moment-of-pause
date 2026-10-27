@@ -138,11 +138,11 @@ every-moment-of-pause/
 ```bash
 cp server/.env.example server/.env
 # EX_API_KEY=            # 비워 두면 샘플 휴게소 데이터 사용
-# OLLAMA_BASE_URL=http://localhost:11434
+# OLLAMA_BASE_URL=http://127.0.0.1:11434
 # OLLAMA_MODEL=gemma4:12b
 # OLLAMA_KEEP_ALIVE=30m
 # OLLAMA_NUM_PREDICT=60
-# DATABASE_URL=postgresql+psycopg://pause:pause@localhost:5432/pause
+# DATABASE_URL=postgresql+psycopg://pause:pause@127.0.0.1:5432/pause
 ```
 
 ### 2) 백엔드
