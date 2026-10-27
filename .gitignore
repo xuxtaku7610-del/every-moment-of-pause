@@ -1,0 +1,12 @@
+# 비공개 자료
+_private/
+
+# 비밀값
+.env
+*.env
+local.properties
+*.jks
+*.keystore
+
+# Claude Code 개인 설정
+.claude/settings.local.json
