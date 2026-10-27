@@ -10,3 +10,7 @@ local.properties
 
 # Claude Code 개인 설정
 .claude/settings.local.json
+
+# 로컬 도구 설정
+.claude/
+CLAUDE.md
