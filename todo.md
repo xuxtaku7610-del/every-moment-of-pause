@@ -19,12 +19,12 @@
 - [ ] (나) Android Studio + Pleos Connect Emulator 설치, AVD 설정, 공식 튜토리얼(안전 운전 점수 계산기) 빌드
 - [ ] (나) 공공데이터포털 가입 → 한국도로공사 휴게소 기준정보·편의시설 API 활용 신청
 - [x] (나) Ollama 모델 확정: `OLLAMA_MODEL=gemma4:12b` (`/api/chat`, `think=false`, `keep_alive=30m`). 실측: 모델 상주 상태 2.58초, 100% GPU → `num_predict=60`, `temperature=0.3`
-- [ ] (나) Android SDK Platform 35 설치 (compileSdk 35)
-- [ ] (나) GitHub에 **실명이 드러나지 않는 계정**으로 저장소 생성, `git config user.name`도 익명 닉네임
-- [ ] (CC) 저장소 구조 생성, `.gitignore`, `docker-compose.yml`, `server/.env.example`
-- [ ] (CC) FastAPI 골격 + `/health`, PostgreSQL 연결, Alembic 초기 마이그레이션(database.md DDL)
-- [ ] (CC) Android 멀티모듈 골격 (app, core:*, engine:*, voice, data, sim), Hilt, 디자인 토큰 테마
-- [ ] (CC) GitHub Actions: 서버 pytest + APK 디버그 빌드
+- [ ] (나) Android SDK Platform 35 설치 (compileSdk 35) — BLOCKED: 미설치(10/27 확인), 사용자 설치 대기
+- [x] (나) GitHub에 **실명이 드러나지 않는 계정**으로 저장소 생성, `git config user.name`도 익명 닉네임
+- [x] (CC) 저장소 구조 생성, `.gitignore`, `docker-compose.yml`, `server/.env.example`
+- [x] (CC) FastAPI 골격 + `/health`, PostgreSQL 연결, Alembic 초기 마이그레이션(database.md DDL)
+- [ ] (CC) Android 멀티모듈 골격 (app, core:*, engine:*, voice, data, sim), Hilt, 디자인 토큰 테마 — 코드 완료, compileSdk 36 임시 빌드·에뮬레이터 3화면 확인. BLOCKED: SDK Platform 35 설치 후 35로 최종 빌드
+- [ ] (CC) GitHub Actions: 서버 pytest + APK 디버그 빌드 — 워크플로 작성 완료. BLOCKED: push 승인 후 실행 결과 확인
 
 ## M1 · 뼈대 + 시뮬레이터 (10/30 ~ 11/2)
 - [ ] (CC) `VehicleSource` / `NaviSource` 인터페이스 + `Sim*` 구현
