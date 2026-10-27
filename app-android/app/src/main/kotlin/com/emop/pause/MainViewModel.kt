@@ -1,30 +1,27 @@
 package com.emop.pause
 
 import androidx.lifecycle.ViewModel
-import com.emop.pause.core.model.AppMode
-import com.emop.pause.core.model.DriveState
-import com.emop.pause.core.restriction.DriveStateRepository
-import com.emop.pause.core.restriction.StubDriveStateRepository
+import com.emop.pause.core.model.TripPhase
+import com.emop.pause.runtime.Snapshot
+import com.emop.pause.runtime.SignalRuntime
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
-/** M0: AppMode는 수동 전환. TODO(M1): AppModeReducer로 계산. */
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val driveStateRepository: DriveStateRepository,
+    private val runtime: SignalRuntime,
 ) : ViewModel() {
-    private val mode = MutableStateFlow(AppMode.PREPARE)
-    val appMode: StateFlow<AppMode> = mode.asStateFlow()
-    val driveState: StateFlow<DriveState> = driveStateRepository.driveState
+    val snapshot: StateFlow<Snapshot> = runtime.snapshot
 
-    fun setAppMode(value: AppMode) {
-        mode.value = value
-    }
+    fun scenarioNames() = runtime.scenarioNames()
+    fun useScenario(name: String) = runtime.useScenario(name)
+    fun useVehicle() = runtime.useVehicle()
+    fun play() = runtime.play()
+    fun pause() = runtime.pause()
+    fun setSpeed(multiplier: Int) = runtime.setSpeed(multiplier)
+    fun seek(tSec: Double) = runtime.seek(tSec)
 
-    fun setDriveState(value: DriveState) {
-        (driveStateRepository as? StubDriveStateRepository)?.set(value)
-    }
+    /** 실차 모드의 출발 버튼. 시뮬레이터에서는 시나리오가 여행 단계를 정한다. */
+    fun startTrip() = runtime.setVehicleTrip(TripPhase.ACTIVE)
 }

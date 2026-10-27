@@ -42,6 +42,7 @@ class PleosNaviSource(context: Context) : NaviSource {
             refresh()
         }
 
+        @Suppress("OVERRIDE_DEPRECATION")
         override fun onRouteEnded() {
             routeState.value = null
             etaState.value = null
@@ -68,8 +69,8 @@ class PleosNaviSource(context: Context) : NaviSource {
             )
         }
 
-        override fun onWayPointInfo(waypointInfo: List<WaypointInfo>) {
-            val next = waypointInfo.firstOrNull()
+        override fun onWayPointInfo(waypointInfoList: List<WaypointInfo>) {
+            val next = waypointInfoList.firstOrNull()
             etaState.value = etaState.value?.copy(
                 nextWaypointName = next?.name,
                 nextWaypointRemainDistanceM = next?.remainDistance,
