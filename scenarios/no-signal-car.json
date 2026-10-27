@@ -1,0 +1,26 @@
+{
+  "name": "no-signal-car",
+  "description": "속도만 읽히는 차종(기어·공조·배터리 신호 없음). 정차 판정은 PARKED + 속도 0이 60초 이상 (architecture §5.2).",
+  "startClock": "14:00",
+  "capabilities": ["SPEED"],
+  "route": {
+    "destinationName": "천안",
+    "destination": {"lat": 36.8065, "lng": 127.1522},
+    "totalDistanceM": 90000
+  },
+  "timeline": [
+    {"t": 0, "label": "출발 준비", "trip": "NOT_STARTED", "driveState": "PARKED", "speedKph": 0, "remainDistanceM": 90000, "remainTimeSec": 4200},
+    {"t": 30, "label": "여행 시작", "trip": "ACTIVE"},
+    {"t": 60, "label": "출발", "driveState": "DRIVING", "speedKph": 50, "remainDistanceM": 90000, "remainTimeSec": 4200},
+    {"t": 200, "speedKph": 95},
+    {"t": 1740, "speedKph": 95},
+    {"t": 1800, "label": "신호 대기 30초", "driveState": "PARKED", "speedKph": 0, "remainDistanceM": 50000, "remainTimeSec": 2400},
+    {"t": 1830, "label": "다시 출발", "driveState": "DRIVING", "speedKph": 60, "remainDistanceM": 50000, "remainTimeSec": 2400},
+    {"t": 2340, "speedKph": 60},
+    {"t": 2400, "label": "졸음쉼터 정차", "driveState": "PARKED", "speedKph": 0, "remainDistanceM": 30000, "remainTimeSec": 1500},
+    {"t": 3240, "speedKph": 0},
+    {"t": 3300, "label": "다시 출발", "driveState": "DRIVING", "speedKph": 60, "remainDistanceM": 30000, "remainTimeSec": 1500},
+    {"t": 4680, "speedKph": 60},
+    {"t": 4740, "label": "도착", "trip": "ENDED", "driveState": "PARKED", "speedKph": 0, "remainDistanceM": 0, "remainTimeSec": 0}
+  ]
+}

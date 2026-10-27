@@ -1,0 +1,41 @@
+{
+  "name": "seoul-busan-family",
+  "description": "서울→부산 전기차, 아이(5세)·반려견 동승. 휴게소 충전 정차, 정체 구간(기어 D 정지), 도착까지.",
+  "startClock": "09:00",
+  "capabilities": ["SPEED", "GEAR", "BATTERY_SOC", "CHARGING", "HVAC_TEMP", "HVAC_AC", "HVAC_RECIRCULATION"],
+  "route": {
+    "destinationName": "부산",
+    "destination": {"lat": 35.1796, "lng": 129.0756},
+    "totalDistanceM": 395000,
+    "points": [
+      {"lat": 37.4602, "lng": 127.0417},
+      {"lat": 37.2411, "lng": 127.1776},
+      {"lat": 36.8065, "lng": 127.1522},
+      {"lat": 36.3504, "lng": 127.3845},
+      {"lat": 36.1398, "lng": 128.1136},
+      {"lat": 35.8714, "lng": 128.6014},
+      {"lat": 35.1796, "lng": 129.0756}
+    ]
+  },
+  "timeline": [
+    {"t": 0, "label": "출발 준비", "trip": "NOT_STARTED", "driveState": "PARKED", "gear": "PARK", "speedKph": 0, "socPercent": 82, "charging": false, "hvacTempC": 23, "hvacAc": true, "recirculation": false, "remainDistanceM": 395000, "remainTimeSec": 16200},
+    {"t": 60, "label": "여행 시작", "trip": "ACTIVE"},
+    {"t": 120, "label": "출발", "driveState": "DRIVING", "gear": "DRIVE", "speedKph": 30, "socPercent": 82, "remainDistanceM": 395000, "remainTimeSec": 16200},
+    {"t": 300, "label": "고속도로 진입", "speedKph": 100},
+    {"t": 2400, "label": "내기순환·실내 온도 상승", "recirculation": true, "hvacTempC": 23},
+    {"t": 3600, "hvacTempC": 26},
+    {"t": 5580, "speedKph": 100},
+    {"t": 5640, "label": "휴게소 진입", "speedKph": 40},
+    {"t": 5700, "label": "휴게소 도착·충전 시작", "driveState": "PARKED", "gear": "PARK", "speedKph": 0, "socPercent": 45, "charging": true, "remainDistanceM": 245000, "remainTimeSec": 10800},
+    {"t": 7380, "label": "충전 완료", "socPercent": 80, "charging": false, "remainDistanceM": 245000, "remainTimeSec": 10800, "speedKph": 0},
+    {"t": 7440, "label": "다시 출발", "driveState": "DRIVING", "gear": "DRIVE", "speedKph": 30, "socPercent": 80, "recirculation": false, "hvacTempC": 23, "remainDistanceM": 245000, "remainTimeSec": 10800},
+    {"t": 7560, "speedKph": 100},
+    {"t": 8940, "speedKph": 100},
+    {"t": 9000, "label": "정체 (기어 D 정지)", "driveState": "PARKED", "speedKph": 0, "remainDistanceM": 205000, "remainTimeSec": 9360},
+    {"t": 9120, "label": "정체 풀림", "driveState": "DRIVING", "speedKph": 60, "remainDistanceM": 205000, "remainTimeSec": 9360},
+    {"t": 9300, "speedKph": 100},
+    {"t": 16380, "speedKph": 100},
+    {"t": 16440, "label": "목적지 근처", "speedKph": 30},
+    {"t": 16500, "label": "도착", "trip": "ENDED", "driveState": "PARKED", "gear": "PARK", "speedKph": 0, "socPercent": 30, "remainDistanceM": 0, "remainTimeSec": 0}
+  ]
+}

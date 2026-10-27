@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
 }
@@ -20,6 +21,10 @@ val pauseMinSdk = 28
 val pauseTargetSdk = 34
 
 subprojects {
+    // 단위 테스트가 저장소 루트 scenarios/ 의 JSON을 읽으므로 입력으로 선언한다.
+    tasks.withType<Test>().configureEach {
+        inputs.dir(rootProject.file("../scenarios")).withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     fun configureAndroid() = extensions.configure<BaseExtension> {
         compileSdkVersion(pauseCompileSdk)
         buildToolsVersion = "36.0.0"

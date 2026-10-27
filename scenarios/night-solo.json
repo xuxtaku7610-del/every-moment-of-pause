@@ -1,0 +1,28 @@
+{
+  "name": "night-solo",
+  "description": "밤 11시 혼자 운전, 내연기관(배터리·충전 신호 없음). 휴식 없이 2시간 넘게 연속 주행, 난방·내기순환.",
+  "startClock": "23:10",
+  "capabilities": ["SPEED", "GEAR", "HVAC_TEMP", "HVAC_AC", "HVAC_RECIRCULATION"],
+  "route": {
+    "destinationName": "대구",
+    "destination": {"lat": 35.8714, "lng": 128.6014},
+    "totalDistanceM": 290000,
+    "points": [
+      {"lat": 37.4602, "lng": 127.0417},
+      {"lat": 36.8065, "lng": 127.1522},
+      {"lat": 36.3504, "lng": 127.3845},
+      {"lat": 35.8714, "lng": 128.6014}
+    ]
+  },
+  "timeline": [
+    {"t": 0, "label": "출발 준비", "trip": "NOT_STARTED", "driveState": "PARKED", "gear": "PARK", "speedKph": 0, "hvacTempC": 21, "hvacAc": false, "recirculation": false, "remainDistanceM": 290000, "remainTimeSec": 11400},
+    {"t": 30, "label": "여행 시작", "trip": "ACTIVE"},
+    {"t": 60, "label": "출발", "driveState": "DRIVING", "gear": "DRIVE", "speedKph": 40, "remainDistanceM": 290000, "remainTimeSec": 11400},
+    {"t": 240, "speedKph": 105},
+    {"t": 1800, "label": "난방·내기순환", "hvacTempC": 26, "recirculation": true},
+    {"t": 7500, "label": "연속 주행 2시간", "speedKph": 100, "remainDistanceM": 75000, "remainTimeSec": 3000},
+    {"t": 10320, "speedKph": 100},
+    {"t": 10380, "label": "목적지 근처", "speedKph": 30},
+    {"t": 10440, "label": "도착", "trip": "ENDED", "driveState": "PARKED", "gear": "PARK", "speedKph": 0, "remainDistanceM": 0, "remainTimeSec": 0}
+  ]
+}
