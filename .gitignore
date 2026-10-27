@@ -14,3 +14,20 @@ local.properties
 # 로컬 도구 설정
 .claude/
 CLAUDE.md
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Android / Gradle
+.gradle/
+build/
+.idea/
+*.iml
+.kotlin/
+captures/
+
+# 스크린샷 등 로컬 산출물
+artifacts/
