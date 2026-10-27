@@ -15,10 +15,11 @@
 | M5 본선 고도화 | 11/15 ~ 12/2 | 확장 기능, PT 덱, 리허설 |
 
 ## M0 · 환경 준비 (10/27 ~ 10/29)
-- [ ] (나) Pleos Playground 가입, 프로젝트 생성 (카테고리 결정), SDK 권한 상태 확인 · LLM/STT/TTS 신청 가능하면 신청
+- [ ] (나) Pleos Playground 가입, 프로젝트 생성 (카테고리 결정), SDK 권한 상태 확인 · STT/TTS 신청 가능하면 신청
 - [ ] (나) Android Studio + Pleos Connect Emulator 설치, AVD 설정, 공식 튜토리얼(안전 운전 점수 계산기) 빌드
 - [ ] (나) 공공데이터포털 가입 → 한국도로공사 휴게소 기준정보·편의시설 API 활용 신청
-- [ ] (나) Ollama 한국어 모델 1~2개 응답 비교 후 확정 (`.env`의 `OLLAMA_MODEL`)
+- [x] (나) Ollama 모델 확정: `OLLAMA_MODEL=gemma4:12b` (`/api/chat`, `think=false`, `keep_alive=30m`). 실측: 모델 상주 상태 2.58초, 100% GPU → `num_predict=60`, `temperature=0.3`
+- [ ] (나) Android SDK Platform 35 설치 (compileSdk 35)
 - [ ] (나) GitHub에 **실명이 드러나지 않는 계정**으로 저장소 생성, `git config user.name`도 익명 닉네임
 - [ ] (CC) 저장소 구조 생성, `.gitignore`, `docker-compose.yml`, `server/.env.example`
 - [ ] (CC) FastAPI 골격 + `/health`, PostgreSQL 연결, Alembic 초기 마이그레이션(database.md DDL)
@@ -31,17 +32,20 @@
 - [ ] (CC) 시나리오 3종 작성: `seoul-busan-family`, `night-solo`, `no-signal-car`
 - [ ] (나+CC) `PleosVehicleSource`: Vehicle SDK 연동 + capability 확인, 에뮬레이터 VHAL 값으로 검증
 - [ ] (나+CC) `PleosNaviSource`: NaviHelper 경로·ETA·경유지 추가 검증
+- [ ] (나+CC) NaviHelper 3.0.5 aar로 호환성 변경 실제 확인: `onNavigationStatus` 인자 타입, 좌표 인자 순서(위도·경도), `totalDistance/totalTime` → `remainDistance/remainTime` 이름
 - [ ] (CC) `DriveStateRepository`: `CarUxRestrictions` → PARKED/DRIVING/RESTRICTED
+- [ ] (CC) `AppModeReducer`: DriveState + 기어 + 충전 + 여행 진행 → PREPARE/DRIVING/PAUSE/ARRIVED + 테스트
 - [ ] (CC) 디버그 화면: 현재 신호·주행 상태 실시간 표시
 - [ ] (나) 화면 시안 확정 (주행 글랜스, 제안 카드, 멈춤 화면)
 
 ## M2 · 핵심 엔진 + 추천 (11/3 ~ 11/7)
 - [ ] (CC) `FatigueEngine` v1 + 단위 테스트 (기여 요인, 신호 미지원 재정규화)
 - [ ] (CC) `NeedsEngine` (아이·반려동물·충전) + 테스트
-- [ ] (CC) 서버: 도로공사 수집 잡, `/reststops/along-route`, `/reststops/{id}`
+- [ ] (CC) 서버: 도로공사 수집 잡, `/reststops/along-route`, `/reststops/{id}`. `EX_API_KEY`가 비어 있으면 `server/app/data/sample_reststops.json`으로 적재 (키는 나중에 받음)
 - [ ] (CC) 앱: 휴게소 캐시(Room) + 앱 번들 기본 데이터
 - [ ] (CC) `RestPlanner` 점수화 + 이유 생성 + 테스트
-- [ ] (CC) 서버 `/llm/phrases` (Ollama, 2.5초 타임아웃, 검사, 폴백)
+- [ ] (CC) 서버 `/llm/phrases` (Ollama, 2.5초 타임아웃, `num_predict=60`·`temperature=0.3`, 검사, 폴백)
+- [ ] (CC) 서버 시작 시 Ollama warm-up (lifespan 백그라운드, `messages=[]`, 실패해도 기동) — architecture.md §3.3
 - [ ] (CC) `voice`: Android TTS/STT 공급자, "응/나중에" 의도 인식, 템플릿 문장
 - [ ] (CC) 화면: 출발 준비(프리셋·수면 한마디), 주행 글랜스, 제안 카드
 - [ ] (나) 매일 에뮬레이터 스크린샷 → 비평 → 수정 1회
@@ -67,12 +71,12 @@
 ## M5 · 본선 고도화 (11/15 ~ 12/2)
 - [ ] (CC) 확장: 정체 호흡 코치, 빗길 가중, 교대 운전 제안, 하차 안심 루틴
 - [ ] (나+CC) 피로 모델 v2: 본인 주행 로그 + 합성 데이터로 개인화 보정 (5060 Ti, 선택: 학교 5090)
-- [ ] (나+CC) Gleo AI SDK 승인 시 STT/TTS/LLM 공급자 교체
+- [ ] (나+CC) Pleos STT/TTS가 Playground에 열리면 Android 기본 STT/TTS에서 교체 (문장 생성은 Ollama 유지)
 - [ ] (CC) PT 덱, 예상 질문 답변집
 - [ ] (나) 오프라인 리허설 3회 이상
 - [ ] (나) 수정 제출이 필요하면 마감 전 제목 `[수정제출] [차량용 앱 개발 공모전] ...`로 전체 자료 재발송 (마감 11/15 이후 자료는 PT 전까지 고도화 가능)
 
 ## 차단 요소 · 결정 대기
-- [ ] Pleos LLM/STT/TTS SDK 공모전 참가자 권한 여부 (설명회·문의)
+- [ ] Pleos STT/TTS SDK 공모전 참가자 권한 여부 (설명회·문의)
 - [ ] 본선 시연이 에뮬레이터인지 실차인지
 - [ ] 외부 서버(로컬 LLM) 호출 허용 범위

@@ -2,6 +2,8 @@
 
 데이터는 두 곳에 나뉜다. **서버 PostgreSQL**은 공용 데이터(휴게소·콘텐츠)와 익명 여행 이벤트를, **기기 Room DB**는 개인 데이터(동승자 프리셋·수면 시간)와 오프라인 캐시를 맡는다. 개인 데이터는 서버로 보내지 않는다.
 
+**테스트 정책.** 서버 DB 테스트는 두 층으로 나눈다. 마이그레이션 검증과 통합 테스트는 PostgreSQL 16에서 돌린다(로컬은 `docker compose`, CI는 GitHub Actions service container). 아래 DDL의 `JSONB`·`BIGSERIAL`·`TIMESTAMPTZ`·`'{}'::jsonb`는 PostgreSQL 전용이므로, Alembic 마이그레이션은 PostgreSQL에서만 검증한다. 단위 테스트는 SQLite in-memory에서 돌리며, SQLAlchemy 모델은 `JSON().with_variant(JSONB(), "postgresql")`, `BigInteger().with_variant(Integer, "sqlite")`처럼 방언별 타입을 쓴다. PostgreSQL 전용 테스트는 `@pytest.mark.pg` 마커로 구분하고, DB에 연결할 수 없으면 skip한다.
+
 ## 1. 서버 ERD (PostgreSQL 16)
 
 ```mermaid
@@ -249,7 +251,7 @@ CREATE TABLE llm_call_logs (
     id             BIGSERIAL   PRIMARY KEY,
     device_id      VARCHAR(32) REFERENCES devices(id) ON DELETE SET NULL,
     kind           VARCHAR(32) NOT NULL,
-    source         VARCHAR(16) NOT NULL CHECK (source IN ('gleo', 'ollama', 'template')),
+    source         VARCHAR(16) NOT NULL CHECK (source IN ('ollama', 'template')),
     latency_ms     INTEGER     NOT NULL,
     fallback_used  BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()

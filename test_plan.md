@@ -63,11 +63,15 @@
 - [ ] [N][P0] 원정대 미션: 휴게소 정차 시 아이 나이에 맞는 미션 3개, 완료 체크 시 다음 구간 라디오 열림
 - [ ] [N][P1] 반려견 동승 시 산책 타이머 카드 포함
 - [ ] [N][P1] 충전 없는 휴게소 정차 → 15분 기본 멈춤 계획
-- [ ] [E][P0] 파워냅 중 기어 D 변경 → 멈춤 모드 즉시 종료, 주행 화면 복귀
+- [ ] [E][P0] 파워냅 중 DriveState가 DRIVING 또는 RESTRICTED로 바뀜 → AppMode와 상관없이 즉시 주행 UI 전환, 벽난로 애니메이션·소리 중단 (architecture §5 최우선 규칙)
+- [ ] [E][P0] 파워냅 중 기어 P 해제(DriveState는 아직 PARKED) → AppMode PAUSE 종료 → DRIVING, 멈춤 화면 중단
 - [ ] [E][P1] 충전 속도 신호 없음 → 사용자에게 "얼마나 쉬실 건가요? 10·15·20분" 선택
 - [ ] [E][P1] 배터리 20% 이하 → 공조 유지형 파워냅 제안 안 함 (테슬라 캠프 모드 기준 참고)
 - [ ] [E][P1] 기상 알림에 무응답 1분 → 소리 키움 + 조도 올림, 3분 → 반복
-- [ ] [P][P0] 벽난로 애니메이션·영상류는 PAUSE_MODE에서만 렌더링, 주행 상태 진입 즉시 중단
+- [ ] [P][P0] 벽난로 애니메이션·영상류는 AppMode = PAUSE 이고 DriveState = PARKED일 때만 렌더링, DriveState가 DRIVING/RESTRICTED가 되면 즉시 중단
+- [ ] [N][P0] `AppModeReducer` 단위 테스트: PREPARE·DRIVING·PAUSE(charging/rest)·ARRIVED 전이와 경계 조건(기어 P 아님, 기어 신호 미지원)
+- [ ] [P][P0] 여행 중 DriveState = PARKED, 기어 N 또는 D(신호 대기) → AppMode DRIVING 유지, 시간이 지나도 PAUSE로 가지 않음 (architecture §5.2 경계 조건)
+- [ ] [P][P0] 기어 신호 미지원 차종, 여행 중 DriveState = PARKED + 속도 0 → 59초에는 DRIVING, 60초에 PAUSE. 30초에 속도가 0이 아니게 되면 타이머 리셋 후 다시 60초 필요. PAUSE 중 속도가 0이 아니게 되면 DRIVING (architecture §5.2 경계 조건)
 
 ## 7. F7 여행 리포트
 - [ ] [N][P0] 도착 후 휴식 횟수·최장 연속 주행·피로 피크·제안 수락률 표시
@@ -82,7 +86,9 @@
 - [ ] [E][P1] 잘못된 JSON → 오류 화면, 앱 크래시 없음
 
 ## 9. 서버 API (pytest)
-- [ ] [N] `/health` 200, DB 연결 실패 시 `db: down`
+- [ ] [N] `/health` 토큰 없이 200, 둘 다 정상이면 `status: ok`
+- [ ] [E] `/health` DB 연결 실패 또는 `SELECT 1` 1초 초과 → `503`, `db: down`, `status: down`
+- [ ] [E] `/health` Ollama 응답 없음 → `200`, `llm: down`, `status: degraded` / 모델 없음 → `llm: degraded` / 30초 캐시 동작
 - [ ] [N] `/devices` 토큰 발급, 토큰 없는 요청 401
 - [ ] [N] `/reststops/along-route` 경로 방향 앞쪽만, 거리순 정렬, 반경 밖 제외
 - [ ] [E] 좌표 1개 → 400, 위경도 범위 밖 → 422
@@ -94,6 +100,9 @@
 - [ ] [N] `/trips/{id}/events` 멱등성 (같은 `clientEventId` 재전송)
 - [ ] [E] 종료된 여행에 이벤트 → 409
 - [ ] [N] 도로공사 수집 잡: 신규·변경·삭제 휴게소 반영, API 실패 시 기존 데이터 유지
+- [ ] [N] 도로공사 수집 잡: `EX_API_KEY` 비어 있음 → 외부 호출 없이 `app/data/sample_reststops.json` 적재, 로그 `source=sample`
+- [ ] [N] `/llm/phrases`: Ollama 요청 본문이 `/api/chat`, `think=false`, `keep_alive="30m"`, `stream=false`, `options.num_predict=60`, `options.temperature=0.3` (httpx mock으로 확인)
+- [ ] [N] 서버 시작 시 warm-up 요청 1회 (`messages=[]`, `keep_alive` 포함). Ollama가 꺼져 있어도 서버는 정상 기동하고 경고 로그만 남김
 
 ## 10. 주행 안전 정책 (전 화면 공통)
 - [ ] [P][P0] 모든 화면에서 `CarUxRestrictions` 변화에 1초 이내 반응

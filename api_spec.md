@@ -6,7 +6,7 @@
 | --- | --- |
 | Base URL | `http://<host>:8000/api/v1` (에뮬레이터: `http://10.0.2.2:8000/api/v1`) |
 | 형식 | JSON, UTF-8, 시각은 ISO 8601 (KST `+09:00`) |
-| 인증 | `X-Device-Token: <token>` 헤더 (기기 등록 API 제외) |
+| 인증 | `X-Device-Token: <token>` 헤더 (`POST /devices`, `GET /health` 제외) |
 | 버전 | URL 경로 `/v1` |
 | 타임아웃 권장 | 일반 5초, `/llm/*` 2.5초 (앱은 초과 시 템플릿 사용) |
 | 문서 | FastAPI 자동 문서 `/docs` |
@@ -29,7 +29,7 @@
 | 404 | `*_NOT_FOUND` | 리소스 없음 |
 | 409 | `TRIP_ALREADY_ENDED` | 종료된 여행에 쓰기 |
 | 422 | `VALIDATION_ERROR` | Pydantic 검증 실패 |
-| 429 | `RATE_LIMITED` | 기기당 분당 120회 초과 |
+| 429 | `RATE_LIMITED` | 기기당 분당 120회 초과 (`/health` 제외) |
 | 503 | `LLM_UNAVAILABLE` | LLM 실패 (응답에 `fallback` 문장 포함) |
 
 ## 1. 엔드포인트 목록
@@ -53,10 +53,26 @@
 ## 2. 상세
 
 ### 2.1 GET `/health`
+**인증 면제** (`X-Device-Token` 불필요), **rate limit 대상 아님**.
+
+응답
 ```json
-{"status": "ok", "db": "ok", "llm": "degraded", "version": "0.1.0"}
+{"status": "degraded", "db": "ok", "llm": "degraded", "version": "0.1.0"}
 ```
-`llm`은 `ok | degraded | down`. 앱은 `down`이면 LLM 호출을 건너뛴다.
+
+| 필드 | 값 | 판정 |
+| --- | --- | --- |
+| `db` | `ok` \| `down` | `SELECT 1` 성공이면 `ok`, 실패하거나 1초를 넘기면 `down` |
+| `llm` | `ok` \| `degraded` \| `down` | Ollama `/api/tags`가 1초 안에 응답하고 `OLLAMA_MODEL`이 목록에 있으면 `ok`. 응답은 오지만 모델이 없거나 느리면 `degraded`. 응답이 없으면 `down`. 결과는 30초 캐시 |
+| `status` | `ok` \| `degraded` \| `down` | `db = down`이면 `down`. 아니고 `llm`이 `ok`가 아니면 `degraded`. 둘 다 `ok`면 `ok` |
+| `version` | `x.y.z` | 서버 버전 |
+
+| HTTP | 조건 |
+| --- | --- |
+| `503` | `db = down` |
+| `200` | 그 외 (`degraded` 포함) |
+
+앱 동작: `503`이면 캐시·템플릿 모드로 전환한다. `llm = down`이면 LLM 호출을 건너뛰고 템플릿 문장을 쓴다.
 
 ### 2.2 POST `/devices`
 요청
@@ -190,6 +206,12 @@
 {"error": {"code": "LLM_UNAVAILABLE", "message": "LLM 응답 실패"}, "fallback": "18분 뒤 OO휴게소에서 쉬어 갈까요?"}
 ```
 서버 검사: 2문장 초과·50자 초과·금칙어 포함 시 `fallback` 반환.
+
+서버 → Ollama 호출 (2.8·2.9 공통): `POST {OLLAMA_BASE_URL}/api/chat`
+```json
+{"model": "gemma4:12b", "messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}], "stream": false, "think": false, "keep_alive": "30m", "options": {"num_predict": 60, "temperature": 0.3}}
+```
+모델명은 `.env`의 `OLLAMA_MODEL`, 상주 시간은 `OLLAMA_KEEP_ALIVE`, 최대 토큰은 `OLLAMA_NUM_PREDICT`에서 읽는다. `temperature`는 0.3 고정. 실측(2026-10-27, `gemma4:12b`, 모델 상주, 100% GPU) 2.58초였으므로 2.5초 목표에 맞추려고 `num_predict`로 출력 길이를 묶는다. OpenAI 호환 API는 `think` 지원이 불확실해 쓰지 않는다.
 
 ### 2.9 POST `/llm/kid-answer`
 요청

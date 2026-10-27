@@ -29,7 +29,7 @@
 | --- | --- |
 | 차량 특화성 | 연속 주행·공조·배터리·충전·기어·경로를 동시에 읽어야만 가능한 판단. 스마트폰 앱으로는 불가 |
 | 창의성 | "경고하는 차"가 아니라 "멈춤을 먼저 계획하고, 멈춘 시간을 채워주는 차". 충전 시간 = 콘텐츠 길이 |
-| 기술 활용성 | Vehicle SDK, NaviHelper SDK, CarUxRestrictions, (승인 시) Gleo AI STT/TTS/LLM, 로컬 LLM(Ollama) 폴백, 공공데이터(한국도로공사 휴게소 API) |
+| 기술 활용성 | Vehicle SDK, NaviHelper SDK, CarUxRestrictions, Android 기본 STT/TTS, 로컬 LLM(Ollama), 공공데이터(한국도로공사 휴게소 API). Pleos STT/TTS가 Playground에 열리면 교체 |
 
 ---
 
@@ -56,15 +56,41 @@
 
 | 영역 | 기술 | 비고 |
 | --- | --- | --- |
-| 차량 앱 | Kotlin 2.x, Jetpack Compose, Hilt, Coroutines/Flow, Room | Android Automotive OS (Pleos Connect), minSdk 26 |
+| 차량 앱 | Kotlin 2.x, Jetpack Compose, Hilt, Coroutines/Flow, Room | Android Automotive OS (Pleos Connect), minSdk 28[^minsdk] |
 | 차량 연동 | Pleos Connect Vehicle SDK, NaviHelper SDK, `CarUxRestrictionsManager` | 둘 다 신청 없이 사용 가능 |
-| 음성 | Gleo AI STT/TTS (승인 시) → Android `SpeechRecognizer` / `TextToSpeech` 폴백 | 공급자 추상화 |
+| 음성 | **Android `SpeechRecognizer` / `TextToSpeech` (현재 1순위)**, Pleos STT/TTS가 열리면 교체 | 공급자 추상화 |
 | 백엔드 | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 | 휴게소 데이터, 라디오 콘텐츠, LLM 게이트웨이 |
-| DB | PostgreSQL 16 (로컬 개발은 SQLite 허용) | Docker Compose |
-| LLM | Ollama (집 PC RTX 5060 Ti 16GB, 7~8B 한국어 모델) | OpenAI 호환 API, 템플릿 문장 폴백 |
+| DB | PostgreSQL 16 (단위 테스트만 SQLite in-memory) | Docker Compose, 아래 DB 테스트 정책 참고 |
+| LLM | Ollama `gemma4:12b` (집 PC RTX 5060 Ti 16GB) | 네이티브 `/api/chat`, `think=false`, `keep_alive=30m`, `num_predict=60`, `temperature=0.3`, 서버 시작 시 warm-up, 최대 2문장, 템플릿 문장 폴백 |
 | 외부 데이터 | 한국도로공사 공공 API (휴게소 기준정보·편의시설) | 공공데이터포털 인증키 |
 | 테스트 | JUnit5, MockK, Turbine, Compose UI Test / pytest, httpx | |
 | 빌드·배포 | Gradle 8, GitHub Actions(APK 빌드), GitHub Releases | 1차 접수 가산점: 소스 + APK |
+
+**빌드 설정 (확정).**
+
+| 항목 | 값 |
+| --- | --- |
+| Gradle JDK | Temurin 21 (`JAVA_HOME`). Android Studio Settings › Build Tools › Gradle › Gradle JDK에서 지정. `org.gradle.java.home` 같은 PC별 경로는 저장소에 넣지 않음 |
+| Kotlin `jvmTarget` / Java `compileOptions` | 17 |
+| compileSdk / targetSdk / minSdk | 35 / 34 / 28 |
+| Vehicle SDK | 2.3.2 |
+| NaviHelper SDK | 3.0.5 |
+| Pleos Connect Emulator | 2.1.0 (AVD 시스템 이미지 API 34, Android 14) |
+
+**SDK 호환성 확인 결과 (2026-10-27, 공식 릴리스 노트 기준).**
+- [SDK 릴리스 노트](https://document.pleos.ai/en/docs/pleos-only/release-note/sdk-261015) (2026-10-19): NaviHelper **v3.0.5**와 Vehicle SDK **v2.3.1**이 실려 있다. Vehicle SDK 2.3.2는 릴리스 노트에 없고, [Vehicle SDK 샘플 앱 가이드](https://document.pleos.ai/en/docs/pleos-only/tutorial/vehicle-sdk-sample-app)에 "baseline … Vehicle SDK 2.3.2 and Vehicle Service 2.3.22"로만 나온다.
+- [Emulator 릴리스 노트](https://document.pleos.ai/en/docs/pleos-only/release-note/emulator-261015) (2.1.0, 2026-10-19): "에뮬레이터에 포함된 SDK 버전 업데이트로 API 지원 범위 확대"라고만 적혀 있고, 어떤 SDK 버전과 맞는지는 **명시되지 않았다**. 샘플 앱 가이드도 "버전 표시가 호환성을 보장하지 않는다"고 한다.
+- 결론: 세 버전이 같은 날(10/19) 나온 묶음이라 함께 쓰는 것으로 보지만, 공식 호환표는 없다. M1에서 에뮬레이터에서 신호 수신·경유지 추가를 직접 확인해 확정한다.
+- 주의: NaviHelper 3.0.5는 호환성이 깨지는 변경이 있다 (`onNavigationStatus` 인자 타입 변경, 좌표 인자 순서 위도·경도로 통일, `totalDistance/totalTime` → `remainDistance/remainTime`). M1에서 aar로 실제 시그니처를 확인한다 ([todo.md](todo.md) M1 항목).
+- compileSdk: 공식 샘플 앱과 같이 **35**로 빌드한다. compileSdk는 빌드에 쓰는 API 버전일 뿐이라 targetSdk 34로 API 34 에뮬레이터에서 실행하는 데 문제없다.
+
+**Pleos Playground 현황 (2026-10-27).** 사용 가능: Vehicle State(11개 항목), NaviHelper. Coming Soon: TTS, STT, FusedLocation, Vehicle Control. LLM SDK는 Playground v2.6.0 릴리스 노트에서 중단. → **음성은 Android 기본 STT/TTS가 1순위**이고, Pleos STT/TTS가 열리면 교체한다. 문장 생성은 서버 경유 Ollama.
+
+**주행 안전 규칙.** 화면 상태는 둘로 나눈다. `DriveState`(CarUxRestrictions에서만 나옴: PARKED / DRIVING / RESTRICTED)가 **어디까지 허용할지**를, `AppMode`(PREPARE / DRIVING / PAUSE / ARRIVED)가 **무엇을 보여줄지**를 정한다. DriveState가 DRIVING이나 RESTRICTED가 되면 AppMode와 상관없이 즉시 주행 UI로 전환한다. 주행 중에는 키보드·영상·자동 애니메이션을 금지하고 텍스트 2줄·버튼 1개만 쓴다. 벽난로 같은 애니메이션은 AppMode = PAUSE에서만 허용한다. 자세한 정의는 [architecture.md §5](architecture.md#5-상태-모델--drivestate와-appmode).
+
+**DB 테스트 정책.** 테스트는 두 층으로 나눈다. 마이그레이션 검증과 통합 테스트는 PostgreSQL 16에서 돌린다(로컬은 `docker compose`, CI는 GitHub Actions service container). 단위 테스트는 SQLite in-memory에서 돌리며, 모델은 `JSON().with_variant(JSONB(), "postgresql")`, `BigInteger().with_variant(Integer, "sqlite")`처럼 방언별 타입을 쓴다. PostgreSQL 전용 테스트는 `@pytest.mark.pg` 마커로 구분하고, DB에 연결할 수 없으면 skip한다.
+
+[^minsdk]: Pleos 공식 문서 [Setup Pleos Connect Emulator](https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/setup-connect-sdk-emulator)는 "Android API level 28 or higher"(서명 키 로테이션·lineage 지원)를 요구한다. 예전 설정 가이드에는 "API 26 이상"이라고 적힌 페이지도 있었다. 두 문서가 서로 다르므로 더 엄격한 28을 따른다.
 
 ---
 
@@ -75,7 +101,7 @@ every-moment-of-pause/
 ├─ README.md · architecture.md · flowchart.md · api_spec.md
 ├─ database.md · test_plan.md · todo.md
 ├─ app-android/                 # Pleos Connect 앱 (Gradle 멀티모듈)
-│  ├─ app/                      # Compose 화면, ViewModel, 내비게이션
+│  ├─ app/                      # Compose 화면, ViewModel, 내비게이션, AppModeReducer
 │  ├─ core/model/               # 도메인 모델
 │  ├─ core/vehicle/             # Vehicle SDK 어댑터 (+ capability 확인)
 │  ├─ core/navi/                # NaviHelper 어댑터
@@ -101,18 +127,21 @@ every-moment-of-pause/
 ## 5. 실행 방법
 
 ### 사전 준비
-- Android Studio (최신 안정판), JDK 17
-- Pleos Playground 가입 → 프로젝트 생성 → **Pleos Connect Emulator** 설치 및 AVD 설정
+- Android Studio (최신 안정판) + Temurin 21. `JAVA_HOME`을 Temurin 21로 두고 Settings › Build Tools › Gradle › Gradle JDK에서 지정 (PC별 경로는 커밋하지 않음)
+- Android SDK Platform 35 (compileSdk)
+- Pleos Playground 가입 → 프로젝트 생성 → **Pleos Connect Emulator 2.1.0** 시스템 이미지(API 34) 설치 및 AVD 설정
 - Docker Desktop, Python 3.11
-- Ollama 설치 + 한국어 모델 1개 (`ollama pull <모델명>`)
-- 공공데이터포털 한국도로공사 휴게소 API 인증키
+- Ollama 설치 + `ollama pull gemma4:12b`
+- 공공데이터포털 한국도로공사 휴게소 API 인증키 (선택: 없으면 수집 잡이 `server/app/data/sample_reststops.json` 샘플 데이터로 동작)
 
 ### 1) 환경 변수
 ```bash
 cp server/.env.example server/.env
-# EX_API_KEY=<도로공사 인증키>
+# EX_API_KEY=            # 비워 두면 샘플 휴게소 데이터 사용
 # OLLAMA_BASE_URL=http://localhost:11434
-# OLLAMA_MODEL=<모델명>
+# OLLAMA_MODEL=gemma4:12b
+# OLLAMA_KEEP_ALIVE=30m
+# OLLAMA_NUM_PREDICT=60
 # DATABASE_URL=postgresql+psycopg://pause:pause@localhost:5432/pause
 ```
 
@@ -123,7 +152,7 @@ cd server
 python -m venv .venv && .venv\Scripts\activate      # Windows
 pip install -r requirements.txt
 alembic upgrade head
-python -m app.jobs.ingest_reststops                  # 휴게소 데이터 적재
+python -m app.jobs.ingest_reststops                  # 휴게소 데이터 적재 (EX_API_KEY 없으면 샘플)
 python -m app.jobs.seed_content                      # 라디오·미션 콘텐츠 적재
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
