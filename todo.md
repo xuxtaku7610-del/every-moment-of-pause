@@ -27,15 +27,15 @@
 - [ ] (CC) GitHub Actions: 서버 pytest + APK 디버그 빌드 — 워크플로 작성 완료. BLOCKED: push 승인 후 실행 결과 확인
 
 ## M1 · 뼈대 + 시뮬레이터 (10/30 ~ 11/2)
-- [ ] (CC) `VehicleSource` / `NaviSource` 인터페이스 + `Sim*` 구현
-- [ ] (CC) `ScenarioPlayer`: JSON 타임라인 배속 재생 (1×·10×·100×)
-- [ ] (CC) 시나리오 3종 작성: `seoul-busan-family`, `night-solo`, `no-signal-car`
-- [ ] (나+CC) `PleosVehicleSource`: Vehicle SDK 연동 + capability 확인, 에뮬레이터 VHAL 값으로 검증
-- [ ] (나+CC) `PleosNaviSource`: NaviHelper 경로·ETA·경유지 추가 검증
-- [ ] (나+CC) NaviHelper 3.0.5 aar로 호환성 변경 실제 확인: `onNavigationStatus` 인자 타입, 좌표 인자 순서(위도·경도), `totalDistance/totalTime` → `remainDistance/remainTime` 이름
-- [ ] (CC) `DriveStateRepository`: `CarUxRestrictions` → PARKED/DRIVING/RESTRICTED
-- [ ] (CC) `AppModeReducer`: DriveState + 기어 + 충전 + 여행 진행 → PREPARE/DRIVING/PAUSE/ARRIVED + 테스트
-- [ ] (CC) 디버그 화면: 현재 신호·주행 상태 실시간 표시
+- [x] (CC) `VehicleSource` / `NaviSource` 인터페이스 + `Sim*` 구현
+- [x] (CC) `ScenarioPlayer`: JSON 타임라인 배속 재생 (1×·10×·100×)
+- [x] (CC) 시나리오 3종 작성: `seoul-busan-family`, `night-solo`, `no-signal-car`
+- [x] (나+CC) `PleosVehicleSource`: Vehicle SDK 연동 + capability 확인, 에뮬레이터 VHAL 값으로 검증 (기어·SoC·내기순환 수신. 속도·충전 여부는 SDK에 없음 → 결정 대기)
+- [ ] (나+CC) `PleosNaviSource`: NaviHelper 경로·ETA·경유지 추가 검증 — 코드 완료, 연결 확인. BLOCKED: 에뮬레이터 내비에 목적지를 설정해야 ETA·경유지 추가를 확인할 수 있음 (사용자 조작)
+- [x] (나+CC) NaviHelper 3.0.5 aar로 호환성 변경 실제 확인: `onNavigationStatus` 인자 타입, 좌표 인자 순서(위도·경도), `totalDistance/totalTime` → `remainDistance/remainTime` 이름
+- [x] (CC) `DriveStateRepository`: `CarUxRestrictions` → PARKED/DRIVING/RESTRICTED (매핑 테스트. 실제 전환은 에뮬레이터 신호 패널 조작 필요)
+- [x] (CC) `AppModeReducer`: DriveState + 기어 + 충전 + 여행 진행 → PREPARE/DRIVING/PAUSE/ARRIVED + 테스트
+- [x] (CC) 디버그 화면: 현재 신호·주행 상태 실시간 표시
 - [ ] (나) 화면 시안 확정 (주행 글랜스, 제안 카드, 멈춤 화면)
 
 ## M2 · 핵심 엔진 + 추천 (11/3 ~ 11/7)
