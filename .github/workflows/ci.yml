@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pause
+          POSTGRES_PASSWORD: pause
+          POSTGRES_DB: pause
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pause -d pause"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    defaults:
+      run:
+        working-directory: server
+    env:
+      DATABASE_URL: postgresql+psycopg://pause:pause@127.0.0.1:5432/pause
+      TEST_DATABASE_URL: postgresql+psycopg://pause:pause@127.0.0.1:5432/pause_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m alembic upgrade head
+      - run: python -m pytest -q
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew test assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app-android/app/build/outputs/apk/debug/*.apk
