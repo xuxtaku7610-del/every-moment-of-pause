@@ -6,6 +6,7 @@ import ai.pleos.playground.vehicle.api.model.capability.AccessType
 import ai.pleos.playground.vehicle.api.model.capability.CapabilityConfig
 import ai.pleos.playground.vehicle.constant.area.SeatValue
 import ai.pleos.playground.vehicle.constant.control.VehicleGear
+import ai.pleos.playground.vehicle.constant.unit.TemperatureUnit
 import ai.pleos.playground.vehicle.listener.EvBatteryStateOfChargeListener
 import ai.pleos.playground.vehicle.listener.GearSelectionListener
 import ai.pleos.playground.vehicle.listener.HvacAcStateListener
@@ -29,14 +30,17 @@ import kotlinx.coroutines.flow.flow
  * 확인한 API: Vehicle(context).initialize()/release(), getGear().registerGearSelection,
  * getEvBattery().registerEvBatteryStateOfCharge/checkEvBatteryStateOfChargeCapabilities,
  * getHVAC().registerHvacTemperature/registerHvacAcState/registerHvacRecirculationState(SeatArea, listener)와
- * 각 checkHvac*Capabilities.
+ * 각 checkHvac*Capabilities, 초기값용 getHvacTemperature/getHvacAcState/getHvacRecirculationState/getEvBatteryStateOfCharge.
+ * 리스너는 값이 바뀔 때만 오므로 등록 직후 get*으로 현재 값을 한 번 읽는다.
  *
  * 없는 신호: 속도(VehicleSpeedListener는 SDK에서 제거됨), 충전 중 여부(EvChargeState는 공개 API에 노출 안 됨).
  * 두 값은 null로 두고 엔진이 가중치를 재정규화한다. TODO(pleos-sdk): 대체 수단 결정 후 채운다.
  */
 class PleosVehicleSource(context: Context) : VehicleSource {
     private val vehicle = Vehicle(context)
+    /** capability 확인이 영역을 주지 않을 때만 쓰는 기본값. 실제로는 차가 알려준 지원 영역을 쓴다. */
     private val driverSeat = SeatArea(SeatValue.ROW_1_LEFT)
+    private val areas = mutableMapOf<Signal, SeatArea>()
 
     private val _capabilities = MutableStateFlow<Set<Signal>>(emptySet())
     override val capabilities: StateFlow<Set<Signal>> = _capabilities.asStateFlow()
@@ -70,36 +74,56 @@ class PleosVehicleSource(context: Context) : VehicleSource {
     fun start() {
         vehicle.initialize()
         // 기어는 capability 확인 API가 없어 등록 성공을 지원으로 본다 (실패 시 onFailed에서 제거).
-        addCapability(Signal.GEAR)
-        vehicle.getGear().registerGearSelection(gearListener)
+        guard(Signal.GEAR) {
+            addCapability(Signal.GEAR)
+            vehicle.getGear().registerGearSelection(gearListener)
+        }
 
         val battery = vehicle.getEvBattery()
-        battery.checkEvBatteryStateOfChargeCapabilities({ cfg ->
-            if (cfg.readable()) {
-                addCapability(Signal.BATTERY_SOC)
-                battery.registerEvBatteryStateOfCharge(socListener)
-            }
-        }, { e -> fail(Signal.BATTERY_SOC, e) })
+        guard(Signal.BATTERY_SOC) {
+            battery.checkEvBatteryStateOfChargeCapabilities({ cfg ->
+                if (cfg.readable()) guard(Signal.BATTERY_SOC) {
+                    addCapability(Signal.BATTERY_SOC)
+                    battery.registerEvBatteryStateOfCharge(socListener)
+                    battery.getEvBatteryStateOfCharge({ v -> update { it.copy(batterySocPercent = v) } }, { e -> warnRead(Signal.BATTERY_SOC, e) })
+                }
+            }, { e -> fail(Signal.BATTERY_SOC, e) })
+        }
 
         val hvac = vehicle.getHVAC()
-        hvac.checkHvacTemperatureCapabilities({ cfg, _, _ ->
-            if (cfg.readable()) {
-                addCapability(Signal.HVAC_TEMP)
-                hvac.registerHvacTemperature(driverSeat, tempListener)
-            }
-        }, { e -> fail(Signal.HVAC_TEMP, e) })
-        hvac.checkHvacAcCapabilities({ cfg, _ ->
-            if (cfg.readable()) {
-                addCapability(Signal.HVAC_AC)
-                hvac.registerHvacAcState(driverSeat, acListener)
-            }
-        }, { e -> fail(Signal.HVAC_AC, e) })
-        hvac.checkHvacRecirculationCapabilities({ cfg, _ ->
-            if (cfg.readable()) {
-                addCapability(Signal.HVAC_RECIRCULATION)
-                hvac.registerHvacRecirculationState(driverSeat, recirculationListener)
-            }
-        }, { e -> fail(Signal.HVAC_RECIRCULATION, e) })
+        guard(Signal.HVAC_TEMP) {
+            hvac.checkHvacTemperatureCapabilities({ cfg, bounds, _ ->
+                val area = bounds.keys.firstOrNull() ?: driverSeat
+                if (cfg.readable()) guard(Signal.HVAC_TEMP) {
+                    addCapability(Signal.HVAC_TEMP)
+                    areas[Signal.HVAC_TEMP] = area
+                    hvac.registerHvacTemperature(area, tempListener)
+                    hvac.getHvacTemperature(area, TemperatureUnit.CELSIUS, { v -> update { it.copy(hvacTempC = v) } }, { e -> warnRead(Signal.HVAC_TEMP, e) })
+                }
+            }, { e -> fail(Signal.HVAC_TEMP, e) })
+        }
+        guard(Signal.HVAC_AC) {
+            hvac.checkHvacAcCapabilities({ cfg, supported ->
+                val area = supported.firstOrNull() ?: driverSeat
+                if (cfg.readable()) guard(Signal.HVAC_AC) {
+                    addCapability(Signal.HVAC_AC)
+                    areas[Signal.HVAC_AC] = area
+                    hvac.registerHvacAcState(area, acListener)
+                    hvac.getHvacAcState(area, { v -> update { it.copy(hvacAcOn = v) } }, { e -> warnRead(Signal.HVAC_AC, e) })
+                }
+            }, { e -> fail(Signal.HVAC_AC, e) })
+        }
+        guard(Signal.HVAC_RECIRCULATION) {
+            hvac.checkHvacRecirculationCapabilities({ cfg, supported ->
+                val area = supported.firstOrNull() ?: driverSeat
+                if (cfg.readable()) guard(Signal.HVAC_RECIRCULATION) {
+                    addCapability(Signal.HVAC_RECIRCULATION)
+                    areas[Signal.HVAC_RECIRCULATION] = area
+                    hvac.registerHvacRecirculationState(area, recirculationListener)
+                    hvac.getHvacRecirculationState(area, { v -> update { it.copy(recirculationOn = v) } }, { e -> warnRead(Signal.HVAC_RECIRCULATION, e) })
+                }
+            }, { e -> fail(Signal.HVAC_RECIRCULATION, e) })
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -108,9 +132,9 @@ class PleosVehicleSource(context: Context) : VehicleSource {
             vehicle.getGear().unregisterGearSelection(gearListener)
             vehicle.getEvBattery().unregisterEvBatteryStateOfCharge(socListener)
             val hvac = vehicle.getHVAC()
-            hvac.unregisterHvacTemperature(driverSeat, tempListener)
-            hvac.unregisterHvacAcState(driverSeat, acListener)
-            hvac.unregisterHvacRecirculationState(driverSeat, recirculationListener)
+            areas[Signal.HVAC_TEMP]?.let { hvac.unregisterHvacTemperature(it, tempListener) }
+            areas[Signal.HVAC_AC]?.let { hvac.unregisterHvacAcState(it, acListener) }
+            areas[Signal.HVAC_RECIRCULATION]?.let { hvac.unregisterHvacRecirculationState(it, recirculationListener) }
         }
         vehicle.release()
     }
@@ -125,6 +149,20 @@ class PleosVehicleSource(context: Context) : VehicleSource {
 
     private fun update(change: (SignalSample) -> SignalSample) {
         latest.value = change(latest.value)
+    }
+
+    /** SDK는 권한이 없으면 onFailed 대신 SecurityException을 바로 던진다 (에뮬레이터 확인). 그 신호만 미지원으로 둔다. */
+    private inline fun guard(signal: Signal, block: () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            fail(signal, e)
+        }
+    }
+
+    /** 초기값 읽기 실패는 일시적일 수 있으므로(예: 공조 전원 꺼짐) 지원 목록에서 빼지 않는다. */
+    private fun warnRead(signal: Signal, e: Exception) {
+        Log.w(TAG, "$signal 현재 값 읽기 실패: ${e.javaClass.simpleName} ${e.message}")
     }
 
     private fun addCapability(signal: Signal) {

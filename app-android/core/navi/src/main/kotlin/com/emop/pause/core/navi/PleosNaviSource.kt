@@ -106,9 +106,14 @@ class PleosNaviSource(context: Context) : NaviSource {
 
     /** 남은 거리·시간은 요청-응답이므로 주기적으로 호출한다. */
     fun refresh() {
-        navi.getCurrentLocationInfo()
-        navi.getDestinationInfo()
-        navi.getWaypointInfo()
+        // SDK는 권한·연결 문제를 콜백 대신 예외로 던지므로 여기서 막는다.
+        try {
+            navi.getCurrentLocationInfo()
+            navi.getDestinationInfo()
+            navi.getWaypointInfo()
+        } catch (e: Exception) {
+            Log.w(TAG, "NaviHelper 조회 실패: ${e.javaClass.simpleName} ${e.message}")
+        }
     }
 
     override fun route(): Flow<RouteInfo?> = routeState
@@ -118,7 +123,12 @@ class PleosNaviSource(context: Context) : NaviSource {
         val done = CompletableDeferred<Result<Unit>>()
         pendingWaypoint = done
         // TODO(pleos-sdk): poiId·address·poiSubId·poiProvider가 빈 문자열이어도 되는지 에뮬레이터에서 확인.
-        navi.addWaypoint(RequestWaypointInfo(lat, lng, name, WaypointIndex.FIRST, "", "", "", ""))
+        try {
+            navi.addWaypoint(RequestWaypointInfo(lat, lng, name, WaypointIndex.FIRST, "", "", "", ""))
+        } catch (e: Exception) {
+            pendingWaypoint = null
+            return Result.failure(e)
+        }
         return withTimeoutOrNull(WAYPOINT_TIMEOUT_MS) { done.await() }
             ?: Result.failure(IllegalStateException("경유지 추가 응답 없음"))
     }

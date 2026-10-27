@@ -41,10 +41,8 @@ fun DebugScreen(
         Row(Modifier.padding(sp.lg), horizontalArrangement = Arrangement.spacedBy(sp.xl)) {
             Column(Modifier.width(420.dp), verticalArrangement = Arrangement.spacedBy(sp.sm)) {
                 Text("DEBUG · 신호 모니터", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                Row(horizontalArrangement = Arrangement.spacedBy(sp.sm)) {
-                    scenarios.forEach { name ->
-                        FilterChip(selected = s.scenarioName == name, onClick = { onScenario(name) }, label = { Text(name) })
-                    }
+                scenarios.forEach { name ->
+                    FilterChip(selected = s.scenarioName == name, onClick = { onScenario(name) }, label = { Text(name) })
                 }
                 FilterChip(selected = s.source == SourceMode.VEHICLE, onClick = onVehicle, label = { Text("실차 SDK") })
                 if (s.source == SourceMode.SIMULATION) {

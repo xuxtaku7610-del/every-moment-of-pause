@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- NaviHelper 경로·목적지·경유지 조회와 경유지 추가. 에뮬레이터에서 SecurityException으로 확인 (2026-10-28). -->
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
+</manifest>

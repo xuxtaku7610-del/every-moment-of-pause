@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Pleos Vehicle SDK 권한 (document.pleos.ai › Vehicle › vehicle-permission). 런타임 대화상자 없음. -->
+    <uses-permission android:name="pleos.car.permission.CAR_CLIMATE" />
+    <uses-permission android:name="pleos.car.permission.CAR_ENERGY" />
+    <!-- 기어(Gear API). 문서에 매핑이 없어 에뮬레이터에서 확인 (2026-10-28). -->
+    <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
+</manifest>
