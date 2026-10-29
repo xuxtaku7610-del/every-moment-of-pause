@@ -155,7 +155,6 @@ class PetPlace(Base):
     __table_args__ = (
         CheckConstraint(_in("source", ("tourapi", "sample")), name="ck_pet_places_source"),
         CheckConstraint(_in("category", PLACE_CATEGORIES), name="ck_pet_places_category"),
-        CheckConstraint(_in("indoor", ("indoor", "outdoor", "both")), name="ck_pet_places_indoor"),
         Index("idx_pet_places_latlng", "lat", "lng"),
     )
 
@@ -170,8 +169,8 @@ class PetPlace(Base):
     pet_policy: Mapped[str | None] = mapped_column(Text)
     # 0004: TourAPI detailPetTour2·대표 이미지. 모르면 NULL(지어내지 않는다).
     image_url: Mapped[str | None] = mapped_column(String(512))
-    indoor: Mapped[str | None] = mapped_column(String(8))
-    large_dog: Mapped[bool | None] = mapped_column(Boolean)
+    space_note: Mapped[str | None] = mapped_column(String(100))
+    size_note: Mapped[str | None] = mapped_column(String(100))
     companion: Mapped[str | None] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
 

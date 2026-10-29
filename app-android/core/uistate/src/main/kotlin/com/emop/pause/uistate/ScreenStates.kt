@@ -177,8 +177,10 @@ data class PlaceUi(
     val sample: Boolean,
     /** TourAPI 대표 이미지(https). 없으면 회색 자리. */
     val imageUrl: String? = null,
-    /** "실내" · "대형견 가능" · "전구역 동반" — 데이터에 있는 것만. */
+    /** 동반 구분 "전구역 동반"/"일부구역 동반" (API 필드)만. */
     val tags: List<String> = emptyList(),
+    /** 동반 조건 원문 문장(가능 동물·실내/실외·필요 사항) — 추측하지 않고 그대로. */
+    val notes: List<String> = emptyList(),
 )
 
 data class PlacesUi(

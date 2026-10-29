@@ -77,3 +77,40 @@ async def test_llm_health_cached_for_30_seconds():
     now[0] += 2
     await llm.status()
     assert calls[0] == 2
+
+
+def test_sv_08_logs_never_contain_service_key(caplog, db_engine):
+    # 결정 10/30: httpx 등이 요청 URL을 로그에 찍어도 serviceKey 값은 *** 로 가린다 (app/logmask.py, create_app에서 설치)
+    import logging
+
+    from tests.conftest import make_client
+
+    caplog.set_level(logging.INFO)
+    with make_client(db_engine) as c:  # 앱을 만들면 마스킹이 설치된다
+        c.get("/api/v1/health?serviceKey=SECRET4")
+        url = httpx.URL("https://apis.data.go.kr/B551011/KorPetTourService2/areaBasedList2?serviceKey=SECRET%2Babc&MobileOS=ETC&_type=json")
+        logging.getLogger("httpx").info('HTTP Request: %s %s "%s %d %s"', "GET", url, "HTTP/1.1", 200, "OK")
+        logging.getLogger("app.jobs").warning("failed for https://x.example/a?ServiceKey=SECRET2&b=1")
+    assert "SECRET" not in caplog.text
+    assert "serviceKey=***" in caplog.text and "ServiceKey=***" in caplog.text
+    assert "MobileOS=ETC" in caplog.text  # 다른 쿼리 값은 그대로
+
+
+def test_sv_08_ingest_job_logs_mask_key(caplog, tmp_path):
+    # 수집 잡이 실제 httpx로 부를 때도: 요청 실패 로그·httpx 로그 어디에도 키가 없다
+    import logging
+
+    from app import logmask
+    from app.jobs import ingest_pet_places
+
+    logmask.install()
+    caplog.set_level(logging.DEBUG)
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        logging.getLogger("httpx").info("HTTP Request: GET %s", request.url)
+        return httpx.Response(500, request=request)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        with httpx.Client(transport=httpx.MockTransport(transport)) as cl:
+            cl.get(ingest_pet_places.TOUR_BASE + "/areaBasedList2", params={"serviceKey": "TOPSECRET", "areaCode": "32"}).raise_for_status()
+    assert "TOPSECRET" not in caplog.text and "serviceKey=***" in caplog.text

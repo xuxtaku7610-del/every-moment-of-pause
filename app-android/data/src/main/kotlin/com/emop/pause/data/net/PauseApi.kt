@@ -113,9 +113,10 @@ data class PlaceDto(
     val sample: Boolean = false,
     /** TourAPI 대표 이미지(https). 없으면 null. */
     val imageUrl: String? = null,
-    /** indoor | outdoor | both, 모르면 null. */
-    val indoor: String? = null,
-    val largeDog: Boolean? = null,
+    /** 실내·실외를 말하는 동반 조건 원문 문장 (없으면 null — 판정하지 않는다). */
+    val spaceNote: String? = null,
+    /** 동반 가능 동물(크기·무게) 원문. */
+    val sizeNote: String? = null,
     /** 동반 구분 원문 ("전구역 동반가능"). */
     val companion: String? = null,
     val distanceAlongRouteKm: Double? = null,

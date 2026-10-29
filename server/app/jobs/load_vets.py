@@ -7,7 +7,8 @@
   좌표 = EPSG:5174(보정 Bessel TM 중부): 강릉동물병원 (367319.9, 474516.5) → 37.758, 128.899 로 주소와 맞는다.
 - 영업 중인 곳만(영업상태코드 01, 코드 열이 없으면 영업상태명에 "영업"·"정상"). 좌표가 없거나 변환에 실패한 행은 건너뛴다.
 - 영업시간·24시 여부는 데이터에 없다 → 화면에 쓰지 않는다(이름에 "24"가 있어도).
-- 반려견 앱이므로 이름이 가축·양계·양돈·축협 등인 농장 동물 병원은 뺀다(이름 규칙, 2026-10 파일 기준 224곳). 뺀 수는 로그 excluded.
+- 반려견 앱이므로 농장 동물 병원은 뺀다. 진료 대상·업태 열이 있으면 그 열이 먼저([KIND_COLUMNS]), 없으면 이름 규칙
+  (가축·양계·양돈·축협 등, 2026-10 파일에는 그런 열이 없어 이름 규칙으로 224곳). 뺀 수는 로그 excluded. docs/plan/public_data.md
 
 실행: python -m app.jobs.load_vets
 """
@@ -99,6 +100,20 @@ def make_transform(crs: str) -> Callable[[float, float], tuple[float, float]] | 
     return f
 
 
+# 진료 대상을 직접 말하는 열 (지금 파일에는 없다 — 2026-10 vets.csv 25개 열 확인). 있으면 이름 규칙보다 먼저 쓴다.
+KIND_COLUMNS = ("진료대상", "진료동물", "취급동물", "업태구분명", "업태")
+PET_KIND = re.compile(r"반려|소동물|애완|개|고양이|혼합")
+FARM_KIND = re.compile(r"농장|가축|대동물|산업동물|축산|가금|양돈|양계|수산")
+
+
+def is_livestock(row: dict[str, str], name: str) -> bool:
+    """농장 동물 병원인가: 진료 대상 열이 있으면 그 값으로(반려동물 언급이 있으면 남김), 없으면 이름 규칙 [LIVESTOCK]."""
+    kind = _col(row, *KIND_COLUMNS)
+    if kind is not None:
+        return bool(FARM_KIND.search(kind)) and not PET_KIND.search(kind)
+    return bool(LIVESTOCK.search(name))
+
+
 def parse_licensing_csv(text: str, transform: Callable[[float, float], tuple[float, float]] | None) -> tuple[list[NormalizedVet], int]:
     """인허가 CSV → 영업 중 반려동물 병원. (목록, 건너뛴 행 수). 농장 동물 병원 수는 [parse_licensing_csv.excluded]."""
     out: list[NormalizedVet] = []
@@ -116,7 +131,7 @@ def parse_licensing_csv(text: str, transform: Callable[[float, float], tuple[flo
         if not lic or not name:
             skipped += 1
             continue
-        if LIVESTOCK.search(name):
+        if is_livestock(row, name):
             excluded += 1
             continue
         lat = lng = None

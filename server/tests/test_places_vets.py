@@ -101,7 +101,31 @@ def test_f4_04_fetch_pages_until_total_then_details():
     pages, details = ingest_pet_places.fetch_tour("KEY", get)
     assert calls.count("areaBasedList2") == len(ingest_pet_places.TOUR_AREAS) * 2
     assert calls.count("detailPetTour2") == len(details) == 2
-    assert len(pages) == 2
+    assert len(pages) == len(ingest_pet_places.TOUR_AREAS) * 2
+
+
+def test_f4_06_seoul_gyeonggi_only_along_yeongdong_corridor():
+    # 결정 10/30: 서울·경기는 영동고속도로 축 15km 안만 상세를 부른다 (호출 수 절약), 강원은 전부
+    def item(cid, lat, lng):
+        return {"contentid": cid, "title": cid, "mapx": str(lng), "mapy": str(lat), "contenttypeid": "39"}
+
+    lists = {
+        "1": [item("seoul_center", 37.57, 126.98), item("seoul_far_west", 37.55, 126.80)],
+        "31": [item("icheon", 37.27, 127.44), item("paju", 37.76, 126.78)],
+        "32": [item("chuncheon", 37.88, 127.73)],
+    }
+    asked = []
+
+    def get(url, params):
+        if url.endswith("areaBasedList2"):
+            it = lists[params["areaCode"]]
+            return {"response": {"body": {"totalCount": len(it), "items": {"item": it}}}}
+        asked.append(params["contentId"])
+        return {"response": {"body": {"items": ""}}}
+
+    pages, _ = ingest_pet_places.fetch_tour("KEY", get)
+    assert set(asked) == {"seoul_center", "icheon", "chuncheon"}
+    assert {p.source_id for p in ingest_pet_places.normalize_tour(pages)} == {"seoul_center", "icheon", "chuncheon"}
 
 
 FIX = Path(__file__).resolve().parent / "fixtures"
@@ -119,13 +143,15 @@ def test_f4_04_real_response_mapping():
     by = {p.source_id: p for p in ingest_pet_places.normalize_tour([lst], det)}
     assert len(by) == 7 and all(p.source == "tourapi" for p in by.values())
     assert by["3536831"].companion == "전구역 동반가능"
-    assert by["1947118"].large_dog is False  # 소형견(10kg이하)
-    assert by["2757631"].large_dog is True   # 30kg 이하
-    assert by["2734012"].large_dog is False  # 5kg미만 소형견
-    assert by["125779"].large_dog is True    # 전 견종
-    assert by["3537206"].large_dog is None and by["3537206"].pet_policy is None  # 정보 없음 → 지어내지 않음
-    assert by["2665662"].indoor == "outdoor"  # "실내 출입 어려운 점" → 실외만
-    assert by["3536831"].indoor is None
+    # 결정 10/30: 대형견·실내 여부는 판정하지 않고, 동반 조건 글의 원문 문장만 그대로
+    assert by["1947118"].size_note == "소형견(10kg이하) 한마리 동반 가능(두마리일 경우 두마리 합쳐서 10kg이하)"
+    assert by["2757631"].size_note == "맹견 제외 30kg 이하 최대 1마리 동반 가능"
+    assert by["2734012"].size_note == "객실 당 5kg미만 소형견 2마리 동반 가능합니다."  # 가능 동물 칸이 비면 기타 안내의 문장
+    assert by["3537206"].size_note is None and by["3537206"].pet_policy is None  # 정보 없음 → 지어내지 않음
+    assert by["2665662"].space_note == "사니다카페는 반려동물 동반 가능한 카페로 야외 공간만 이용 가능합니다."
+    assert by["2734012"].space_note is None  # 편의시설 목록의 "테라스"는 동반 조건이 아니다
+    assert by["3536831"].space_note is None
+    assert by["1947118"].pet_policy == "목줄 착용"
     assert by["125779"].image_url.startswith("https://tong.visitkorea.or.kr/")
     assert by["3537206"].image_url is None
     assert by["125779"].category == "walk" and by["2757631"].category == "lodging"
@@ -167,7 +193,7 @@ def test_f4_04_real_ingest_replaces_sample_and_keeps_key_out_of_logs(db_engine, 
 
     with Session(db_engine) as s:
         row = s.get(PetPlace, "pp_125779")
-        assert row.large_dog is True and row.image_url and row.companion == "전구역 동반가능"
+        assert row.size_note == "전 견종 동반 가능" and row.image_url and row.companion == "전구역 동반가능"
 
 
 def test_f5_01_sample_vets_nearest_first_without_phone(client):
@@ -223,3 +249,22 @@ def test_f5_02_real_licensing_file_columns_and_crs(tmp_path, db_engine):
         gn = next(v for v in rows if v.name == "강릉동물병원")
         assert abs(gn.lat - 37.758) < 0.002 and abs(gn.lng - 128.899) < 0.002
         assert gn.address.startswith("강원특별자치도 강릉시")
+
+
+def test_f5_02c_kind_column_wins_over_name_rule(tmp_path, db_engine):
+    # 결정 10/30: 진료 대상(업태) 열이 있으면 이름 규칙보다 우선
+    csv_text = (
+        "관리번호,사업장명,영업상태명,진료대상,위도,경도\n"
+        "K-1,행복가축병원,영업/정상,반려동물(개·고양이),37.75,128.88\n"   # 이름은 가축이지만 반려동물 진료 → 남김
+        "K-2,해피동물병원,영업/정상,대동물(소·돼지),37.75,128.88\n"      # 이름은 평범하지만 농장 동물 → 뺌
+        "K-3,도담동물병원,영업/정상,,37.75,128.88\n"                      # 열이 비면 이름 규칙 → 남김
+    )
+    (tmp_path / "vets.csv").write_bytes(csv_text.encode("cp949"))
+    r = load_vets.load(db_engine, Settings(), raw_dir=tmp_path)
+    from sqlalchemy.orm import Session
+
+    from app.models import VetClinic
+
+    with Session(db_engine) as s:
+        assert {v.license_no for v in s.query(VetClinic).all()} == {"K-1", "K-3"}
+    assert r.inserted == 2

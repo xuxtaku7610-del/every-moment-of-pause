@@ -269,24 +269,14 @@ object UiMapper {
 
     fun km(v: Double) = if (v >= 10) "${v.roundToInt()}km" else String.format(Locale.US, "%.1fkm", v)
 
-    /** 데이터에 있는 것만 태그로: 실내/실외 · 대형견 가능/불가 · 동반 구분. 모르면 쓰지 않는다. */
-    fun placeTags(p: PetPlace): List<String> = listOfNotNull(
-        when (p.indoor) {
-            "indoor" -> "실내"
-            "outdoor" -> "실외"
-            "both" -> "실내·실외"
-            else -> null
-        },
-        when (p.largeDog) {
-            true -> "대형견 가능"
-            false -> "대형견 불가"
-            null -> null
-        },
-        p.companion?.replace("동반가능", "동반")?.trim(),
-    )
+    /** 태그는 API 필드로 온 동반 구분(전구역/일부구역)만. 실내/실외·대형견은 태그로 판정하지 않는다(결정 10/30). */
+    fun placeTags(p: PetPlace): List<String> = listOfNotNull(p.companion?.replace("동반가능", "동반")?.trim())
+
+    /** 동반 조건 글에 명확히 써 있는 문장만, 원문 그대로: 동반 가능 동물 → 실내·실외 문장 → 필요 사항. */
+    fun placeNotes(p: PetPlace): List<String> = listOfNotNull(p.sizeNote, p.spaceNote, p.petPolicy).distinct()
 
     private fun place(p: PetPlace, distance: String) =
-        PlaceUi(p.id, p.name, categoryKo[p.category] ?: p.category, distance, p.petPolicy, p.sample, p.imageUrl, placeTags(p))
+        PlaceUi(p.id, p.name, categoryKo[p.category] ?: p.category, distance, p.petPolicy, p.sample, p.imageUrl, placeTags(p), placeNotes(p))
 
     fun places(along: Found<PetPlace>?, near: Found<PetPlace>?, loading: Boolean): PlacesUi {
         val items = near?.items.orEmpty().map { p -> place(p, "목적지에서 ${km(p.offKm ?: 0.0)}") } +

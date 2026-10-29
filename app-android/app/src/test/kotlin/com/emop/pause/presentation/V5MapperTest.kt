@@ -18,13 +18,18 @@ import org.junit.jupiter.api.Test
 
 /** v5 화면 계약에 새로 넣은 값 (docs/ui_contract.md, STYLE_V5 §1 "시안과 다르게 하는 것"). */
 class V5MapperTest {
-    private fun place(indoor: String?, large: Boolean?, companion: String?, image: String? = null) =
-        PetPlace("pp_1", "카페", "cafe", 37.7, 128.9, null, null, false, offKm = 1.2, imageUrl = image, indoor = indoor, largeDog = large, companion = companion)
+    private fun place(space: String?, size: String?, companion: String?, image: String? = null, policy: String? = null) =
+        PetPlace("pp_1", "카페", "cafe", 37.7, 128.9, null, policy, false, offKm = 1.2, imageUrl = image, spaceNote = space, sizeNote = size, companion = companion)
 
     @Test
-    fun `F4-05 장소 태그는 데이터에 있는 것만, 사진이 있으면 관광공사 표기`() {
-        assertEquals(listOf("실외", "대형견 불가", "일부구역 동반"), UiMapper.placeTags(place("outdoor", false, "일부구역 동반가능")))
+    fun `F4-05 태그는 동반 구분 필드만, 실내·대형견은 원문 문장 그대로, 사진이 있으면 관광공사 표기`() {
+        val p = place("야외 공간만 이용 가능합니다.", "소형견(10kg이하) 한마리 동반 가능", "일부구역 동반가능", policy = "목줄 착용")
+        assertEquals(listOf("일부구역 동반"), UiMapper.placeTags(p))
+        assertEquals(listOf("소형견(10kg이하) 한마리 동반 가능", "야외 공간만 이용 가능합니다.", "목줄 착용"), UiMapper.placeNotes(p))
+        val tags = UiMapper.placeTags(p).joinToString()
+        assertFalse("실내" in tags || "실외" in tags || "대형견" in tags, tags)
         assertEquals(emptyList<String>(), UiMapper.placeTags(place(null, null, null)))
+        assertEquals(emptyList<String>(), UiMapper.placeNotes(place(null, null, null)))
         val ui = UiMapper.places(null, Found(listOf(place(null, true, null, "https://tong.visitkorea.or.kr/a.jpg")), PlaceSource.SERVER), false)
         assertEquals("사진 한국관광공사", ui.credit)
         assertEquals("https://tong.visitkorea.or.kr/a.jpg", ui.items.single().imageUrl)

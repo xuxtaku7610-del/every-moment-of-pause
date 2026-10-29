@@ -4,7 +4,8 @@ Revision ID: 0004
 Revises: 0003
 Create Date: 2026-10-30
 
-- pet_places: image_url, indoor(indoor|outdoor|both), large_dog, companion(동반 구분 원문). 모두 NULL 허용 — 모르면 비워 둔다.
+- pet_places: image_url, space_note(실내·실외를 말하는 원문 문장), size_note(동반 가능 동물 원문), companion(동반 구분 원문).
+  모두 NULL 허용 — 글에 없으면 비워 둔다(판정·추측하지 않는다).
 - wait_sessions.guardian_returning: 보호자 폰 "돌아가는 중".
 - eta_shares: 동물병원 도착 예정 공유 (F5) — 위치 컬럼 없음, 2시간 만료.
 """
@@ -17,8 +18,8 @@ depends_on = None
 
 UPGRADE = [
     "ALTER TABLE pet_places ADD COLUMN image_url VARCHAR(512)",
-    "ALTER TABLE pet_places ADD COLUMN indoor VARCHAR(8) CONSTRAINT ck_pet_places_indoor CHECK (indoor IN ('indoor', 'outdoor', 'both'))",
-    "ALTER TABLE pet_places ADD COLUMN large_dog BOOLEAN",
+    "ALTER TABLE pet_places ADD COLUMN space_note VARCHAR(100)",
+    "ALTER TABLE pet_places ADD COLUMN size_note VARCHAR(100)",
     "ALTER TABLE pet_places ADD COLUMN companion VARCHAR(64)",
     "ALTER TABLE wait_sessions ADD COLUMN guardian_returning BOOLEAN NOT NULL DEFAULT false",
     """
@@ -45,5 +46,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS eta_shares CASCADE")
     op.execute("ALTER TABLE wait_sessions DROP COLUMN IF EXISTS guardian_returning")
-    for col in ("companion", "large_dog", "indoor", "image_url"):
+    for col in ("companion", "size_note", "space_note", "image_url"):
         op.execute(f"ALTER TABLE pet_places DROP COLUMN IF EXISTS {col}")

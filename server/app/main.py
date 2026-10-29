@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
-from app import errors
+from app import errors, logmask
 from app.api import devices, eta, health, llm, places, reststops, trips, vets, wait
 from app.middleware import RequestContextMiddleware
 from app.api.health import LlmHealth
@@ -41,6 +41,8 @@ def create_app(
     app.state.llm_health = llm_health or LlmHealth(settings.ollama_base_url, settings.ollama_model)
     app.state.ollama = ollama or OllamaClient(settings)
     errors.install(app)
+    # 쿼리스트링의 serviceKey 등은 어떤 로그에도 남기지 않는다 (app/logmask.py)
+    logmask.install()
     app.add_middleware(RequestContextMiddleware, limit=rate_limit or settings.rate_limit_per_minute)
     for module in (health, devices, reststops, places, vets, wait, eta, llm, trips):
         app.include_router(module.router, prefix=API_PREFIX)

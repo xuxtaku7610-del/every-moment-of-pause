@@ -29,11 +29,18 @@ log = logging.getLogger(__name__)
 SAMPLE_PATH = Path(__file__).resolve().parent.parent / "data" / "sample_pet_places.json"
 
 TOUR_BASE = "https://apis.data.go.kr/B551011/KorPetTourService2"
-TOUR_AREAS = ("32",)  # 강원 (강릉·횡성·평창 — 시연 경로 영동선 구간). 2026-10 기준 69곳
+# 1 서울 · 31 경기(출발지 쪽, 영동선 경로 주변만) · 32 강원(전부). 결정 10/30.
+TOUR_AREAS = ("1", "31", "32")
+# 서울·경기는 영동고속도로 축에서 이만큼 안의 장소만 상세를 부른다(하루 1,000건 제한 안에서).
+CORRIDOR_AREAS = ("1", "31")
+CORRIDOR_M = 15_000
+# 서울 → 신갈 → 이천 → 여주 → 문막 → 원주 → 횡성 → 평창 → 대관령 → 강릉 (영동고속도로 대략 축, 위·경도)
+CORRIDOR = [(37.5665, 126.9780), (37.2850, 127.1100), (37.2400, 127.2000), (37.2600, 127.4400), (37.3000, 127.6300),
+            (37.3100, 127.8200), (37.3400, 127.9500), (37.4900, 128.0300), (37.5600, 128.4000), (37.6900, 128.7500), (37.7500, 128.8800)]
 TOUR_PAGE_ROWS = 100
 CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "cache" / "tourapi"
 CACHE_TTL_SEC = 7 * 24 * 3600
-CALL_BUDGET = 300
+CALL_BUDGET = 900  # 한 번 실행 상한. 개발계정 하루 1,000건보다 작게 — 캐시 덕에 두 번째부터는 거의 0건
 CAFE_CAT3 = "A05020900"  # TourAPI 분류: 카페/전통찻집
 
 
@@ -48,9 +55,10 @@ class NormalizedPlace:
     address: str | None
     pet_policy: str | None
     image_url: str | None = None
-    indoor: str | None = None  # indoor | outdoor | both | None(모름)
-    large_dog: bool | None = None  # None = 정보 없음
-    companion: str | None = None  # 동반 구분 원문 ("전체 동반가능", "일부구역 동반가능" …)
+    # 결정 10/30: 실내/실외·대형견 여부는 추측하지 않는다. 동반 조건 글에 명확히 써 있는 문장만 그대로 둔다.
+    space_note: str | None = None  # "실내"·"실외"·"야외"·"테라스"가 들어 있는 원문 문장
+    size_note: str | None = None  # 동반 가능 동물 원문 (acmpyPsblCpam, 없으면 견종·크기·무게를 말하는 원문 문장)
+    companion: str | None = None  # 동반 구분 원문 ("전구역 동반가능", "일부구역 동반가능")
 
     @property
     def id(self) -> str:
@@ -95,50 +103,62 @@ def _text(d: dict[str, Any] | None, *keys: str) -> str:
     return " ".join(str(d.get(k) or "") for k in keys) if d else ""
 
 
-_INDOOR_NO = re.compile(r"실내[^.\n,/]{0,16}(불가|제한|금지|어려)")
-_OUTDOOR_NO = re.compile(r"(실외|야외)[^.\n,/]{0,12}(불가|제한|금지)")
-_LARGE_NO = re.compile(r"대형견[^.\n,/]{0,12}(불가|제한|금지|어려)|소형견만")
-_KG_LIMIT = re.compile(r"(\d+)\s*(?:kg|㎏|키로)\s*(?:이하|미만)", re.I)
-LARGE_DOG_KG = 25  # 이 무게 미만까지만 받으면 대형견은 안 되는 것으로 본다
-_LARGE_YES = re.compile(r"대형견|견종\s*무관|크기\s*무관|모든\s*견종|전\s*견종")
+_SPACE = re.compile(r"실내|실외|야외|테라스")
+_SIZE = re.compile(r"대형견|중형견|소형견|견종|\d+\s*(?:kg|㎏)", re.I)
+NOTE_MAX = 100
 
 
-def indoor_of(detail: dict[str, Any] | None) -> str | None:
-    """동반 조건 글에서 실내/실외. 글에 없으면 None(지어내지 않는다)."""
-    t = _text(detail, "acmpyTypeCd", "acmpyPsblCpam", "acmpyNeedMtr", "etcAcmpyInfo", "relaPosesFclty")
-    inside = "실내" in t and not _INDOOR_NO.search(t)
-    outside = any(w in t for w in ("실외", "야외", "테라스")) and not _OUTDOOR_NO.search(t)
-    if _INDOOR_NO.search(t):
-        outside = True  # "실내 동반 불가" → 실외만
-    if inside and outside:
-        return "both"
-    return "indoor" if inside else "outdoor" if outside else None
+def sentences(text: str) -> list[str]:
+    """원문을 문장 단위로: 줄바꿈·"- "·"* "·마침표 뒤에서 자른다. 글자는 바꾸지 않는다(앞뒤 기호·공백만 뺌)."""
+    out = []
+    for line in str(text or "").splitlines():
+        for part in re.split(r"(?<=[.。])\s+|\s+-\s+", line):
+            t = part.strip().lstrip("-*※·• ").strip()
+            if t:
+                out.append(t)
+    return out
 
 
-def large_dog_of(detail: dict[str, Any] | None) -> bool | None:
-    """대형견 가능 여부. "대형견 불가"·"소형견만"·"10kg 이하" → False, "30kg 이하"·"전 견종" → True, 소형·중형만 언급 → False, 없으면 None."""
-    t = _text(detail, "acmpyPsblCpam", "acmpyNeedMtr", "etcAcmpyInfo")
-    if not t.strip():
+def _note(t: str) -> str:
+    return t if len(t) <= NOTE_MAX else t[: NOTE_MAX - 1] + "…"
+
+
+def space_note_of(detail: dict[str, Any] | None) -> str | None:
+    """실내/실외: 응답에 필드가 없다. 동반 조건 글에 "실내·실외·야외·테라스"가 쓰인 첫 문장을 그대로. 없으면 None."""
+    if not detail:
         return None
-    if _LARGE_NO.search(t):
-        return False
-    limits = [int(m.group(1)) for m in _KG_LIMIT.finditer(t)]
-    if limits:
-        return min(limits) >= LARGE_DOG_KG
-    if _LARGE_YES.search(t):
-        return True
-    if "소형견" in t or "중형견" in t:
-        return False
+    for key in ("acmpyNeedMtr", "etcAcmpyInfo", "acmpyPsblCpam"):  # 동반 조건 글만 (편의시설 목록은 아님)
+        for t in sentences(detail.get(key) or ""):
+            if _SPACE.search(t):
+                return _note(t)
+    return None
+
+
+def size_note_of(detail: dict[str, Any] | None) -> str | None:
+    """대형견 등 동반 가능 동물: "동반 가능 동물"(acmpyPsblCpam) 원문, 없으면 견종·크기·무게를 말하는 첫 문장. 판정하지 않는다."""
+    if not detail:
+        return None
+    psbl = " ".join(str(detail.get("acmpyPsblCpam") or "").split())
+    if psbl:
+        return _note(psbl)
+    for t in sentences(detail.get("etcAcmpyInfo") or ""):
+        if _SIZE.search(t):
+            return _note(t)
     return None
 
 
 def policy_of(detail: dict[str, Any] | None) -> str | None:
-    """화면에 보일 동반 조건 한 줄: 가능 동물 → 필요 사항 순, 160자."""
+    """필요 사항 원문 ("목줄 착용,이동장(켄넬)사용"). 크기·공간 문장은 따로 둔다."""
     if not detail:
         return None
-    parts = [str(detail.get(k) or "").strip() for k in ("acmpyPsblCpam", "acmpyNeedMtr")]
-    line = " · ".join(" ".join(p.split()) for p in parts if p)
-    return line[:160] or None
+    return " ".join(str(detail.get("acmpyNeedMtr") or "").split())[:160] or None
+
+
+def in_corridor(lat: float, lng: float, buffer_m: float = CORRIDOR_M) -> bool:
+    """영동고속도로 축에서 [buffer_m] 안인가 (서울·경기 장소만 거른다)."""
+    from app.geo import project
+
+    return project(CORRIDOR, lat, lng).offset_m <= buffer_m
 
 
 def https(url: str | None) -> str | None:
@@ -167,7 +187,7 @@ def normalize_tour(payloads: list[dict[str, Any]], details: dict[str, dict[str, 
             out[cid] = NormalizedPlace(
                 cid, "tourapi", title, cat, lat, lng, addr, policy_of(d),
                 image_url=https(it.get("firstimage") or it.get("firstimage2")),
-                indoor=indoor_of(d), large_dog=large_dog_of(d),
+                space_note=space_note_of(d), size_note=size_note_of(d),
                 companion=(str(d.get("acmpyTypeCd") or "").strip() or None) if d else None,
             )
     return list(out.values())
@@ -179,7 +199,7 @@ def normalize_sample(payload: dict[str, Any]) -> list[NormalizedPlace]:
         if it.get("category") not in PLACE_CATEGORIES:
             continue
         out.append(NormalizedPlace(it["sourceId"], "sample", it["name"], it["category"], float(it["lat"]), float(it["lng"]),
-                                   it.get("address"), it.get("petPolicy"), indoor=it.get("indoor"), large_dog=it.get("largeDog")))
+                                   it.get("address"), it.get("petPolicy")))
     return out
 
 
@@ -237,6 +257,8 @@ def fetch_tour(api_key: str, get: Callable[[str, dict[str, Any]], dict[str, Any]
         page = 1
         while True:
             data = cache("areaBasedList2", {**base, "numOfRows": TOUR_PAGE_ROWS, "pageNo": page, "areaCode": area})
+            if area in CORRIDOR_AREAS:
+                data = _keep_corridor(data)
             pages.append(data)
             total = int(((data.get("response") or {}).get("body") or {}).get("totalCount") or 0)
             if page * TOUR_PAGE_ROWS >= total:
@@ -258,6 +280,20 @@ def fetch_tour(api_key: str, get: Callable[[str, dict[str, Any]], dict[str, Any]
     return pages, details
 
 
+def _keep_corridor(page: dict[str, Any]) -> dict[str, Any]:
+    """목록 한 페이지에서 경로 축 밖 장소를 뺀다 (totalCount는 그대로 — 페이지 넘김에 쓴다)."""
+    kept = []
+    for it in _items(page):
+        try:
+            if in_corridor(float(it["mapy"]), float(it["mapx"])):
+                kept.append(it)
+        except (KeyError, TypeError, ValueError):
+            continue
+    body = dict((page.get("response") or {}).get("body") or {})
+    body["items"] = {"item": kept} if kept else ""
+    return {"response": {**(page.get("response") or {}), "body": body}}
+
+
 def load_sample(path: Path = SAMPLE_PATH) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -269,7 +305,7 @@ def apply(session: Session, places: list[NormalizedPlace], source: str) -> Inges
     for p in places:
         row = existing.pop(p.source_id, None)
         values = dict(source=p.source, name=p.name, category=p.category, lat=p.lat, lng=p.lng, address=p.address, pet_policy=p.pet_policy,
-                      image_url=p.image_url, indoor=p.indoor, large_dog=p.large_dog, companion=p.companion)
+                      image_url=p.image_url, space_note=p.space_note, size_note=p.size_note, companion=p.companion)
         if row is None:
             session.add(PetPlace(id=p.id, source_id=p.source_id, **values))
             result.inserted += 1
@@ -308,5 +344,8 @@ def ingest(engine: Engine, settings: Settings | None = None,
 if __name__ == "__main__":
     from app.db import make_engine
 
+    from app.logmask import install
+
     logging.basicConfig(level=logging.INFO)
+    install()
     ingest(make_engine(get_settings().database_url))

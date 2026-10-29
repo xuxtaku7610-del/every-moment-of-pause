@@ -27,9 +27,10 @@ data class PetPlace(
     val offKm: Double? = null,
     /** TourAPI 대표 이미지(https, 사진 한국관광공사). */
     val imageUrl: String? = null,
-    /** indoor | outdoor | both, 모르면 null(지어내지 않는다). */
-    val indoor: String? = null,
-    val largeDog: Boolean? = null,
+    /** 실내·실외를 말하는 동반 조건 원문 문장. 없으면 null — 실내 여부를 추측하지 않는다(결정 10/30). */
+    val spaceNote: String? = null,
+    /** 동반 가능 동물 원문 ("소형견(10kg이하) 한마리 동반 가능"). 대형견 가능 여부를 판정하지 않는다. */
+    val sizeNote: String? = null,
     val companion: String? = null,
 )
 
@@ -108,7 +109,7 @@ class PetPlaceRepository(
 
         private fun fromDto(d: PlaceDto) = PetPlace(
             d.placeId, d.name, d.category, d.lat, d.lng, d.address, d.petPolicy, d.sample, d.distanceAlongRouteKm, d.offRouteKm ?: d.distanceKm,
-            d.imageUrl, d.indoor, d.largeDog, d.companion,
+            d.imageUrl, d.spaceNote, d.sizeNote, d.companion,
         )
         private fun fromDto(d: VetDto) = Vet(d.vetId, d.name, d.lat, d.lng, d.distanceKm, d.address, d.phone, d.sample)
 

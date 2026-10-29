@@ -288,7 +288,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, style: TextStyle =
 
 private val imageExt = listOf("png", "jpg", "jpeg", "webp")
 
-/** assets에서 [names] 중 처음 있는 그림. 없으면 null (디버그 빌드에만 docs/design/v5/assets가 묶인다). */
+/** assets에서 [names] 중 처음 있는 그림. 없으면 null (docs/design/v5/assets가 앱 assets로 묶인다). */
 @Composable
 fun rememberAssetImage(vararg names: String): ImageBitmap? {
     val context = LocalContext.current
@@ -310,7 +310,7 @@ fun ArtSlot(vararg names: String, modifier: Modifier = Modifier, shape: Shape = 
 
 /**
  * 반려견 사진: 프로필 사진(없음) → debug `demo_pet.jpg` → 디자이너 그림(`pet_kongi`, 원형은 `pet_kongi_avatar`) → 직접 그린 일러스트.
- * 디자이너 그림은 디버그 빌드에만 묶인다 (docs/design/v5/assets/README.md).
+ * 디자이너 그림 출처: licenses/ASSETS.md (docs/design/v5/assets/README.md).
  */
 @Composable
 fun PetPhoto(modifier: Modifier = Modifier, shape: Shape = CircleShape, vararg extra: String) {
@@ -318,7 +318,7 @@ fun PetPhoto(modifier: Modifier = Modifier, shape: Shape = CircleShape, vararg e
     ArtSlot(*names, modifier = modifier, shape = shape) { DogIllustration(Modifier.fillMaxSize()) }
 }
 
-/** 컬러 상태 아이콘: 디자이너 아이콘(assets `ic_*`, 디버그) → Fluent UI Emoji Flat 벡터. 화면당 1~2개. */
+/** 컬러 상태 아이콘: 디자이너 아이콘(assets `ic_*`) → 없으면 Fluent UI Emoji Flat 벡터. 화면당 1~2개. */
 @Composable
 fun StatusIcon(asset: String, @DrawableRes fallback: Int, size: Dp, modifier: Modifier = Modifier) {
     val img = rememberAssetImage(asset)

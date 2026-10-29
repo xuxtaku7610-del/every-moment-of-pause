@@ -62,9 +62,12 @@ android {
         compose = true
         buildConfig = true
     }
-    // v5 그림 자리 (STYLE_V5 §1): docs/design/v5/assets/의 그림(사용자가 넣는 도로·휴게소·병원·반려견)은 디버그 빌드에만 묶는다.
-    // 저작권을 확인하기 전에는 릴리스에 넣지 않는다. 없으면 화면은 직접 그린 일러스트를 쓴다.
-    sourceSets.getByName("debug").assets.srcDir("../../docs/design/v5/assets")
+    // v5 그림 (STYLE_V5 §1): docs/design/v5/assets/ = 사용자가 생성형 AI 디자인 도구로 직접 만든 그림(licenses/ASSETS.md).
+    // 결정 10/30: 릴리스에도 묶는다. 한눈에 보기 시트·쓰지 않는 원본(앱 아이콘 PNG·주행 도로 사진)은 APK에서 뺀다.
+    sourceSets.getByName("main").assets.srcDir("../../docs/design/v5/assets")
+    androidResources {
+        ignoreAssetsPatterns += listOf("!_sheet.png", "!app_icon*.png", "!road_drive.png", "!README.md", "!pet_placeholder.png")
+    }
 }
 
 composeCompiler {

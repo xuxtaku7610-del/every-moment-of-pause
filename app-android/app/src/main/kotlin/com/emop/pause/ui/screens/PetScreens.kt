@@ -605,7 +605,8 @@ fun PlacesScreen(ui: PlacesUi, on: On) {
                             if (p.sample) { Spacer(Modifier.width(d.unit)); StatusChip("샘플", neutral = true) }
                         }
                         Text((listOf(p.distance, p.category) + p.tags).joinToString(" · "), style = Pause.type.body, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        p.policy?.let { Text(it, style = Pause.type.caption, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        // 동반 조건 원문 문장 그대로 (실내·대형견 여부를 화면이 판정하지 않는다)
+                        p.notes.take(2).forEach { Text(it, style = Pause.type.caption, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                     Spacer(Modifier.width(d.u(12f)))
                     PauseButton("경유지로", { on(UiEvent.GoPlace(p.id)) }, kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Place, compact = true)
