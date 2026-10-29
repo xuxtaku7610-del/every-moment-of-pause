@@ -22,23 +22,34 @@
 - [x] (CC) 이동 기록 저장(PetStore.saveTrip)과 한계 시간 표시
 
 ## 2. 서버
-- [x] (CC) 마이그레이션 0003: pet_places·vet_clinics·wait_sessions (PG 검증은 Docker 꺼짐으로 skip)
+- [x] (CC) 마이그레이션 0003: pet_places·vet_clinics·wait_sessions — PG 테스트 3개 통과(10/29 저녁)
 - [x] (CC) TourAPI 수집기 + sample_pet_places.json + `/places/along-route`·`/places/near` (F4)
 - [x] (CC) 동물병원 적재 스크립트(`server/data/raw/`) + sample_vets.json + `/vets/nearby` (F5)
 - [x] (CC) 대기 공유 `/wait` + 폰 웹페이지 (F3-07·F3-08) + 앱 업로더 `WaitShare`
 - [x] (CC) `/llm/phrases` `trip_summary` + 템플릿 (F7-04)
-- [ ] (나) 공공데이터포털 TourAPI 키 → `server/.env`의 `TOUR_API_KEY`
+- [x] (나) 공공데이터포털 TourAPI 키 → `server/.env`의 `TOUR_API_KEY` (10/30 실제 수집 전환)
 - [ ] (나) 동물병원 인허가 파일 내려받아 `server/data/raw/`에
 
 ## 3. 시연 장치
 - [x] (CC) 장면 시나리오 depart/highway/rest_stop/wait/mountain_road/arrive + `scripts/vhal.ps1` 장면 (user 빌드라 VHAL 주입 대신 앱 시뮬레이터 점프)
-- [x] (CC) mountain_road 시연 GPX(합성) + 비교 실험 → docs/plan/demo_compare.md + CSV (F1-07)
+- [x] (CC) mountain_road 시연 GPX → OSM 대관령 옛길(ODbL 표기) + 비교 실험 55 → 30 → docs/plan/demo_compare.md + CSV (F1-07)
+- [x] (CC) 실차 앞 구간 형상 `TbtRouteShape`(회전 안내 + 진행 방위) + GPX와 비교 → docs/plan/shape_compare.md (F1-11)
+- [x] (CC) 예보 구간: 짧은 굽이 하나는 버리고 30초 안 간격은 묶기 (F1-12)
+- [x] (CC) 대기 폰 페이지 같은 Wi-Fi 연결 순서 → docs/demo_script.md
 - [x] (CC) 발표 모드 패널: 장면 버튼·비교 결과
 
-## 4. 화면 (최소, 디자인은 docs/design/v5/ 대기)
+## 4. 화면 (디자인 v5 — docs/design/v5/STYLE_V5.md)
 - [x] (CC) docs/ui_contract.md 새 주제로
 - [x] (CC) 화면 10종 기본 레이아웃(UiState만 보고 그림) — 에뮬레이터 캡처 artifacts/pet/
-- [ ] (CC) P1: 출발 전 계획(TripPlanPreview)에 멀미·반려견 시설 반영, 도착 10분 전 산책 코스 음성 제안(F4-03)
+- [x] (CC) 출발 체크 "오늘의 쉼표" = 주행 추천과 같은 플래너(`PetTripPreview`, F2-08)
+- [x] (CC) 장면 점프 뒤 쉼표 화면 휴게소 이름 (DM-04)
+- [x] (CC) P1: 도착 10분 전 산책 코스 음성 제안(F4-03), 발표 장면 "도착 전 산책"
+- [x] (CC) v5: 시안 자르기·STYLE_V5(토큰·컴포넌트·치수·분할 창), 옛 문서 폐기 표시
+- [x] (CC) v5: 토큰(라이트·다크, 배율)·부품·일러스트·화면 12종·온보딩 3단계·앱 아이콘, 검증 루프(docs/ui_review.md v5)
+- [x] (CC) v5: 폰 대기 페이지(6번)·"돌아가는 중", 동물병원 도착 예정 공유(`/eta`)
+- [x] (CC) 실제 데이터: TourAPI KorPetTourService2(강원 69곳·사진·동반 조건), 동물병원 인허가 파일(5,063곳)
+- [ ] (나) 디자이너 그림 출처를 licenses/ASSETS.md에 → 릴리스 포함 여부 결정
+- [ ] (나) 실제 Pleos 분할 창에서 1/2·1/3 확인
 
 ## 5. 마무리
 - [x] (CC) README 심사 대응표·실행 방법·공공데이터 출처
@@ -49,4 +60,4 @@
 
 ## 계속 막힌 것 (docs/BLOCKED.md)
 - 에뮬레이터 VHAL 값 주입 불가(user 빌드)
-- Docker Desktop 꺼짐 → PostgreSQL 마이그레이션 테스트 skip
+- NaviHelper 회전 안내·방위 주기 실기 확인

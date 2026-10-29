@@ -1,6 +1,8 @@
 package com.emop.pause.trip
 
 import com.emop.pause.core.model.AppMode
+import com.emop.pause.engine.planner.RestStop
+import com.emop.pause.engine.planner.StopType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -20,5 +22,23 @@ class TripRecorderTest {
         assertEquals(40, log.firstCautionMin)
         assertEquals(1, log.visits.size)
         assertEquals(60, log.drivingMin)
+    }
+
+    @Test
+    fun `장면 점프 직후 휴게소 목록이 비어 있어도 목록이 오면 휴게소 이름을 쓴다`() {
+        val r = TripRecorder()
+        val stops = listOf(RestStop("Y03", "횡성휴게소", StopType.SERVICE_AREA, 95.0))
+        r.tick(600, AppMode.DRIVING, null, 10, 50, 94.0, emptyList())
+        r.tick(601, AppMode.PAUSE, null, 10, 0, 95.2, emptyList())
+        assertEquals(TripRecorder.ROADSIDE, r.currentStop)
+        r.tick(602, AppMode.PAUSE, null, 10, 0, 95.2, stops)
+        assertEquals("횡성휴게소", r.currentStop)
+    }
+
+    @Test
+    fun `휴게소에서 먼 곳에 멈추면 길가`() {
+        val r = TripRecorder()
+        r.tick(600, AppMode.PAUSE, null, 10, 0, 40.0, listOf(RestStop("Y03", "횡성휴게소", StopType.SERVICE_AREA, 95.0)))
+        assertEquals(TripRecorder.ROADSIDE, r.currentStop)
     }
 }

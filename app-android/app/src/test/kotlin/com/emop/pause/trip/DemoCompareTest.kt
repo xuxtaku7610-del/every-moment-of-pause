@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * F1-07 시연 비교: 합성 고갯길(scenarios/geo/mountain_road.gpx)을 "안내 없이" vs "안내대로".
+ * F1-07 시연 비교: 대관령 옛길(OSM, scenarios/geo/mountain_road.gpx)을 "안내 없이" vs "안내대로".
  * 결과 CSV는 build/demo_compare/에 쓰고, docs/plan/demo_compare.md·demo_compare.csv로 옮겨 둔다.
  */
 class DemoCompareTest {

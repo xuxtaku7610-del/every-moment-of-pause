@@ -1,16 +1,22 @@
-"""시연 데이터 생성기 (같이가개 PIVOT 3단계). 실행: python scripts/gen_demo_data.py
+"""시연 데이터 생성기 (같이가개 PIVOT 3단계). 실행: python scripts/gen_demo_data.py [--fetch-osm | --osm-file <Overpass 응답.json>]
 
-만드는 것 (모두 결정적, 난수 시드 고정):
-- scenarios/geo/mountain_road.gpx: 고갯길 형상. **실제 도로를 따라 그린 것이 아니다.** 대관령 옛길의 알려진 특징
-  (대관령 정상 부근 → 강릉 쪽 약 12km 내리막, 좌우로 크게 꺾이는 굽이가 이어짐)을 본떠, 두 끝점 사이를
-  사인형 방위 변화로 직접 생성한 합성 좌표다. 지도 서비스 데이터를 복사하지 않았다.
+만드는 것 (결정적):
+- scenarios/geo/mountain_road.gpx: 고갯길 형상 = **OpenStreetMap 실제 도로** 지방도 456호선 대관령 옛길 구간
+  (대관령 정상 부근 → 강릉 쪽 굽이진 내리막). `--fetch-osm`일 때만 Overpass API에서 다시 받아 쓰고,
+  평소에는 저장소의 GPX를 그대로 읽어 길이만 쓴다. © OpenStreetMap contributors, ODbL 1.0
+  (https://www.openstreetmap.org/copyright) — GPX 메타데이터·README·앱 정보 화면에 출처를 적는다.
 - scenarios/pet-trip.json: 장면 6개(depart·highway·rest_stop·wait·mountain_road·arrive) 시나리오.
 - server/app/data/sample_reststops.json: 영동선(강릉 방향) 휴게소 샘플 추가 — 이름은 실제, 좌표는 시연 경로 위 근사, 편의시설은 샘플.
 - server/app/data/sample_pet_places.json, sample_vets.json: 실제 지역명 + "[샘플]" 시설. 전화번호는 넣지 않는다.
 """
 import json
 import math
-import random
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,8 +30,6 @@ MAIN = [
     (37.6880, 128.7570), (37.7519, 128.8761),
 ]
 TOTAL_KM = 230.0
-MOUNTAIN_START = (37.6880, 128.7570)  # 대관령 정상 부근
-MOUNTAIN_END = (37.7350, 128.8400)    # 강릉 쪽 고개 아래 (근사)
 MOUNTAIN_START_KM = 205.0
 
 
@@ -54,58 +58,74 @@ def offset(p, north_m, east_m):
     return (round(lat, 6), round(lng, 6))
 
 
-# ───────────── 고갯길 형상 ─────────────
+# ───────────── 고갯길 형상 (OpenStreetMap) ─────────────
 
-def mountain_shape(seed=17):
-    """두 끝점 사이를 사인형 방위 변화(진폭 0.8~1.3rad, 파장 350~700m)로 잇는 합성 경로, 10m 간격 평면 좌표."""
-    rnd = random.Random(seed)
-    lat0 = math.radians(MOUNTAIN_START[0])
-    tx = math.radians(MOUNTAIN_END[1] - MOUNTAIN_START[1]) * math.cos(lat0) * EARTH
-    ty = math.radians(MOUNTAIN_END[0] - MOUNTAIN_START[0]) * EARTH
-    base = math.atan2(ty, tx)
-    straight = math.hypot(tx, ty)
-    pts = [(0.0, 0.0)]
-    x = y = phase = 0.0
-    amp, lam = 1.1, 500.0
-    # 방향 성분이 직선 거리에 닿을 때까지 걷는다
-    while (x * math.cos(base) + y * math.sin(base)) < straight:
-        if phase >= 2 * math.pi:
-            phase -= 2 * math.pi
-            amp, lam = rnd.uniform(0.8, 1.3), rnd.uniform(350, 700)
-        h = base + amp * math.sin(phase)
-        x += 10 * math.cos(h)
-        y += 10 * math.sin(h)
-        phase += 2 * math.pi * 10 / lam
-        pts.append((x, y))
-    # 끝점이 정확히 목표에 오도록 회전·축척을 아주 조금 맞춘다
-    ex, ey = pts[-1]
-    rot = math.atan2(ty, tx) - math.atan2(ey, ex)
-    sc = straight / math.hypot(ex, ey)
-    out = []
-    for px, py in pts:
-        rx = (px * math.cos(rot) - py * math.sin(rot)) * sc
-        ry = (px * math.sin(rot) + py * math.cos(rot)) * sc
-        out.append((MOUNTAIN_START[0] + math.degrees(ry / EARTH), MOUNTAIN_START[1] + math.degrees(rx / (EARTH * math.cos(lat0)))))
-    length = sum(dist(a, b) for a, b in zip(out, out[1:]))
-    return out, length
+OVERPASS = "https://overpass-api.de/api/interpreter"
+# 지방도 456호선(옛 영동고속도로 대관령 구간) — 대관령 정상 부근에서 강릉 쪽 내리막 끝까지.
+OSM_QUERY = '[out:json][timeout:60];way["highway"~"^(secondary|primary|tertiary)$"]["ref"="456"](37.64,128.68,37.78,128.92);out tags geom;'
+OSM_START_WAY = 177431988  # 정상 부근(서쪽 끝 37.6786, 128.7355)에서 시작하는 구간
+OSM_STOP_LNG = 128.83      # 내리막이 끝나는 성산면 쪽 경도
+GPX_PATH = ROOT / "scenarios/geo/mountain_road.gpx"
 
 
-def write_gpx(points, path):
-    thin = points[::2] + [points[-1]]  # 20m 간격
+def fetch_overpass():
+    """Overpass 응답(JSON). 서버가 붐비면(429·502·504) 조금 쉬었다가 3번까지 다시 묻는다."""
+    body = urllib.parse.urlencode({"data": OSM_QUERY}).encode()
+    req = urllib.request.Request(OVERPASS, data=body, headers={"User-Agent": "every-moment-of-pause demo data (scripts/gen_demo_data.py)"})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 502, 504) or attempt == 2:
+                raise
+            time.sleep(10 * (attempt + 1))
+
+
+def osm_mountain(d):
+    """456호선 조각들을 끝점이 맞닿는 순서로 한 줄로 잇는다. (점열, way id 목록, OSM 기준 시각)"""
+    ways = {w["id"]: [(p["lat"], p["lon"]) for p in w["geometry"]] for w in d["elements"]}
+    pts, used = list(ways[OSM_START_WAY]), [OSM_START_WAY]
+    while pts[-1][1] < OSM_STOP_LNG:
+        nxt = None
+        for wid, g in ways.items():
+            if wid in used:
+                continue
+            for seg in (g, g[::-1]):
+                if dist(seg[0], pts[-1]) < 2 and (nxt is None or len(seg) > len(nxt[1])):
+                    nxt = (wid, seg)
+        if nxt is None:
+            break
+        used.append(nxt[0])
+        pts += nxt[1][1:]
+    return pts, used, d["osm3s"]["timestamp_osm_base"]
+
+
+def write_gpx(points, way_ids, osm_time, path):
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<gpx version="1.1" creator="every-moment-of-pause scripts/gen_demo_data.py" xmlns="http://www.topografix.com/GPX/1/1">',
         "  <metadata>",
-        "    <name>mountain_road (합성 고갯길)</name>",
-        "    <desc>대관령 옛길의 특징(정상 부근에서 강릉 쪽으로 약 12km 굽이진 내리막)을 본떠 직접 생성한 합성 형상. "
-        "실제 도로 좌표가 아니며 지도 데이터를 복사하지 않았다. 멀미 예보 시연·비교 실험 전용.</desc>",
+        "    <name>mountain_road (대관령 옛길, 지방도 456호선)</name>",
+        "    <desc>OpenStreetMap 실제 도로 형상. 대관령 정상 부근 → 강릉 쪽 내리막. "
+        f"OSM way {','.join(map(str, way_ids))} (기준 {osm_time}). 멀미 예보 시연·비교 실험 전용.</desc>",
+        '    <author><name>OpenStreetMap contributors</name></author>',
+        '    <copyright author="OpenStreetMap contributors"><year>' + osm_time[:4] + "</year>"
+        "<license>https://opendatacommons.org/licenses/odbl/1-0/</license></copyright>",
+        '    <link href="https://www.openstreetmap.org/copyright"><text>© OpenStreetMap contributors, ODbL 1.0</text></link>',
         "  </metadata>",
         "  <trk><name>mountain_road</name><trkseg>",
     ]
-    lines += [f'    <trkpt lat="{la:.6f}" lon="{lo:.6f}"/>' for la, lo in thin]
+    lines += [f'    <trkpt lat="{la:.7f}" lon="{lo:.7f}"/>' for la, lo in points]
     lines += ["  </trkseg></trk>", "</gpx>", ""]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes("\n".join(lines).encode("utf-8"))
+
+
+def read_gpx(path):
+    text = path.read_text(encoding="utf-8")
+    pts = [(float(a), float(b)) for a, b in re.findall(r'<trkpt lat="([-0-9.]+)" lon="([-0-9.]+)"', text)]
+    return pts, sum(dist(a, b) for a, b in zip(pts, pts[1:]))
 
 
 # ───────────── 휴게소 샘플 (영동선 강릉 방향) ─────────────
@@ -259,7 +279,7 @@ def scenario(mountain_len_m):
     kf(label="도착 체크", remainDistanceM=0, remainTimeSec=0)
     return {
         "name": "pet-trip",
-        "description": "같이가개 시연: 서울→강릉, 콩이(소형·9살·멀미 성향 높음). depart·highway·rest_stop(횡성)·wait·mountain_road(합성 고갯길)·arrive.",
+        "description": "같이가개 시연: 서울→강릉, 콩이(소형·9살·멀미 성향 높음). depart·highway·rest_stop(횡성)·wait·mountain_road(대관령 옛길, OSM)·arrive.",
         "startClock": "09:00",
         "capabilities": ["SPEED", "GEAR", "BATTERY_SOC", "CHARGING", "HVAC_TEMP"],
         "setup": {"ev": True, "sleepHours": 7,
@@ -277,8 +297,15 @@ def scenario(mountain_len_m):
 
 
 def main():
-    pts, length = mountain_shape()
-    write_gpx(pts, ROOT / "scenarios/geo/mountain_road.gpx")
+    # --fetch-osm: Overpass에서 받기, --osm-file <경로>: 브라우저 등으로 받아 둔 Overpass JSON 응답 쓰기.
+    if "--fetch-osm" in sys.argv or "--osm-file" in sys.argv:
+        if "--osm-file" in sys.argv:
+            d = json.loads(Path(sys.argv[sys.argv.index("--osm-file") + 1]).read_text(encoding="utf-8"))
+        else:
+            d = fetch_overpass()
+        pts, ways, osm_time = osm_mountain(d)
+        write_gpx(pts, ways, osm_time, GPX_PATH)
+    pts, length = read_gpx(GPX_PATH)
     sc = scenario(length)
     (ROOT / "scenarios/pet-trip.json").write_bytes((json.dumps(sc, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
     update_reststops()

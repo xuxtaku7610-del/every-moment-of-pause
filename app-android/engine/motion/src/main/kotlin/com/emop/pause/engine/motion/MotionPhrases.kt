@@ -26,6 +26,21 @@ object MotionPhrases {
         return line("$petName ").takeIf { it.length <= MAX_CHARS } ?: line("")
     }
 
+    /** v5 예보 띠 제목 1줄: "3km 뒤 굽은 길 · 8분". */
+    fun title(f: MotionForecast): String = "${distance(f.startInM)} 뒤 굽은 길 · ${max(1, (f.durationSec / 60.0).roundToInt())}분"
+
+    /** v5 예보 코칭 1줄 (24자 이하): "콩이 멀미 주의 — 조금 일찍 감속해요". 넘으면 이름을 뺀다. */
+    fun coach(f: MotionForecast, petName: String): String {
+        fun line(who: String) = when (motionLevelOf(f.predictedIndex)) {
+            MotionLevel.LOW -> "천천히 가면 ${who}편해요"
+            MotionLevel.CAUTION -> "${who}멀미 주의 — 조금 일찍 감속해요"
+            MotionLevel.HIGH -> "${who}멀미 걱정 — ${f.recommendedKph}km/h 아래로"
+        }
+        return line("$petName ").takeIf { it.length <= LINE_CHARS } ?: line("")
+    }
+
+    const val LINE_CHARS = 24
+
     /** 주행 화면 한 줄 (지금 상태). */
     fun now(s: MotionState, petName: String): String = when (s.level) {
         MotionLevel.LOW -> "$petName 컨디션 편안 ${s.index}"

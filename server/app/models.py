@@ -155,6 +155,7 @@ class PetPlace(Base):
     __table_args__ = (
         CheckConstraint(_in("source", ("tourapi", "sample")), name="ck_pet_places_source"),
         CheckConstraint(_in("category", PLACE_CATEGORIES), name="ck_pet_places_category"),
+        CheckConstraint(_in("indoor", ("indoor", "outdoor", "both")), name="ck_pet_places_indoor"),
         Index("idx_pet_places_latlng", "lat", "lng"),
     )
 
@@ -167,6 +168,11 @@ class PetPlace(Base):
     lng: Mapped[float] = mapped_column(Float)
     address: Mapped[str | None] = mapped_column(String(256))
     pet_policy: Mapped[str | None] = mapped_column(Text)
+    # 0004: TourAPI detailPetTour2·대표 이미지. 모르면 NULL(지어내지 않는다).
+    image_url: Mapped[str | None] = mapped_column(String(512))
+    indoor: Mapped[str | None] = mapped_column(String(8))
+    large_dog: Mapped[bool | None] = mapped_column(Boolean)
+    companion: Mapped[str | None] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
 
 
@@ -209,6 +215,26 @@ class WaitSession(Base):
     elapsed_sec: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     battery_percent: Mapped[int | None] = mapped_column(Integer)
     cabin_temp_c: Mapped[float | None] = mapped_column(Float)
+    # 0004: 보호자가 폰 페이지에서 "돌아가는 중"을 눌렀다 (차 화면 문구가 바뀐다).
+    guardian_returning: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(Tz)
+
+
+class EtaShare(Base):
+    """동물병원 도착 예정 공유 (F5, 마이그레이션 0004). 위치 없이 이름·병원·도착 예정 시각·증상 메모만. 2시간 만료."""
+    __tablename__ = "eta_shares"
+    __table_args__ = (
+        CheckConstraint("eta_minutes BETWEEN 0 AND 600", name="ck_eta_shares_eta"),
+        Index("idx_eta_shares_device", "device_id"),
+    )
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(32), ForeignKey("devices.id", ondelete="CASCADE"))
+    pet_name: Mapped[str] = mapped_column(String(32))
+    vet_name: Mapped[str] = mapped_column(String(128))
+    eta_minutes: Mapped[int] = mapped_column(Integer)
+    symptoms: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(Tz)

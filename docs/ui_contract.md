@@ -1,12 +1,12 @@
 # 화면 계약 — 같이가개 (UiState · UiEvent · 주행 중 제한)
 
-디자인(docs/design/v5/)이 오기 전까지 화면은 **동작 확인용 최소 레이아웃**이다. 새 디자인은 `app/.../ui/screens/PetScreens.kt`·`ui/components/Kit.kt`와 `MainActivity.PauseRoot`만 바꾸고, 아래 계약(`:core:uistate`)은 그대로 둔다.
+화면은 **디자인 v5**(docs/design/v5/STYLE_V5.md)로 그린다: `app/.../ui/screens/PetScreens.kt`(화면), `ui/components/Kit.kt`(부품)·`Illustrations.kt`(직접 그린 일러스트), `ui/theme/`(토큰). v5에서 계약에 더한 값은 모두 기본값이 있어 이전 화면·테스트를 깨지 않는다(아래 "v5에서 더한 값").
 
 - 상태: `core/uistate/.../ScreenStates.kt`, 바깥 틀 `UiContract.kt`(`AppUiState`·`Screen`·`UiEvent`·`Scene`)
 - 엔진 → 상태: `app/.../presentation/UiMapper.kt` (순수 함수, `EmptyStatesTest`·`DrivingUiScenarioTest`)
 - 화면 선택: `app/.../presentation/ScreenRouter.kt` (순수 함수, `ScreenRouterTest`)
 - 미리보기·발표 모드 장면 고정: `Fixtures.screen(Scene)`
-- 에뮬레이터 캡처(2026-10-29): `artifacts/pet/01-depart.png` … `06-arrival.png` (로컬, gitignore)
+- 에뮬레이터 캡처(2026-10-30, v5): `artifacts/ui/final_v5/` (로컬, gitignore), 비교 기록은 [ui_review.md](ui_review.md) "v5"
 
 ## 화면 선택
 
@@ -19,6 +19,7 @@ flowchart TD
     W -->|"예"| WA["잠깐 대기"]
     W -->|"아니오"| O{"위로 연 화면"}
     O -->|"설정·프로필 (NO_SETUP 아님)"| ST["설정 · 반려견 프로필"]
+    O -->|"없음 · 첫 실행 · PREPARE"| OB["온보딩 3단계"]
     O -->|"장소·병원"| PL["함께 가는 장소 · 동물병원"]
     O -->|"없음"| M{"AppMode"}
     M -->|"PREPARE"| DE["출발 체크<br/>(첫 실행이면 프로필 먼저)"]
@@ -43,9 +44,27 @@ flowchart TD
 | 도착 체크 `Arrival` | `question`("콩이 내렸나요?"), `strong`(26℃↑·여름), `detail` | `ConfirmLeft` | ARRIVED, 확인 전 | — |
 | 이동 기록 `TripLog` | `summary`(LLM·템플릿), `durationMin`, `stops`, `motionPeak`, `motionSeries`, `limitLine`, `vetSummary`, `symptoms` | `ToggleSymptom`, `FinishTrip` | ARRIVED, 확인 후 | — |
 | 반려견 프로필 `PetProfile` | `name`, `size`, `ageYears`, `tendency`, `pottyIntervalMin`, `petZonePreferred`, `problems`, `firstRun` | `SetPetName`, `SetPetSize`, `SetPetAge`, `SetPetTendency`, `SetPotty`, `TogglePetZone`, `SavePet`, `Close` | 첫 실행 또는 "바꾸기" | 열리지 않음 (키보드) |
-| 설정 `Settings` | `timing`, `voiceSuggest`, `reduceMotion`, `signals`(쓰는 신호와 출처), `version` | `SetTiming`, `ToggleVoice`, `ToggleReduceMotion`, `DeleteData`, `Close` | "설정" | 열리지 않음 |
+| 온보딩 `Onboarding` (v5 11번) | `step`(1 프로필 · 2 차량 연동 · 3 멀미 민감도), `pet`, `signals`, `quiz`(질문 3개·고른 답), `result`(3단계), `canNext` | `OnboardNext`, `OnboardBack`, `AnswerQuiz`, 프로필 이벤트, `Close`(나중에) | 첫 실행 PREPARE | 열리지 않음 |
+| 설정 `Settings` | `timing`, `voiceSuggest`, `reduceMotion`, `signals`(쓰는 신호와 출처), `version`, `credits`(데이터 출처 — OSM ODbL 표기, 빼지 않는다) | `SetTiming`, `ToggleVoice`, `ToggleReduceMotion`, `DeleteData`, `Close` | "설정" | 열리지 않음 |
 
 공통: `LogoTap`(3초 안 5번 → 발표 모드 패널, 실차 주행 중에는 숨김).
+
+## v5에서 더한 값 (2026-10-30)
+| 상태 | 값 | 비고 |
+| --- | --- | --- |
+| `DriveUi` | `pet`, `sinceRest`("마지막 휴식 후 52분"), `nextStop`("약 72km"), `roadAhead`(앞 1km 곡률, 도로 일러스트) | 2번 상태 패널·도로 그림 |
+| `DriveContent.Forecast` | `title`(1줄), `coach`(1줄), `now`, `peak` | 3번. 각 24자 이하 (`DrivingRules.MAX_LINE_CHARS`) |
+| `DriveContent.Suggest` | `distance`("8km"), `direction`("강릉 방향") | 4번. 버튼 "여기서 쉴게요"/"다음 휴게소로" |
+| `DriveContent.Vet` (새) | `name`(14자), `distance`, `minutes` | 8번 주행 중: 1순위 병원 2줄만 |
+| `DepartUi` | `route`("강릉까지"), `duration` | 1번 경로 카드 |
+| `WaitUi` | `batteryUsed`(신호 있을 때만), `notice`(켤 때 20초 안전 안내) | 5번. 보호자 "돌아가는 중"이면 `headline`이 바뀐다 |
+| `PlaceUi` / `PlacesUi` | `imageUrl`, `tags`(데이터에 있는 것만) / `credit`("사진 한국관광공사") | 7번 |
+| `VetUi` / `VetsUi` | `minutes`, `status`("영업 중", 실데이터만) / `memo`(증상 고르기), `shareUrl` | 8번. 영업시간·24시는 쓰지 않는다. 이벤트 `ShareVetEta` |
+| `ArrivalUi` | `warning`("여름철 실내 온도 주의!"), `cabin`(신호 있을 때만) | 9번 |
+| `TripLogUi` | `warnings`(멀미 주의 횟수), `history` | 10번 |
+| `Scene` | `VET_DRIVE`, `ARRIVAL_HOT`, `ONBOARD_1..3` | 발표 모드 장면 고정 |
+
+화면 안에서만 쓰는 값(상태 계약 밖): 장소 분류 칩 선택(`rememberSaveable`), 창 폭 단계(`WidthClass`), 사진 자리(assets → 일러스트).
 
 ## 주행 중 제한 (CONCEPT 5장, test_plan DS-01~DS-04)
 - 텍스트 덩어리 48자(2줄) 이하, 장소 이름 14자 이하, 이유 2개 이하 — `DrivingRules.violations`가 0이어야 한다(시나리오 전 구간 테스트).

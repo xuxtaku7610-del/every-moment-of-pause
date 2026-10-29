@@ -8,8 +8,11 @@ import kotlin.math.max
 
 /** 정차 한 번의 기록 (휴게소 단위 — 경로 좌표는 남기지 않는다, architecture §6). */
 data class StopVisit(
-    val name: String,
+    /** 휴게소 이름. 휴게소 목록이 아직 없으면(장면 점프 직후 다시 받는 중) null → 목록이 오면 [km]로 채운다. */
+    var name: String?,
     val arrivedMinute: Int,
+    /** 멈춘 곳의 경로 거리(km). 이름을 아직 모르면 다음 기록 때 다시 잰다. */
+    var km: Double = 0.0,
     var stayedMin: Int = 0,
     var chargedMin: Int = 0,
     var petWalk: Boolean = false,
@@ -80,10 +83,14 @@ class TripRecorder {
             lastSampleMin = minute
         }
         if (mode == AppMode.PAUSE) {
-            val v = current ?: StopVisit(nearestName(traveledKm, stops), minute).also {
+            val v = current ?: StopVisit(nearestName(traveledKm, stops), minute, traveledKm).also {
                 current = it
                 visits += it
                 marks += series.size
+            }
+            if (v.name == null) {
+                v.km = traveledKm
+                v.name = nearestName(traveledKm, stops)
             }
             v.stayedMin = minute - v.arrivedMinute
             if (cause == PauseCause.CHARGING) v.chargedMin = v.stayedMin
@@ -95,7 +102,7 @@ class TripRecorder {
     fun onPetWalk() { current?.petWalk = true }
 
     /** 지금 머무는 곳 이름 (멈춤 화면 앱바). */
-    val currentStop: String? get() = current?.name
+    val currentStop: String? get() = current?.let { it.name ?: ROADSIDE }
     val currentArrived: Int? get() = current?.arrivedMinute
 
     fun log(): TripLog {
@@ -103,12 +110,16 @@ class TripRecorder {
         return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin)
     }
 
-    private fun nearestName(km: Double, stops: List<RestStop>): String =
-        stops.minByOrNull { abs(it.distanceAlongRouteKm - km) }?.takeIf { abs(it.distanceAlongRouteKm - km) <= NEAR_KM }?.name ?: "길가"
+    /** 목록이 비어 있으면 null(아직 모름), 3km 안에 휴게소가 없으면 "길가". */
+    private fun nearestName(km: Double, stops: List<RestStop>): String? {
+        if (stops.isEmpty()) return null
+        return stops.minByOrNull { abs(it.distanceAlongRouteKm - km) }?.takeIf { abs(it.distanceAlongRouteKm - km) <= NEAR_KM }?.name ?: ROADSIDE
+    }
 
     companion object {
         const val SAMPLE_MIN = 5
         const val NEAR_KM = 3.0
+        const val ROADSIDE = "길가"
 
         /** 다음 여행 팁 1개 (규칙 기반, test_plan 7장 P1). */
         fun tip(log: TripLog): String = when {

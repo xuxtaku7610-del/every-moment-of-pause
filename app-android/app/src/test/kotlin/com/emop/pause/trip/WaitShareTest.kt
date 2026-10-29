@@ -21,7 +21,7 @@ class WaitShareTest {
             if (fail) error("서버 없음")
             return "tok" to "/wait/tok"
         }
-        override suspend fun update(token: String, body: WaitUpdateReq) { updates += body }
+        override suspend fun update(token: String, body: WaitUpdateReq): Boolean { updates += body; return false }
         override suspend fun end(token: String) { ended = token }
     }
 

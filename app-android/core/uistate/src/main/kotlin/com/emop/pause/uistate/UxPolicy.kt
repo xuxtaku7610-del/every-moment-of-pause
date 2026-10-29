@@ -35,9 +35,9 @@ object UxPolicy {
             toast = shorten(ui.toast, m),
             content = when (val c = ui.content) {
                 is DriveContent.Calm -> c.copy(line = shorten(c.line, m)!!)
-                is DriveContent.Forecast -> c.copy(line = shorten(c.line, m)!!)
+                is DriveContent.Forecast -> c.copy(line = shorten(c.line, m)!!, title = shorten(c.title, m), coach = null)
                 is DriveContent.Suggest -> c.copy(reasons = c.reasons.take(1))
-                is DriveContent.Heading -> c
+                is DriveContent.Heading, is DriveContent.Vet -> c
             },
         )
     }

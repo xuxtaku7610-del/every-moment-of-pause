@@ -1,6 +1,6 @@
 {
   "name": "pet-trip",
-  "description": "같이가개 시연: 서울→강릉, 콩이(소형·9살·멀미 성향 높음). depart·highway·rest_stop(횡성)·wait·mountain_road(합성 고갯길)·arrive.",
+  "description": "같이가개 시연: 서울→강릉, 콩이(소형·9살·멀미 성향 높음). depart·highway·rest_stop(횡성)·wait·mountain_road(대관령 옛길, OSM)·arrive.",
   "startClock": "09:00",
   "capabilities": [
     "SPEED",
@@ -194,22 +194,22 @@
       "remainTimeSec": 1000
     },
     {
-      "t": 9844,
+      "t": 10070,
       "label": "고개 아래",
       "speedKph": 45,
       "socPercent": 34,
-      "remainDistanceM": 12837,
-      "remainTimeSec": 513
+      "remainDistanceM": 10014,
+      "remainTimeSec": 401
     },
     {
-      "t": 10696,
+      "t": 10719,
       "label": "arrive",
       "speedKph": 30,
       "remainDistanceM": 1000,
       "remainTimeSec": 40
     },
     {
-      "t": 10816,
+      "t": 10839,
       "label": "도착",
       "trip": "ENDED",
       "driveState": "PARKED",
@@ -221,7 +221,7 @@
       "hvacTempC": 27
     },
     {
-      "t": 10936,
+      "t": 10959,
       "label": "도착 체크",
       "remainDistanceM": 0,
       "remainTimeSec": 0

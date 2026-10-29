@@ -14,6 +14,7 @@ erDiagram
     FACILITY_CODES ||--o{ REST_STOP_FACILITIES : "describes"
     REST_STOPS ||--o{ TRIP_EVENTS : "referenced by"
     DEVICES ||--o{ WAIT_SESSIONS : "shares"
+    DEVICES ||--o{ ETA_SHARES : "shares eta"
     DEVICES ||--o{ LLM_CALL_LOGS : "triggers"
 
     DEVICES {
@@ -88,6 +89,10 @@ erDiagram
         double lng
         string address
         string pet_policy
+        string image_url
+        string indoor
+        boolean large_dog
+        string companion
         timestamptz updated_at
     }
     VET_CLINICS {
@@ -110,8 +115,19 @@ erDiagram
         int elapsed_sec
         int battery_percent
         float cabin_temp_c
+        boolean guardian_returning
         timestamptz created_at
         timestamptz updated_at
+        timestamptz expires_at
+    }
+    ETA_SHARES {
+        string token_hash PK
+        string device_id FK
+        string pet_name
+        string vet_name
+        int eta_minutes
+        string symptoms
+        timestamptz created_at
         timestamptz expires_at
     }
 ```
@@ -126,9 +142,10 @@ erDiagram
 | `rest_stops` | 휴게소·졸음쉼터 | `stop_type`: `service_area` · `drowsy_shelter`, 도로공사 코드 `ex_code` 고유 |
 | `facility_codes` | 편의시설 코드표 | `pet_zone`(반려견 놀이터), `ev_fast`, `ev_slow`, `nursing_room`, `kids_zone`, `shower`, `accessible_toilet`, `sleep_room` |
 | `rest_stop_facilities` | 휴게소별 편의시설 | 충전기는 `quantity`에 대수 |
-| `pet_places` | 반려동물 동반 장소 (F4) | `source`: `tourapi` · `sample`. `category`: `restaurant` · `cafe` · `lodging` · `tour` · `walk` |
+| `pet_places` | 반려동물 동반 장소 (F4) | `source`: `tourapi` · `sample`. `category`: `restaurant` · `cafe` · `lodging` · `tour` · `walk`. 0004: `image_url`·`indoor`·`large_dog`·`companion`(모르면 NULL). 실제 데이터가 들어오면 샘플 행은 지운다 |
 | `vet_clinics` | 동물병원 (F5) | `source`: `licensing` · `sample`. 영업 중(`open`)만 서비스. 샘플은 전화번호 없음 |
-| `wait_sessions` | 대기 공유 (F3) | 토큰 원문 대신 SHA-256 해시를 키로. **위치 컬럼 없음**. 2시간 만료 |
+| `wait_sessions` | 대기 공유 (F3) | 토큰 원문 대신 SHA-256 해시를 키로. **위치 컬럼 없음**. 2시간 만료. `guardian_returning`(0004): 폰 "돌아가는 중" |
+| `eta_shares` | 동물병원 도착 예정 공유 (F5, 0004) | 해시 키, **위치 컬럼 없음**, 이름·병원·도착 예정 분·증상 메모만, 2시간 만료 |
 | `trips` | 여행 단위 | 동승자는 인원 수만(`{"adults","children","pets"}` 정수). 반려견 이름·체급·나이는 받지 않는다 |
 | `trip_events` | 여행 중 이벤트 | `(trip_id, client_event_id)` 고유로 중복 방지 |
 | `llm_call_logs` | LLM 품질 모니터링 | 프롬프트·응답 원문 저장 안 함 |
@@ -281,6 +298,7 @@ INSERT INTO facility_codes (code, label_ko) VALUES
 | `llm_call_logs` | 30일 |
 | `devices` | 마지막 접속 후 180일 |
 | `wait_sessions` | 만료(2시간) 후 1일 |
+| `eta_shares` | 만료(2시간) 후 1일 |
 | `pet_places`, `vet_clinics` | 수집 잡이 덮어씀(공용 데이터) |
 
 ## 3. 기기 Room DB

@@ -7,6 +7,7 @@ import com.emop.pause.data.alongRoute
 import com.emop.pause.engine.motion.MotionForecast
 import com.emop.pause.engine.motion.RouteShape
 import com.emop.pause.engine.planner.Facility
+import com.emop.pause.engine.planner.PetTripPreview
 import com.emop.pause.engine.planner.PlanDecision
 import com.emop.pause.mode.AppModeReducer
 import com.emop.pause.mode.ModeInput
@@ -75,5 +76,16 @@ class PetTripScenarioTest {
         val before = run.motionAt.getValue(8_820)
         val after = run.motionAt.getValue(9_840)
         assertTrue(after >= before + 15, "고갯길 전 $before → 후 $after")
+    }
+
+    @Test
+    fun `F2 출발 체크 미리보기의 첫 쉼표 = 주행 중 첫 추천 (같은 플래너)`() {
+        val route = scenario.route
+        val stops = bundled.alongRoute(route.points.map { it.toModel() }, route.totalDistanceM.toDouble())
+        val setup = PresetStore.fromScenario(scenario.setup)
+        val kmPerMin = route.totalDistanceM / 1000.0 / (scenario.durationSec / 60.0)
+        val preview = PetTripPreview.plan(stops, route.totalDistanceM / 1000.0, kmPerMin, setup.passengers, setup.sleepHours, minuteOfDay = 540)
+        val live = replay().suggestions.first().second
+        assertEquals(live.stop.name, preview.stops.first().stop.name, "미리보기 ${preview.stops.map { it.stop.name }}")
     }
 }

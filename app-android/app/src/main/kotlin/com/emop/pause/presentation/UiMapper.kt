@@ -42,6 +42,7 @@ import com.emop.pause.uistate.PlacesUi
 import com.emop.pause.uistate.PlanStopUi
 import com.emop.pause.uistate.RestUi
 import com.emop.pause.uistate.ShareUi
+import com.emop.pause.uistate.SymptomUi
 import com.emop.pause.uistate.SizeUi
 import com.emop.pause.uistate.TendencyUi
 import com.emop.pause.uistate.VetUi
@@ -118,9 +119,18 @@ object UiMapper {
         val asking = t.asking
         val forecast = t.forecast?.takeIf { it.startInM <= FORECAST_SHOW_M }
         val content: DriveContent = when {
-            asking != null && asking.fatigueFirst -> DriveContent.Suggest(asking.minutesAway, asking.stop.name, listOf("졸음 위험"), urgent = true)
-            asking != null -> DriveContent.Suggest(asking.minutesAway, asking.stop.name, asking.reasons.take(2).map { reasonText(it, name) })
-            forecast != null -> DriveContent.Forecast(MotionPhrases.forecast(forecast, name))
+            asking != null && asking.fatigueFirst -> DriveContent.Suggest(asking.minutesAway, asking.stop.name, listOf("졸음 위험"), urgent = true, distance = kmTo(asking.stop, t))
+            asking != null -> DriveContent.Suggest(
+                asking.minutesAway, asking.stop.name, asking.reasons.take(2).map { reasonText(it, name) },
+                distance = kmTo(asking.stop, t), direction = s.route?.destinationName?.let { "$it 방향" },
+            )
+            forecast != null -> DriveContent.Forecast(
+                MotionPhrases.forecast(forecast, name),
+                title = MotionPhrases.title(forecast),
+                coach = MotionPhrases.coach(forecast, name),
+                now = t.motion.index,
+                peak = max(t.motion.index, forecast.predictedIndex),
+            )
             t.heading != null -> DriveContent.Heading(minutesTo(t.heading, t), t.heading.name)
             else -> DriveContent.Calm(
                 nextPlanned(t)?.let { "다음 쉼표는 ${duration(minutesTo(it, t))} 뒤 ${it.name}예요." }
@@ -139,8 +149,22 @@ object UiMapper {
             toast = t.toast,
             restricted = s.driveState == DriveState.RESTRICTED,
             offline = offline(t),
+            pet = name,
+            sinceRest = t.fatigue?.continuousDriveMinutes?.takeIf { it > 0 }?.let { "마지막 휴식 후 ${duration(it)}" },
+            nextStop = nextPlanned(t)?.let { "약 ${kmTo(it, t)}" },
+            roadAhead = t.roadAhead,
         )
     }
+
+    /** 경로를 따라 남은 거리 "8km". */
+    fun kmTo(stop: RestStop, t: TripUi): String = km(max(0.0, stop.distanceAlongRouteKm - t.traveledKm))
+
+    /** 동물병원 가는 길 (주행 중 1순위 한 곳). 이름은 주행 화면 한 줄(14자)에 맞춰 줄인다. */
+    fun vetDrive(name: String, distanceKm: Double): DriveContent.Vet =
+        DriveContent.Vet(if (name.length > 14) name.take(13) + "…" else name, km(distanceKm), vetMinutes(distanceKm))
+
+    /** 병원까지 예상 분: 시내 평균 30km/h + 주차 2분 (가정값, 내비 경로 시간이 오면 그것을 쓴다). */
+    fun vetMinutes(distanceKm: Double): Int = max(1, (distanceKm / 30.0 * 60 + 2).roundToInt())
 
     // ───────────── 출발 체크 (F6) ─────────────
 
@@ -178,6 +202,8 @@ object UiMapper {
             plan = plan,
             rationale = if (t.plan == null) "경로를 받으면 쉴 곳을 잡아 드려요." else "${t.pet.name} 배변 간격(${t.pet.pottyIntervalMin}분)에 맞춰 쉬어 가요.",
             limitLine = limitLine,
+            route = s.route?.destinationName?.let { "${it}까지" },
+            duration = s.eta?.let { duration((it.remainTimeSec + 59) / 60) },
         )
     }
 
@@ -219,7 +245,8 @@ object UiMapper {
     fun elapsed(sec: Int) = if (sec >= 60) "${sec / 60}분째" else "${sec}초째"
 
     fun wait(w: WaitStatus, t: TripUi): WaitUi = WaitUi(
-        headline = "주인이 곧 돌아와요",
+        // 보호자가 폰 페이지에서 "돌아가는 중"을 누르면 차 화면 문구가 바뀐다.
+        headline = if (t.share.returning) "주인이 돌아오는 중이에요" else "주인이 곧 돌아와요",
         elapsed = elapsed(w.elapsedSec),
         // 실내 온도는 신호가 있을 때만 숫자로. 없으면 지어내지 않는다 (F3-06).
         cabin = w.cabinTempC?.let { "실내 ${it.roundToInt()}℃" } ?: "실내 온도 정보 없음",
@@ -227,7 +254,14 @@ object UiMapper {
         limitMin = w.limitSec / 60,
         overdue = w.overdue,
         share = ShareUi(t.share.pageUrl, t.share.connected),
+        // 배터리는 신호가 있을 때만 (디자이너 메모: 측정·연동이 가능한 경우에만 표시).
+        batteryUsed = w.batteryDelta?.let { "${max(0, -it)}%" },
+        notice = if (w.elapsedSec < NOTICE_SEC) WAIT_NOTICE else null,
     )
+
+    /** 대기 모드를 켤 때 한 번 (처음 [NOTICE_SEC]초). */
+    const val WAIT_NOTICE = "반려견을 차에 오래 혼자 두지 마세요. 이 화면은 보조 안내예요."
+    const val NOTICE_SEC = 20
 
     // ───────────── 장소·병원 (F4·F5) ─────────────
 
@@ -235,32 +269,61 @@ object UiMapper {
 
     fun km(v: Double) = if (v >= 10) "${v.roundToInt()}km" else String.format(Locale.US, "%.1fkm", v)
 
+    /** 데이터에 있는 것만 태그로: 실내/실외 · 대형견 가능/불가 · 동반 구분. 모르면 쓰지 않는다. */
+    fun placeTags(p: PetPlace): List<String> = listOfNotNull(
+        when (p.indoor) {
+            "indoor" -> "실내"
+            "outdoor" -> "실외"
+            "both" -> "실내·실외"
+            else -> null
+        },
+        when (p.largeDog) {
+            true -> "대형견 가능"
+            false -> "대형견 불가"
+            null -> null
+        },
+        p.companion?.replace("동반가능", "동반")?.trim(),
+    )
+
+    private fun place(p: PetPlace, distance: String) =
+        PlaceUi(p.id, p.name, categoryKo[p.category] ?: p.category, distance, p.petPolicy, p.sample, p.imageUrl, placeTags(p))
+
     fun places(along: Found<PetPlace>?, near: Found<PetPlace>?, loading: Boolean): PlacesUi {
-        val items = near?.items.orEmpty().map { p -> PlaceUi(p.id, p.name, categoryKo[p.category] ?: p.category, "목적지에서 ${km(p.offKm ?: 0.0)}", p.petPolicy, p.sample) } +
-            along?.items.orEmpty().map { p -> PlaceUi(p.id, p.name, categoryKo[p.category] ?: p.category, "경로에서 ${km(p.offKm ?: 0.0)} · ${km(p.alongKm ?: 0.0)} 지점", p.petPolicy, p.sample) }
+        val items = near?.items.orEmpty().map { p -> place(p, "목적지에서 ${km(p.offKm ?: 0.0)}") } +
+            along?.items.orEmpty().map { p -> place(p, "경로에서 ${km(p.offKm ?: 0.0)} · ${km(p.alongKm ?: 0.0)} 지점") }
         val sample = items.any { it.sample } || listOfNotNull(along, near).any { it.source == PlaceSource.BUNDLED }
         return PlacesUi(
             "함께 가는 장소",
             items.distinctBy { it.id },
-            if (sample) "샘플 데이터예요. 관광공사 반려동물 동반여행 키를 넣으면 실제 장소로 바뀌어요." else "한국관광공사 반려동물 동반여행 정보",
+            if (sample) "샘플 데이터예요. 서버에 관광공사 반려동물 동반여행 데이터를 넣으면 실제 장소로 바뀌어요." else "한국관광공사 반려동물 동반여행 정보 (동반 조건은 현지 사정에 따라 바뀔 수 있어요)",
             loading,
+            credit = if (items.any { it.imageUrl != null }) "사진 한국관광공사" else null,
         )
     }
 
-    fun vets(found: Found<Vet>?, loading: Boolean) = VetsUi(
-        found?.items.orEmpty().map { v -> VetUi(v.id, v.name, km(v.distanceKm), v.address, v.phone, v.sample) },
-        if (found?.items.orEmpty().any { it.sample }) "샘플 데이터예요. 전화번호는 실제 인허가 데이터에서만 보여요." else "지방행정 인허가 데이터(동물병원)",
+    fun vets(found: Found<Vet>?, loading: Boolean, memo: List<SymptomUi> = emptyList(), shareUrl: String? = null) = VetsUi(
+        found?.items.orEmpty().map { v ->
+            // 인허가 데이터는 "영업 중" 상태만 있다. 영업시간·24시는 지어내지 않는다.
+            VetUi(v.id, v.name, km(v.distanceKm), v.address, v.phone, v.sample, vetMinutes(v.distanceKm), if (v.sample) null else "영업 중")
+        },
+        if (found?.items.orEmpty().any { it.sample }) "샘플 데이터예요. 전화번호는 실제 인허가 데이터에서만 보여요."
+        else "지방행정 인허가 데이터(동물병원) · 영업시간은 데이터에 없어요. 가기 전에 전화로 확인해 주세요.",
         loading,
+        memo,
+        shareUrl,
     )
 
     // ───────────── 도착 (F6) ─────────────
 
     fun arrival(t: TripUi): ArrivalUi {
         val strong = t.arrival?.strong == true
+        val cabin = t.arrival?.cabinTempC?.let { "실내 ${it.roundToInt()}℃" }
         return ArrivalUi(
             question = "${t.pet.name} 내렸나요?",
             strong = strong,
-            detail = if (strong) "차 안이 더워질 수 있어요. 꼭 확인해 주세요." else "내린 뒤 확인을 눌러 주세요.",
+            detail = if (strong) "차 안이 금방 더워져요. 꼭 확인해 주세요." else "내린 뒤 확인을 눌러 주세요.",
+            warning = if (strong) "여름철 실내 온도 주의!" else null,
+            cabin = cabin,
         )
     }
 

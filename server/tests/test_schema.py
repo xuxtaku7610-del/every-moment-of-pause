@@ -8,7 +8,7 @@ from app.models import Base
 
 EXPECTED_TABLES = {
     "devices", "rest_stops", "facility_codes", "rest_stop_facilities",
-    "trips", "trip_events", "llm_call_logs", "pet_places", "vet_clinics", "wait_sessions",
+    "trips", "trip_events", "llm_call_logs", "pet_places", "vet_clinics", "wait_sessions", "eta_shares",
 }
 
 

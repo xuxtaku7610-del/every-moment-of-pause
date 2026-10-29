@@ -1,0 +1,89 @@
+{
+ "_comment": "TourAPI KorPetTourService2 실제 응답(2026-10-30) 일부. tel은 비움. serviceKey 없음. contentid → detailPetTour2 item",
+ "items": {
+  "3537206": {
+   "contentid": "3537206",
+   "relaAcdntRiskMtr": "",
+   "acmpyTypeCd": "전구역 동반가능",
+   "relaPosesFclty": "",
+   "relaFrnshPrdlst": "",
+   "etcAcmpyInfo": "",
+   "relaPurcPrdlst": "",
+   "acmpyPsblCpam": "",
+   "relaRntlPrdlst": "",
+   "acmpyNeedMtr": ""
+  },
+  "1947118": {
+   "contentid": "1947118",
+   "relaAcdntRiskMtr": "",
+   "acmpyTypeCd": "일부구역 동반가능",
+   "relaPosesFclty": "반려견 전용 탑승석",
+   "relaFrnshPrdlst": "배변패드 비치, 배변봉투 제공",
+   "etcAcmpyInfo": "- 목줄 착용 필수\n- 펫바이크 내 반려견 케이지가 설치되어있음",
+   "relaPurcPrdlst": "경강역 내 카페에서 반려견 간식 판매",
+   "acmpyPsblCpam": "소형견(10kg이하) 한마리 동반 가능(두마리일 경우 두마리 합쳐서 10kg이하)",
+   "relaRntlPrdlst": "",
+   "acmpyNeedMtr": "목줄 착용"
+  },
+  "2665662": {
+   "contentid": "2665662",
+   "relaAcdntRiskMtr": "",
+   "acmpyTypeCd": "일부구역 동반가능",
+   "relaPosesFclty": "넓은 잔디밭, 산책로, 야외 테라스",
+   "relaFrnshPrdlst": "",
+   "etcAcmpyInfo": "사니다카페는 반려동물 동반 가능한 카페로 야외 공간만 이용 가능합니다. 반려견은 카페 실내 공간 및 레스토랑 실내 출입 어려운 점 양해 부탁드립니다. 이용 시 리드줄을 반드시 착용해주셔야 하며, 배변을 깨끗이 처리해 주셔야 합니다. 사니다카페는 애견 카페가 아닌 애견 동반 카페로 모두에게 안전하고 쾌적한 환경을 위해 에티켓을 지켜주시길 바랍니다.\n*반려견 동반 운영 정책은 현지 사정에 따라 변동 될 수 있습니다.",
+   "relaPurcPrdlst": "",
+   "acmpyPsblCpam": "",
+   "relaRntlPrdlst": "",
+   "acmpyNeedMtr": "목줄 착용"
+  },
+  "2757631": {
+   "contentid": "2757631",
+   "relaAcdntRiskMtr": "강릉아산병원, 강릉의료원, 하슬라동물병원 (차로 30분 거리)",
+   "acmpyTypeCd": "일부구역 동반가능",
+   "relaPosesFclty": "스탠다드 트윈/더블- 펫 스텐다드 트윈/더블- 펫 빌라(월-금 조식 50% DC) ※ 모든 펫 룸은 안전을 위해 고층이 아닌 1층에 위치",
+   "relaFrnshPrdlst": "",
+   "etcAcmpyInfo": "- 빌라 전 지역, D동 반려견 동반 투숙객실 가능\n- D동 1,2층을 제외한 호텔 전 구역 동반 불가\n- 호텔 내부 이동 시 케이지 또는 개모차 필수\n- 호텔 외부에선 리드줄 착용 필수",
+   "relaPurcPrdlst": "",
+   "acmpyPsblCpam": "맹견 제외 30kg 이하 최대 1마리 동반 가능",
+   "relaRntlPrdlst": "",
+   "acmpyNeedMtr": "반려동물 유모차 탑승,이동장(켄넬)사용"
+  },
+  "125779": {
+   "contentid": "125779",
+   "relaAcdntRiskMtr": "",
+   "acmpyTypeCd": "전구역 동반가능",
+   "relaPosesFclty": "",
+   "relaFrnshPrdlst": "",
+   "etcAcmpyInfo": "- 반려견 동반 운영 정책은 사정에 따라 변동 될 수 있음\n- 맹견의 경우, 입마개 착용 필수\n- 배변봉투 지참 및 배변처리 필수",
+   "relaPurcPrdlst": "",
+   "acmpyPsblCpam": "전 견종 동반 가능",
+   "relaRntlPrdlst": "",
+   "acmpyNeedMtr": "목줄 착용"
+  },
+  "2734012": {
+   "contentid": "2734012",
+   "relaAcdntRiskMtr": "",
+   "acmpyTypeCd": "일부구역 동반가능",
+   "relaPosesFclty": "- 개별 바비큐- 바비큐- 샤워실- 캠핑장- 개별 테라스- 매점",
+   "relaFrnshPrdlst": "",
+   "etcAcmpyInfo": "- 객실 당 5kg미만 소형견 2마리 동반 가능합니다.\n- 반려견 동반 가능 객실만 동반 가능합니다.\n* 반려견 동반 운영 정책은 현지 사정에 따라 변동 될 수 있습니다.",
+   "relaPurcPrdlst": "",
+   "acmpyPsblCpam": "",
+   "relaRntlPrdlst": "",
+   "acmpyNeedMtr": ""
+  },
+  "3536831": {
+   "contentid": "3536831",
+   "relaAcdntRiskMtr": "",
+   "acmpyTypeCd": "전구역 동반가능",
+   "relaPosesFclty": "",
+   "relaFrnshPrdlst": "",
+   "etcAcmpyInfo": "",
+   "relaPurcPrdlst": "",
+   "acmpyPsblCpam": "",
+   "relaRntlPrdlst": "",
+   "acmpyNeedMtr": ""
+  }
+ }
+}

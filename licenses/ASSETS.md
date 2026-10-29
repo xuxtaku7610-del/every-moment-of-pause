@@ -1,0 +1,11 @@
+# 그림·아이콘 출처 (v5)
+
+| 자산 | 위치 | 출처 · 라이선스 | 비고 |
+| --- | --- | --- | --- |
+| 선 아이콘 | `androidx.compose.material:material-icons-extended` (Rounded) | Google Material Symbols · Apache-2.0 | 의존성으로 포함 |
+| 컬러 아이콘 10개 (`fe_*.xml`) | `app/src/main/res/drawable/` | Microsoft Fluent UI Emoji, Flat 스타일 · MIT ([FluentUI-Emoji-MIT.txt](FluentUI-Emoji-MIT.txt)) | github.com/microsoft/fluentui-emoji 의 SVG를 벡터 드로어블로 옮김(모양 변경 없음): Warning, Hot beverage, Thermometer, Check mark button, Microphone, Hospital, Deciduous tree, House, Sport utility vehicle, Dog face |
+| 앱 아이콘 (`ic_launcher_*.xml`), 일러스트(`Illustrations.kt`), 폰 페이지 SVG | 앱·서버 코드 | 이 프로젝트에서 직접 그림 | 다른 회사 로고·캐릭터를 본뜨지 않은 단순 도형 |
+| 장소 사진 | 실행 중 TourAPI `firstimage` URL | 한국관광공사 (공공누리, `cpyrhtDivCd` Type1·Type3) | 앱에 묶지 않고 불러와 보여 주며 "사진 한국관광공사" 표기. Type3는 변경 금지 → 자르기만(썸네일), 보정 없음 |
+| 디자이너 그림 (`docs/design/v5/assets/*.png`) | 디버그 빌드 assets에만 | **출처·이용 조건 기록 필요 (사용자 확인 대기)** | 확인 전에는 릴리스에 넣지 않음 |
+| 글꼴 | `res/font/pretendard_*` | Pretendard · SIL OFL 1.1 ([Pretendard-OFL.txt](Pretendard-OFL.txt)) | |
+| 고갯길 시연 경로 | `scenarios/geo/mountain_road.gpx` | © OpenStreetMap contributors · ODbL 1.0 | |

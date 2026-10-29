@@ -1,3 +1,5 @@
+> **폐기 — v5가 기준** ([v5/STYLE_V5.md](v5/STYLE_V5.md)). 아래는 이력으로만 둔다.
+
 # UI 규격서 v2 (라이트) — 쉼표 (Every Moment of Pause)
 
 이 문서와 `mockups/*.png`(17장, 한눈에 보기는 `mockups/overview.png`)가 UI의 기준이다. `ui_design.png`(다른 AI가 만든 어두운 시안)는 아이디어 참고용일 뿐 기준이 아니다(§8). 화면을 만들거나 고칠 때는 항상 해당 시안 PNG를 먼저 열어 보고, 구현 후 에뮬레이터 스크린샷과 나란히 비교한다. 값이 시안 HTML(`mockups/mockups.html`)과 다르면 HTML의 CSS 값이 우선이다.

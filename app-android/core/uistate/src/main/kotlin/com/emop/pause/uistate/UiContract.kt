@@ -19,6 +19,8 @@ sealed interface Screen {
     data class TripLog(val ui: TripLogUi) : Screen
     data class PetProfile(val ui: PetEditUi) : Screen
     data class Settings(val ui: SettingsUi) : Screen
+    /** 첫 실행 3단계 (반려견 프로필 → 차량 연동 → 멀미 민감도 진단). */
+    data class Onboarding(val ui: OnboardingUi) : Screen
 }
 
 data class AppUiState(
@@ -34,7 +36,7 @@ data class AppUiState(
 )
 
 /** 발표 모드에서 고정 장면을 보여 줄 때 (화면 검증·PT 예비용). [Fixtures.screen]이 상태를 만든다. */
-enum class Scene { DEPART, DRIVE, FORECAST, SUGGEST, URGENT, RESTRICTED, REST, WAIT, WAIT_OVERDUE, PLACES, VETS, ARRIVAL, TRIPLOG, PET, SETTINGS }
+enum class Scene { DEPART, DRIVE, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, REST, WAIT, WAIT_OVERDUE, PLACES, VETS, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
 
 /** 화면 → ViewModel. 화면은 이 이벤트만 보내고, 무엇이 일어나는지는 ViewModel이 정한다. */
 sealed interface UiEvent {
@@ -69,6 +71,8 @@ sealed interface UiEvent {
     // 장소·병원 (F4·F5): 경유지로 넣거나 길 안내
     data class GoPlace(val id: String) : UiEvent
     data class GoVet(val id: String) : UiEvent
+    /** 동물병원 도착 예정 공유 링크 만들기 (정차 중). 위치는 보내지 않는다. */
+    data class ShareVetEta(val id: String) : UiEvent
 
     // 도착·기록 (F6·F7)
     data object ConfirmLeft : UiEvent
@@ -83,6 +87,11 @@ sealed interface UiEvent {
     data class SetPotty(val minutes: Int) : UiEvent
     data object TogglePetZone : UiEvent
     data object SavePet : UiEvent
+
+    // 온보딩 (첫 실행)
+    data object OnboardNext : UiEvent
+    data object OnboardBack : UiEvent
+    data class AnswerQuiz(val question: Int, val option: Int) : UiEvent
 
     // 설정
     /** 0 빠르게 · 1 보통 · 2 여유. */

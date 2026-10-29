@@ -46,6 +46,14 @@ import com.emop.pause.uistate.SymptomUi
 import com.emop.pause.uistate.TripLogUi
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.UxPolicy
+import com.emop.pause.uistate.DriveContent
+import com.emop.pause.uistate.DriveUi
+import com.emop.pause.uistate.HistoryUi
+import com.emop.pause.uistate.MotionQuiz
+import com.emop.pause.uistate.OnboardingUi
+import com.emop.pause.core.model.AppMode
+import com.emop.pause.data.net.EtaShareReq
+import com.emop.pause.engine.motion.MotionConstants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,6 +88,17 @@ data class AppState(
     val limit: LimitEstimate? = null,
     val saved: SavedTrip? = null,
     val symptoms: Set<String> = emptySet(),
+    /** 첫 실행 온보딩 단계(1~3)와 멀미 민감도 답(0 없음 · 1 가끔 · 2 자주). */
+    val onboardStep: Int = 1,
+    val quiz: List<Int?> = List(MotionQuiz.questions.size) { null },
+    /** 안내를 시작한 동물병원 (주행 중엔 1순위 한 곳 2줄로 보인다). */
+    val goingVet: Vet? = null,
+    /** 병원으로 주행을 시작했는지 — 그 뒤 멈추면 병원 안내를 끝낸다. */
+    val vetDriving: Boolean = false,
+    /** 도착 예정 공유 링크. */
+    val etaUrl: String? = null,
+    /** 이 차에 저장된 이전 기록 (최근 순). */
+    val history: List<PetTripRecord> = emptyList(),
 )
 
 @HiltViewModel
@@ -109,11 +128,12 @@ class MainViewModel @Inject constructor(
         trip.voiceEnabled = settings.voiceSuggest
         trip.eager = settings.timing == 0
         viewModelScope.launch { refreshLimit() }
-        // 발표 모드 점프: 건너뛴 구간의 정차 기록을 다시 쌓는다.
+        // 발표 모드 점프: 건너뛴 구간의 정차 기록을 다시 쌓는다. 이때 휴게소 목록은 다시 받는 중일 수 있어
+        // 이름은 비워 두고(빈 목록) 다음 실시간 기록에서 그 위치·목록으로 채운다.
         viewModelScope.launch {
             runtime.replays.collect { frames ->
                 recorder.reset()
-                frames.forEach { s -> recorder.tick(s.clockMinute, s.mode, s.pauseCause, null, null, s.route?.totalDistanceM?.let { tot -> (tot - (s.eta?.remainDistanceM ?: tot)) / 1000.0 } ?: 0.0, trip.ui.value.stops) }
+                frames.forEach { s -> recorder.tick(s.clockMinute, s.mode, s.pauseCause, null, null, s.route?.totalDistanceM?.let { tot -> (tot - (s.eta?.remainDistanceM ?: tot)) / 1000.0 } ?: 0.0, emptyList()) }
             }
         }
         viewModelScope.launch {
@@ -129,6 +149,12 @@ class MainViewModel @Inject constructor(
                 }
                 // 주행이 시작되면 위로 연 화면을 닫는다 (DS-01).
                 if (s.driveState.forcesDrivingUi && _app.value.overlay != Overlay.NONE) _app.update { it.copy(overlay = Overlay.NONE, petDraft = null) }
+                // 병원 안내: 주행을 시작했으면 표시, 그 뒤 멈추면(도착·정차) 끝낸다.
+                val a = _app.value
+                if (a.goingVet != null) {
+                    if (s.mode == AppMode.DRIVING && !a.vetDriving) _app.update { it.copy(vetDriving = true) }
+                    else if (s.mode != AppMode.DRIVING && a.vetDriving) _app.update { it.copy(goingVet = null, vetDriving = false) }
+                }
             }
         }
     }
@@ -153,16 +179,19 @@ class MainViewModel @Inject constructor(
         )
         val screen = when (route) {
             Route.SCENE -> Fixtures.screen(a.scene!!)
-            Route.DRIVE -> Screen.Drive(UxPolicy.apply(UiMapper.drive(s, t), ux))
+            Route.DRIVE -> Screen.Drive(UxPolicy.apply(withVet(UiMapper.drive(s, t), a), ux))
             Route.DEPART -> Screen.Depart(UiMapper.depart(s, t, a.limit?.let { PetTripLog.limitPhrase(t.pet.name, it) }, t.profileSaved == true || s.simSetup?.pet != null))
             Route.REST -> Screen.Rest(UiMapper.rest(s, t, a.restChoice, recorder.currentStop, t.wait.limitSec / 60))
             Route.WAIT -> Screen.Wait(UiMapper.wait(t.wait, t))
             Route.PLACES -> Screen.Places(UiMapper.places(a.along, a.near, a.loading))
-            Route.VETS -> Screen.Vets(UiMapper.vets(a.vets, a.loading))
+            Route.VETS -> Screen.Vets(UiMapper.vets(a.vets, a.loading, MEMO.map { SymptomUi(it, it in a.symptoms) }, a.etaUrl))
             Route.ARRIVAL -> Screen.Arrival(UiMapper.arrival(t))
             Route.TRIPLOG -> Screen.TripLog(tripLog(s, t, a))
-            Route.PET -> Screen.PetProfile(UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = a.overlay != Overlay.PET))
+            Route.PET -> Screen.PetProfile(UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = false))
             Route.SETTINGS -> Screen.Settings(settingsUi(s))
+            Route.ONBOARDING -> Screen.Onboarding(
+                OnboardingUi(a.onboardStep, UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = true), signalRows(s), MotionQuiz.ui(a.quiz), MotionQuiz.result(a.quiz)),
+            )
         }
         val motion = when {
             route != Route.SCENE -> UxPolicy.motionAllowed(ScreenRouter.motionAllowed(s.mode, s.driveState, settings.reduceMotion), ux)
@@ -207,6 +236,10 @@ class MainViewModel @Inject constructor(
             is UiEvent.SetPotty -> editPet { it.copy(pottyIntervalMin = e.minutes) }
             UiEvent.TogglePetZone -> editPet { p -> p.copy(facilityPrefs = if ("pet_zone" in p.facilityPrefs) p.facilityPrefs - "pet_zone" else p.facilityPrefs + "pet_zone") }
             UiEvent.SavePet -> savePet()
+            UiEvent.OnboardNext -> onboardNext()
+            UiEvent.OnboardBack -> _app.update { it.copy(onboardStep = (it.onboardStep - 1).coerceAtLeast(1)) }
+            is UiEvent.AnswerQuiz -> _app.update { a -> a.copy(quiz = a.quiz.mapIndexed { i, v -> if (i == e.question) e.option else v }) }
+            is UiEvent.ShareVetEta -> shareVetEta(e.id)
             is UiEvent.SetTiming -> { settings.timing = e.value; trip.eager = e.value == 0; trip.refreshPreview() }
             UiEvent.ToggleVoice -> { settings.voiceSuggest = !settings.voiceSuggest; trip.voiceEnabled = settings.voiceSuggest; bump() }
             UiEvent.ToggleReduceMotion -> { settings.reduceMotion = !settings.reduceMotion; bump() }
@@ -275,6 +308,22 @@ class MainViewModel @Inject constructor(
         if (snapshot.value.source == SourceMode.SIMULATION) play() else runtime.setVehicleTrip(TripPhase.ACTIVE)
     }
 
+    /** 온보딩 다음: 1 프로필(검사 통과) → 2 차량 연동 → 3 멀미 민감도(답 3개) → 결과를 성향으로 저장. */
+    private fun onboardNext() {
+        val a = _app.value
+        val draft = a.petDraft ?: trip.ui.value.pet
+        when (a.onboardStep) {
+            1 -> if (draft.problems().isEmpty()) _app.update { it.copy(onboardStep = 2, petDraft = draft) }
+            2 -> _app.update { it.copy(onboardStep = 3) }
+            else -> {
+                val r = MotionQuiz.result(a.quiz) ?: return
+                _app.update { it.copy(petDraft = draft.copy(motionTendency = MotionTendency.valueOf(r.name))) }
+                savePet()
+                _app.update { it.copy(onboardStep = 1, quiz = List(MotionQuiz.questions.size) { null }) }
+            }
+        }
+    }
+
     private fun editPet(f: (PetProfile) -> PetProfile) = _app.update { a -> a.copy(petDraft = f(a.petDraft ?: trip.ui.value.pet)) }
 
     private fun savePet() {
@@ -287,7 +336,7 @@ class MainViewModel @Inject constructor(
 
     private suspend fun refreshLimit() {
         val trips = runCatching { petStore.recentTrips() }.getOrDefault(emptyList())
-        _app.update { it.copy(limit = PetTripLog.limit(trips)) }
+        _app.update { it.copy(limit = PetTripLog.limit(trips), history = trips.sortedByDescending { r -> r.startedMs }) }
     }
 
     // ───────────── 장소·병원 (F4·F5) ─────────────
@@ -333,7 +382,41 @@ class MainViewModel @Inject constructor(
      */
     private fun goVet(id: String) {
         val v = _app.value.vets?.items?.firstOrNull { it.id == id } ?: return
+        _app.update { it.copy(goingVet = v, vetDriving = false) }
         addWaypoint(v.lat, v.lng, v.name)
+    }
+
+    /** 주행 화면: 병원 안내 중이면 안내 한 줄 대신 1순위 병원 2줄 (제안·예보가 있으면 그것이 먼저). */
+    private fun withVet(d: DriveUi, a: AppState): DriveUi {
+        val v = a.goingVet ?: return d
+        if (d.content !is DriveContent.Calm && d.content !is DriveContent.Heading) return d
+        val vet = UiMapper.vetDrive(v.name, v.distanceKm)
+        return d.copy(content = vet, nextStop = null, meta = "동물병원까지 ${vet.minutes}분")
+    }
+
+    /**
+     * 동물병원 도착 예정 공유 (V5 §5): 무작위 토큰 링크를 만들어 보호자 폰으로 보낸다. 보호자가 병원·가족에게 직접 전달한다.
+     * 위치는 보내지 않고 반려견 이름·병원·도착 예정 분·고른 증상만. 서버가 없으면 만들지 않는다.
+     */
+    private fun shareVetEta(id: String) {
+        val a = _app.value
+        val v = a.vets?.items?.firstOrNull { it.id == id } ?: return
+        val session = server.session
+        if (session == null) {
+            trip.notify("서버 연결이 없어 공유 링크를 만들지 못했어요.")
+            return
+        }
+        viewModelScope.launch {
+            val req = EtaShareReq(trip.ui.value.pet.name, v.name, UiMapper.vetMinutes(v.distanceKm), a.symptoms.toList())
+            val res = runCatching { session.call { etaShare(req) } }.getOrNull()
+            if (res == null) {
+                trip.notify("공유 링크를 만들지 못했어요. 잠시 뒤 다시 해 주세요.")
+                return@launch
+            }
+            val url = trip.share.shareBase.trimEnd('/').takeIf { it.isNotBlank() }?.let { it + res.pageUrl } ?: res.pageUrl
+            _app.update { it.copy(etaUrl = url) }
+            trip.notify("도착 예정 공유 링크를 만들었어요. 보호자 폰으로 보내 주세요.")
+        }
     }
 
     private fun addWaypoint(lat: Double, lng: Double, name: String) {
@@ -387,8 +470,18 @@ class MainViewModel @Inject constructor(
             limitLine = PetTripLog.limitPhrase(t.pet.name, a.limit),
             vetSummary = PetTripLog.vetSummary(t.pet.name, record.copy(symptomNote = note), a.limit),
             symptoms = SYMPTOMS.map { SymptomUi(it, it in a.symptoms) },
+            warnings = cautionCount(saved?.series ?: log.motionSeries),
+            history = a.history.filter { it.startedMs != record.startedMs }.take(3).map { r ->
+                val d = java.time.Instant.ofEpochMilli(r.startedMs).atZone(java.time.ZoneId.systemDefault())
+                HistoryUi("${d.monthValue}월 ${d.dayOfMonth}일", "${UiMapper.duration(r.drivingMin)} · 멀미 최고 ${r.motionPeak}")
+            },
         )
     }
+
+    /** 멀미 주의(40)에 들어간 횟수: 40 아래 → 40 이상으로 오른 번 수. */
+    private fun cautionCount(series: List<Int>): Int = series.zipWithNext().count { (p, n) -> p < MotionConstants.CAUTION && n >= MotionConstants.CAUTION } +
+        if ((series.firstOrNull() ?: 0) >= MotionConstants.CAUTION) 1 else 0
+
 
     /** 기록 확인 → 증상 메모를 함께 저장하고 새 여행 준비. 시뮬레이션은 처음으로 되감는다. */
     private fun finishTrip() {
@@ -449,5 +542,8 @@ class MainViewModel @Inject constructor(
 
     private companion object {
         val SYMPTOMS = listOf("침 흘림", "헐떡임", "구토", "낑낑거림", "괜찮았어요")
+
+        /** 동물병원 화면 증상 메모(키보드 없이). 고른 값은 도착 예정 공유·이동 기록에 같이 남는다. */
+        val MEMO = listOf("구토", "침 흘림", "헐떡임", "떨림", "기운 없음")
     }
 }

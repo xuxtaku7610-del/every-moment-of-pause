@@ -23,12 +23,27 @@
 | 가는 길·목적지 | **함께 가는 장소**(한국관광공사 반려동물 동반여행), **동물병원 가는 길** |
 | 도착 | **"콩이 내렸나요?"** → **이동 기록**: "콩이는 약 1시간 10분이 한계" |
 
+### 화면 (디자인 v5, Pleos Connect 에뮬레이터 2026-10-30)
+앱 영역만 잘랐다(왼쪽 차량 패널·아래 공조 바는 Pleos 시스템 UI). 장소·병원은 실제 데이터(서버), 나머지는 발표 모드 "장면 고정". 기준·차이는 [docs/design/v5/STYLE_V5.md](docs/design/v5/STYLE_V5.md), 비교 기록은 [docs/ui_review.md](docs/ui_review.md).
+
+| 출발 체크 | 주행 기본 | 멀미 예보 |
+| --- | --- | --- |
+| ![출발 체크](docs/screens/v5/01-depart.jpg) | ![주행 기본](docs/screens/v5/02-drive.jpg) | ![멀미 예보](docs/screens/v5/03-forecast.jpg) |
+| **쉼표 추천** | **잠깐 대기 (차 화면)** | **함께 가는 장소 (TourAPI, 사진 한국관광공사)** |
+| ![쉼표 추천](docs/screens/v5/04-suggest.jpg) | ![잠깐 대기](docs/screens/v5/05-wait.jpg) | ![함께 가는 장소](docs/screens/v5/07-places-real.jpg) |
+| **동물병원 (인허가 데이터)** | **도착 체크** | **이동 기록** |
+| ![동물병원](docs/screens/v5/08-vets-real.jpg) | ![도착 체크](docs/screens/v5/09-arrival.jpg) | ![이동 기록](docs/screens/v5/10-triplog.jpg) |
+
+| 온보딩 (멀미 민감도) | 보호자 폰 대기 페이지 | 동물병원 도착 예정 공유 |
+| --- | --- | --- |
+| ![온보딩](docs/screens/v5/11-onboarding-3.jpg) | ![폰 대기](docs/screens/v5/06-phone-wait-light.jpg) | ![도착 예정](docs/screens/v5/08b-phone-eta-light.jpg) |
+
 ### 심사 항목과의 연결 (대응표)
 | 심사 항목 | 근거 | 확인 방법 |
 | --- | --- | --- |
 | 차량 특화성 | 속도(가속도)·방위·기어·주차 브레이크·배터리·경로 남은 거리를 동시에 읽어야 가능한 판단. 대기 모드는 P단·배터리를 아는 차 화면에서만 가능 | 설정 "이 차에서 쓰는 신호", 발표 모드 신호 줄, [docs/plan/sdk_check.md](docs/plan/sdk_check.md) |
 | 창의성 | "운전자 피로"가 아니라 **말 못 하는 동승자(반려견)의 멀미를 미리 예보**. 휴식 장소를 반려견 기준으로 고르고, 차 화면을 바깥 사람용 안내판으로 바꿈 | 시연 대본 [docs/demo_script.md](docs/demo_script.md) 장면 2~4 |
-| 기술 활용성 | Vehicle SDK, NaviHelper SDK, AAOS 차량 속성, CarUxRestrictions, Android STT/TTS, ISO 2631-1 멀미 누적량(MSDV) 단순화 모델, 로컬 LLM(Ollama), 공공데이터 3종 | [docs/plan/motion_model.md](docs/plan/motion_model.md), 고갯길 비교 [docs/plan/demo_compare.md](docs/plan/demo_compare.md), 테스트 [test_plan.md](test_plan.md) |
+| 기술 활용성 | Vehicle SDK, NaviHelper SDK, AAOS 차량 속성, CarUxRestrictions, Android STT/TTS, ISO 2631-1 멀미 누적량(MSDV) 단순화 모델, 로컬 LLM(Ollama), 공공데이터 3종 | [docs/plan/motion_model.md](docs/plan/motion_model.md), 고갯길 비교 [docs/plan/demo_compare.md](docs/plan/demo_compare.md)(OSM 실제 도로, 55 → 30), 테스트 [test_plan.md](test_plan.md) |
 
 ---
 
@@ -52,8 +67,11 @@
 | 데이터 | 출처 | 키 없을 때 |
 | --- | --- | --- |
 | 휴게소·편의시설 | 한국도로공사 휴게소 API (공공데이터포털) | `server/app/data/sample_reststops.json` |
-| 반려동물 동반여행 | 한국관광공사 TourAPI (공공데이터포털) | `server/app/data/sample_pet_places.json` ("샘플" 표시) |
-| 동물병원 | 지방행정 인허가 데이터(동물병원) 파일 | `server/app/data/sample_vets.json` |
+| 반려동물 동반여행 | 한국관광공사 TourAPI `KorPetTourService2` (`areaBasedList2`·`detailPetTour2`, 강원 69곳, 7일 캐시) | `server/app/data/sample_pet_places.json` ("샘플" 표시) |
+| 동물병원 | 지방행정 인허가 데이터(동물병원) 파일 `server/data/raw/*.csv` (영업 중 반려동물 병원 5,063곳) | `server/app/data/sample_vets.json` |
+| 고갯길 시연 경로 | OpenStreetMap 지방도 456호선(대관령 옛길) — `scenarios/geo/mountain_road.gpx` | 저장소에 포함 (`python scripts/gen_demo_data.py --fetch-osm`으로 다시 받기) |
+
+**지도 데이터 출처:** 고갯길 시연 경로는 © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). 같은 표기가 GPX 메타데이터와 앱 설정 화면 "데이터 출처"에 있다. 이 GPX(파생 데이터베이스)는 ODbL을 따른다.
 
 ---
 
@@ -203,12 +221,13 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
   adb shell am start -n com.emop.pause/.MainActivity --ei seek 5240 --es action play         # 휴게소 쉼표
   adb shell "am start -n com.emop.pause/.MainActivity --es say '잠깐 다녀올게'"               # 대기 모드
   adb shell am start -n com.emop.pause/.MainActivity --ei seek 8748 --es action play         # 고갯길 3km 앞 멀미 예보
-  adb shell am start -n com.emop.pause/.MainActivity --ei seek 10820 --es action play        # 도착 → 60초 뒤 "콩이 내렸나요?"
+  adb shell am start -n com.emop.pause/.MainActivity --ei seek 9660 --es action play          # 도착 10분 전 → 약 12초 뒤 산책 제안
+  adb shell am start -n com.emop.pause/.MainActivity --ei seek 10843 --es action play        # 도착 → 60초 뒤 "콩이 내렸나요?"
   adb shell am start -n com.emop.pause/.MainActivity --ez vehicle true                       # 실차 신호(Pleos SDK·AAOS 속성)
   ```
   릴리스에서도 로고를 5번 누르면 발표 모드(장면 점프·고갯길 비교) 패널이 열린다. 시연 대본: [docs/demo_script.md](docs/demo_script.md).
 - 장면별 차량 값 + 앱 장면 맞추기: `powershell -ExecutionPolicy Bypass -File scripts/vhal.ps1 <depart|highway|rest_stop|wait|mountain_road|arrive>` (user 빌드 에뮬레이터는 값 주입이 막혀 있어 앱 시뮬레이터로 맞춘다, [docs/vhal_check.md](docs/vhal_check.md)).
-- 시연 데이터 다시 만들기: `python scripts/gen_demo_data.py` (합성 고갯길 GPX·시나리오·샘플). 고갯길 비교: `./gradlew :app:testDebugUnitTest --tests "*DemoCompareTest*"` → [docs/plan/demo_compare.md](docs/plan/demo_compare.md).
+- 시연 데이터 다시 만들기: `python scripts/gen_demo_data.py` (시나리오·샘플, `--fetch-osm`이면 OSM 고갯길 GPX도 다시 받기). 고갯길 비교: `./gradlew :app:testDebugUnitTest --tests "*DemoCompareTest*"` → [docs/plan/demo_compare.md](docs/plan/demo_compare.md), 형상 소스 비교(GPX vs 회전 안내·방위): [docs/plan/shape_compare.md](docs/plan/shape_compare.md).
 
 ### 4) 테스트
 ```bash

@@ -37,6 +37,10 @@ def item(p: PetPlace) -> dict:
         "lng": p.lng,
         "address": p.address,
         "petPolicy": p.pet_policy,
+        "imageUrl": p.image_url,
+        "indoor": p.indoor,
+        "largeDog": p.large_dog,
+        "companion": p.companion,
         "sample": p.source == "sample",
         "source": p.source,
     }

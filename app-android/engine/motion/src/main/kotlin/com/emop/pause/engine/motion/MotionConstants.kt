@@ -60,6 +60,12 @@ object MotionConstants {
     /** 가까운 위험 지점을 한 구간으로 합치는 간격(m). */
     const val MERGE_GAP_M = 300.0
 
+    /** 예보 구간 병합 간격(초): 지금 속도로 이 시간 안에 지나는 직선은 한 구간으로 본다 (가정, OSM 대관령 옛길 확인). */
+    const val MERGE_GAP_SEC = 30.0
+
+    /** 이보다 짧은 위험 구간(굽이 한두 개)은 예보하지 않는다 (가정: 멀미는 반복되는 흔들림에서 온다, 2026-10-29 OSM 도로 확인). */
+    const val MIN_SEGMENT_M = 300.0
+
     /** 같은 구간 예보를 다시 말하지 않는 시간(분) (F1-10). */
     const val FORECAST_COOLDOWN_MIN = 10
 

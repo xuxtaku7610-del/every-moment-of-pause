@@ -13,6 +13,7 @@ serialization = "1.9.0"
 room = "2.7.2"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
+coil = "2.7.0"
 pleosVehicle = "2.3.2"
 pleosNaviHelper = "3.0.5"
 
@@ -26,6 +27,10 @@ compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
+# Material Symbols Rounded (Apache-2.0) — 선 아이콘 하나로 통일 (STYLE_V5 §6)
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+# TourAPI 대표 이미지 (7번 장소 화면, 메모리·디스크 캐시)
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }

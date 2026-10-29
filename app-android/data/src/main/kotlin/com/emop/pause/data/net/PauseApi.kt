@@ -45,11 +45,22 @@ interface PauseApi {
     suspend fun waitStart(@Body body: WaitStartReq): WaitStartRes
 
     @PUT("wait/{token}")
-    suspend fun waitUpdate(@Path("token") token: String, @Body body: WaitUpdateReq)
+    suspend fun waitUpdate(@Path("token") token: String, @Body body: WaitUpdateReq): WaitStatusRes
 
     @DELETE("wait/{token}")
     suspend fun waitEnd(@Path("token") token: String)
+
+    /** 동물병원 도착 예정 공유 (F5, 2시간 만료). 위치는 보내지 않고 도착 예정 분만. */
+    @POST("eta")
+    suspend fun etaShare(@Body body: EtaShareReq): EtaShareRes
 }
+
+/** 보호자 폰이 "돌아가는 중"을 누르면 [returning] = true. */
+@Serializable data class WaitStatusRes(val state: String = "waiting", val returning: Boolean = false)
+
+@Serializable data class EtaShareReq(val petName: String, val vetName: String, val etaMinutes: Int, val symptoms: List<String> = emptyList())
+
+@Serializable data class EtaShareRes(val token: String, val pageUrl: String, val expiresAt: String)
 
 @Serializable data class DeviceReq(val platform: String, val appVersion: String)
 @Serializable data class DeviceRes(val deviceId: String, val token: String)
@@ -100,6 +111,13 @@ data class PlaceDto(
     val address: String? = null,
     val petPolicy: String? = null,
     val sample: Boolean = false,
+    /** TourAPI 대표 이미지(https). 없으면 null. */
+    val imageUrl: String? = null,
+    /** indoor | outdoor | both, 모르면 null. */
+    val indoor: String? = null,
+    val largeDog: Boolean? = null,
+    /** 동반 구분 원문 ("전구역 동반가능"). */
+    val companion: String? = null,
     val distanceAlongRouteKm: Double? = null,
     val offRouteKm: Double? = null,
     val distanceKm: Double? = null,

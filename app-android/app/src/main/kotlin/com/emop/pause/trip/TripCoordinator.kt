@@ -6,7 +6,10 @@ import com.emop.pause.data.pet.PetStore
 import com.emop.pause.engine.motion.MotionForecast
 import com.emop.pause.engine.motion.MotionPhrases
 import com.emop.pause.engine.motion.MotionState
+import com.emop.pause.data.PetPlaceRepository
+import com.emop.pause.core.model.LatLng
 import com.emop.pause.engine.motion.RouteShape
+import com.emop.pause.engine.motion.TbtRouteShape
 import com.emop.pause.engine.pet.ArrivalInput
 import com.emop.pause.engine.pet.ArrivalPrompt
 import com.emop.pause.engine.pet.BoardingCheck
@@ -20,12 +23,14 @@ import com.emop.pause.data.RestStopRepository
 import com.emop.pause.data.StopSource
 import com.emop.pause.engine.fatigue.FatigueResult
 import com.emop.pause.engine.needs.NeedKind
+import com.emop.pause.engine.needs.NeedsEngine
 import com.emop.pause.engine.needs.NeedsResult
+import com.emop.pause.engine.planner.Facility
+import com.emop.pause.engine.planner.PetTripPreview
 import com.emop.pause.engine.planner.PlanDecision
 import com.emop.pause.engine.planner.RestPhrases
 import com.emop.pause.engine.planner.RestStop
 import com.emop.pause.engine.planner.TripPlan
-import com.emop.pause.engine.planner.TripPlanPreview
 import com.emop.pause.runtime.SignalRuntime
 import com.emop.pause.runtime.Snapshot
 import com.emop.pause.runtime.SourceMode
@@ -86,6 +91,8 @@ data class TripUi(
     /** 멀미 예보 (F1). */
     val motion: MotionState = MotionState(),
     val forecast: MotionForecast? = null,
+    /** 앞 1km 곡률 (주행 화면 도로 그림). */
+    val roadAhead: List<Float> = emptyList(),
     /** 잠깐 대기 모드 (F3). */
     val wait: WaitStatus = WaitStatus(),
     /** 출발 전 체크한 항목 (F6). */
@@ -116,6 +123,7 @@ class TripCoordinator @Inject constructor(
     private val resumeStore: TripResumeStore,
     private val petStore: PetStore,
     val share: WaitShare,
+    private val petPlaces: PetPlaceRepository,
 ) {
     // 엔진 상태는 한 스레드에서만 만진다(신호 수집과 음성 응답이 같은 큐를 쓴다).
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
@@ -141,6 +149,8 @@ class TripCoordinator @Inject constructor(
     @Volatile var voiceEnabled: Boolean = true
 
     private val waitMode = WaitMode()
+    /** 도착 10분 전 산책 제안을 이번 여행에서 했는지 (F4-03). */
+    private var walkSuggested = false
     private val boarding = BoardingCheck()
     /** 기기에 저장된 반려견 프로필 (실차). 시뮬레이션은 시나리오 값을 쓴다. */
     @Volatile private var savedPet: PetProfile? = null
@@ -299,13 +309,18 @@ class TripCoordinator @Inject constructor(
                 }
             }
         }
-        val state = b.tick(BrainInput(s.nowMs, s.clockMinute, s.mode, s.driveState, s.sample, s.capabilities, s.eta, s.route?.totalDistanceM))
+        val state = b.tick(BrainInput(s.nowMs, s.clockMinute, s.mode, s.driveState, s.sample, s.capabilities, s.eta, s.route?.totalDistanceM, s.turns))
         // 주행 중 쉼표 계획을 지금 위치·니즈로 다시 잡는다 (출발 전 계획이 낡아 "77분 뒤"가 보이지 않게).
         if (s.mode == AppMode.DRIVING && (s.mode != lastMode || lastReplanMs.let { it == null || s.nowMs - it >= REPLAN_MS })) {
             lastReplanMs = s.nowMs
             replanDriving(s, state)
         }
         lastMode = s.mode
+        if (ArrivalWalk.due(s.mode, s.eta?.remainTimeSec, walkSuggested)) {
+            walkSuggested = true
+            // 점프로 따라잡는 중에는 지나간 것으로만 친다.
+            if (!silent) s.route?.destination?.let { dest -> scope.launch { suggestWalk(dest) } }
+        }
         if (s.source == SourceMode.VEHICLE && lastSaveMs.let { it == null || s.nowMs - it >= TripResume.SAVE_INTERVAL_MS }) {
             lastSaveMs = s.nowMs
             resumeStore.save(b.save(s.nowMs, resumeKey(s.route)))
@@ -321,6 +336,7 @@ class TripCoordinator @Inject constructor(
                 chargeInfoAvailable = state.needs?.chargeInfoAvailable == true,
                 motion = state.motion,
                 forecast = state.forecast,
+                roadAhead = state.roadAhead,
             )
         }
         // 멀미 예보는 제안·질문 중이 아닐 때 한 줄로 말한다 (F1-10: 같은 구간은 다시 말하지 않음).
@@ -342,7 +358,9 @@ class TripCoordinator @Inject constructor(
 
     private fun startTrip(s: Snapshot): TripBrain {
         setup = setupFor(s)
+        // 앞 구간 형상: 시연 GPX가 있으면 그것, 실차는 NaviHelper 회전 안내 + 진행 방위 추정 (docs/plan/sdk_check.md).
         val shape = s.route?.shape?.takeIf { it.size >= 2 }?.let(RouteShape::fromLatLng)
+            ?: TbtRouteShape().takeIf { s.source == SourceMode.VEHICLE }
         val b = TripBrain(setup, shape, s.route?.shapeStartM ?: 0) { stops }
         brain = b
         _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours, pet = setup.pet) }
@@ -410,7 +428,8 @@ class TripCoordinator @Inject constructor(
     private fun replan(s: Snapshot) {
         val totalKm = (s.route?.totalDistanceM ?: 0) / 1000.0
         val speed = s.eta?.takeIf { it.remainTimeSec > 0 }?.let { it.remainDistanceM / 1000.0 / (it.remainTimeSec / 60.0) } ?: 0.0
-        val plan = TripPlanPreview.plan(stops, totalKm, speed, setup.passengers, setup.ev != null, setup.sleepHours, eager = eager)
+        // 주행 중 추천과 같은 플래너(PetRestPlanner)를 앞으로 돌려 본다 — 미리보기와 실제 추천이 같은 휴게소.
+        val plan = PetTripPreview.plan(stops, totalKm, speed, setup.passengers, setup.sleepHours, preferred(), s.clockMinute)
         _ui.update { it.copy(plan = plan, kmPerMin = if (it.kmPerMin > 0) it.kmPerMin else speed) }
     }
 
@@ -420,15 +439,19 @@ class TripCoordinator @Inject constructor(
     private var lastReplanMs: Long? = null
 
     private fun replanDriving(s: Snapshot, st: BrainState) {
-        val f = st.fatigue ?: return
-        val interval = _ui.value.plan?.intervalMin ?: TripPlanPreview.DRIVE_LIMIT_MIN
-        val due = st.needs?.needs?.filter { it.kind != NeedKind.CHARGE }?.minOfOrNull { it.dueInMin }
-        val gap = listOfNotNull(interval - f.continuousDriveMinutes, due).min()
+        val b = brain ?: return
         val totalKm = (s.route?.totalDistanceM ?: return) / 1000.0
         val speed = _ui.value.kmPerMin.takeIf { it > 0 } ?: (100.0 / 60)
-        val plan = TripPlanPreview.plan(stops, totalKm, speed, setup.passengers, setup.ev != null, setup.sleepHours, eager, fromKm = st.traveledKm, firstGapMin = gap)
-        _ui.update { it.copy(plan = plan.copy(intervalMin = interval)) }
+        // 지금까지의 피로·니즈 누적값과 받아들인 휴게소에서 시작한다 (주행 중 추천과 같은 플래너).
+        val saved = b.save(s.nowMs, null)
+        val plan = PetTripPreview.plan(
+            stops, totalKm, speed, setup.passengers, setup.sleepHours, preferred(), s.clockMinute,
+            fromKm = st.traveledKm, fatigue = saved.fatigue, needsElapsedSec = saved.needsElapsedSec, heading = st.heading,
+        )
+        _ui.update { it.copy(plan = plan) }
     }
+
+    private fun preferred() = setup.pet.facilityPrefs.mapNotNull(Facility::fromCode).toSet()
 
     /**
      * 앱이 여행 중에 죽었다 살아났으면 이어서 안내한다 (COMMERCIAL_READINESS A P1).
@@ -463,6 +486,7 @@ class TripCoordinator @Inject constructor(
         scope.launch { speech.clear() }
         brain = null
         stops = emptyList()
+        walkSuggested = false
         previewFor = null
         waitMode.stop()
         boarding.reset()
@@ -526,6 +550,13 @@ class TripCoordinator @Inject constructor(
         }
         _ui.update { it.copy(voice = VoicePhase.IDLE) }
         return ReplyIntent.parse(text)
+    }
+
+    private suspend fun suggestWalk(dest: LatLng) {
+        val place = ArrivalWalk.pick(petPlaces.near(dest, ArrivalWalk.RADIUS_M, ArrivalWalk.CATEGORIES).items) ?: return
+        val line = ArrivalWalk.phrase(_ui.value.pet.name, place)
+        showToast(line)
+        say(line)
     }
 
     private fun showToast(text: String) {

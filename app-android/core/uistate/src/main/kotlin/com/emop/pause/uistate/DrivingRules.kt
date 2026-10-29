@@ -9,6 +9,9 @@ object DrivingRules {
     /** 한 덩어리 텍스트 최대 2줄, 1/3 창(600dp) 기준 한 줄 약 24자. */
     const val MAX_BLOCK_CHARS = 48
 
+    /** 한 줄(제목·코칭 따로 그릴 때). */
+    const val MAX_LINE_CHARS = 24
+
     /** 장소 이름 한 줄. */
     const val MAX_PLACE_CHARS = 14
     const val MAX_BUTTONS = 2
@@ -35,7 +38,13 @@ object DrivingRules {
         }
         when (val c = ui.content) {
             is DriveContent.Calm -> block("안내", c.line)
-            is DriveContent.Forecast -> block("예보", c.line)
+            is DriveContent.Forecast -> {
+                block("예보", c.line)
+                // v5: 제목 1줄 + 코칭 1줄 (한 줄 ≈ 24자)
+                if ((c.title?.length ?: 0) > MAX_LINE_CHARS) add("예보 제목 ${c.title!!.length}자 > $MAX_LINE_CHARS: ${c.title}")
+                if ((c.coach?.length ?: 0) > MAX_LINE_CHARS) add("코칭 ${c.coach!!.length}자 > $MAX_LINE_CHARS: ${c.coach}")
+            }
+            is DriveContent.Vet -> place(c.name)
             is DriveContent.Suggest -> {
                 place(c.place)
                 if (c.reasons.size > MAX_REASONS) add("이유 ${c.reasons.size}개 > $MAX_REASONS")

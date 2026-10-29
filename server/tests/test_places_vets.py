@@ -87,16 +87,87 @@ def test_f4_04_tour_api_parser():
     assert len(ingest_pet_places.normalize_tour([one])) == 1
 
 
-def test_f4_04_fetch_pages_until_total():
+def test_f4_04_fetch_pages_until_total_then_details():
     calls = []
 
     def get(url, params):
-        calls.append((url, params["areaCode"], params["pageNo"]))
-        return {"response": {"body": {"totalCount": 150, "items": ""}}}
+        op = url.rsplit("/", 1)[1]
+        calls.append(op)
+        if op == "areaBasedList2":
+            item = {"contentid": str(params["pageNo"]), "title": "x", "mapx": "128.9", "mapy": "37.7", "contenttypeid": "39"}
+            return {"response": {"body": {"totalCount": 150, "items": {"item": [item]}}}}
+        return {"response": {"body": {"items": {"item": [{"contentid": params["contentId"], "acmpyTypeCd": "전구역 동반가능"}]}}}}
 
-    ingest_pet_places.fetch_tour("KEY", get)
-    assert len(calls) == len(ingest_pet_places.TOUR_AREAS) * 2
-    assert all(c[0].endswith("/areaBasedList") for c in calls)
+    pages, details = ingest_pet_places.fetch_tour("KEY", get)
+    assert calls.count("areaBasedList2") == len(ingest_pet_places.TOUR_AREAS) * 2
+    assert calls.count("detailPetTour2") == len(details) == 2
+    assert len(pages) == 2
+
+
+FIX = Path(__file__).resolve().parent / "fixtures"
+
+
+def _real():
+    lst = json.loads((FIX / "tour_area_list.json").read_text(encoding="utf-8"))
+    det = json.loads((FIX / "tour_pet_details.json").read_text(encoding="utf-8"))["items"]
+    return lst, det
+
+
+def test_f4_04_real_response_mapping():
+    # 실제 응답(일부): 동반 구분·대형견·실내/실외·대표 이미지
+    lst, det = _real()
+    by = {p.source_id: p for p in ingest_pet_places.normalize_tour([lst], det)}
+    assert len(by) == 7 and all(p.source == "tourapi" for p in by.values())
+    assert by["3536831"].companion == "전구역 동반가능"
+    assert by["1947118"].large_dog is False  # 소형견(10kg이하)
+    assert by["2757631"].large_dog is True   # 30kg 이하
+    assert by["2734012"].large_dog is False  # 5kg미만 소형견
+    assert by["125779"].large_dog is True    # 전 견종
+    assert by["3537206"].large_dog is None and by["3537206"].pet_policy is None  # 정보 없음 → 지어내지 않음
+    assert by["2665662"].indoor == "outdoor"  # "실내 출입 어려운 점" → 실외만
+    assert by["3536831"].indoor is None
+    assert by["125779"].image_url.startswith("https://tong.visitkorea.or.kr/")
+    assert by["3537206"].image_url is None
+    assert by["125779"].category == "walk" and by["2757631"].category == "lodging"
+
+
+def test_f4_04_cache_and_call_budget(tmp_path):
+    n = []
+
+    def get(url, params):
+        n.append(url)
+        return {"response": {"body": {"items": ""}}}
+
+    cache = ingest_pet_places.TourCache(get, tmp_path, budget=2)
+    params = {"serviceKey": "SECRET", "contentId": "1"}
+    cache("detailPetTour2", params)
+    cache("detailPetTour2", {**params, "serviceKey": "OTHER"})  # 키가 달라도 같은 캐시
+    assert len(n) == 1 and cache.hits == 1
+    assert all("SECRET" not in f.read_text(encoding="utf-8") and "SECRET" not in f.name for f in tmp_path.iterdir())
+    cache("detailPetTour2", {**params, "contentId": "2"})
+    with pytest.raises(ingest_pet_places.BudgetExceeded):
+        cache("detailPetTour2", {**params, "contentId": "3"})
+    expired = ingest_pet_places.TourCache(get, tmp_path, ttl_sec=-1)  # 언제나 만료
+    expired("detailPetTour2", params)
+    assert len(n) == 3
+
+
+def test_f4_04_real_ingest_replaces_sample_and_keeps_key_out_of_logs(db_engine, caplog):
+    import logging
+
+    caplog.set_level(logging.INFO)
+    ingest_pet_places.ingest(db_engine, Settings(tour_api_key=""))
+    lst, det = _real()
+    r = ingest_pet_places.ingest(db_engine, Settings(tour_api_key="SECRET"), fetch=lambda _k: ([lst], det))
+    assert (r.source, r.inserted) == ("tourapi", 7)
+    assert "SECRET" not in caplog.text
+    from sqlalchemy.orm import Session
+
+    from app.models import PetPlace
+
+    with Session(db_engine) as s:
+        row = s.get(PetPlace, "pp_125779")
+        assert row.large_dog is True and row.image_url and row.companion == "전구역 동반가능"
 
 
 def test_f5_01_sample_vets_nearest_first_without_phone(client):
@@ -116,11 +187,13 @@ def test_f5_02_licensing_csv_open_only_and_bad_rows_skipped(tmp_path, db_engine)
         "A-2,다라동물병원,폐업,강원 강릉시 다라로 2,,,,37.76,128.89\n"
         "A-3,마바동물병원,영업/정상,강원 강릉시 마바로 3,,,,,\n"
         "A-4,사아동물병원,영업/정상,서울 중구 사아로 4,,198000,452000,,\n"
+        "A-5,행복가축병원,영업/정상,강원 횡성군 가축로 5,,,,37.49,127.98\n"
+        "A-6,횡성축협동물병원,영업/정상,강원 횡성군 축협로 6,,,,37.49,127.98\n"
     )
     (tmp_path / "vets.csv").write_bytes(csv_text.encode("cp949"))
     r = load_vets.load(db_engine, Settings(), raw_dir=tmp_path)
     assert r.source == "licensing"
-    assert r.inserted == 2  # A-1(위도·경도), A-4(좌표 변환)
+    assert r.inserted == 2  # A-1(위도·경도), A-4(좌표 변환). A-5·A-6 농장 동물 병원은 뺀다
     assert r.skipped == 1   # A-3 좌표 없음
     from sqlalchemy.orm import Session
 
@@ -130,3 +203,23 @@ def test_f5_02_licensing_csv_open_only_and_bad_rows_skipped(tmp_path, db_engine)
         a4 = s.query(VetClinic).filter_by(license_no="A-4").one()
         assert 37.5 < a4.lat < 37.7 and 126.9 < a4.lng < 127.1
         assert s.query(VetClinic).filter_by(license_no="A-1").one().phone == "033-000-0000"
+
+
+def test_f5_02_real_licensing_file_columns_and_crs(tmp_path, db_engine):
+    # 실제 인허가 파일 일부(cp949, 전화번호 비움): 영업상태코드 01만, EPSG:5174 → WGS84, 좌표 없는 행 건너뜀, 샘플은 내림
+    load_vets.load(db_engine, Settings(), raw_dir=Path("__no_such_dir__"))
+    (tmp_path / "vets.csv").write_bytes((FIX / "vets_licensing_sample.csv").read_bytes())
+    r = load_vets.load(db_engine, Settings(), raw_dir=tmp_path)
+    # 영업 3곳 중 강릉축협동물병원·강원양돈축산업협동조합동물병원은 농장 동물 병원이라 뺀다
+    assert (r.source, r.inserted, r.skipped) == ("licensing", 1, 1)
+    assert r.deleted >= 10  # 샘플 병원
+    from sqlalchemy.orm import Session
+
+    from app.models import VetClinic
+
+    with Session(db_engine) as s:
+        rows = s.query(VetClinic).all()
+        assert {v.source for v in rows} == {"licensing"}
+        gn = next(v for v in rows if v.name == "강릉동물병원")
+        assert abs(gn.lat - 37.758) < 0.002 and abs(gn.lng - 128.899) < 0.002
+        assert gn.address.startswith("강원특별자치도 강릉시")

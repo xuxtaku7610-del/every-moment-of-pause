@@ -4,6 +4,7 @@ import com.emop.pause.core.model.AppMode
 import com.emop.pause.core.model.DriveState
 import com.emop.pause.core.model.EtaInfo
 import com.emop.pause.core.model.PetProfile
+import com.emop.pause.core.model.RouteTurn
 import com.emop.pause.core.model.Signal
 import com.emop.pause.core.model.SignalSample
 import com.emop.pause.engine.fatigue.FatigueEngine
@@ -19,7 +20,8 @@ import com.emop.pause.engine.motion.MotionConstants
 import com.emop.pause.engine.motion.MotionForecast
 import com.emop.pause.engine.motion.MotionInput
 import com.emop.pause.engine.motion.MotionState
-import com.emop.pause.engine.motion.RouteShape
+import com.emop.pause.engine.motion.RouteShapeProvider
+import com.emop.pause.engine.motion.TbtRouteShape
 import com.emop.pause.engine.planner.Facility
 import com.emop.pause.engine.planner.PetPlannerInput
 import com.emop.pause.engine.planner.PetRestPlanner
@@ -45,6 +47,8 @@ data class BrainInput(
     val eta: EtaInfo?,
     /** 경로 총 거리(m). 지금까지 온 거리 = 총 거리 - 남은 거리. */
     val totalDistanceM: Int?,
+    /** NaviHelper 회전 안내 (실차). 형상 소스가 [TbtRouteShape]일 때만 쓴다. */
+    val turns: List<RouteTurn> = emptyList(),
 )
 
 /** 엔진 결과 한 장. 화면과 음성 흐름이 이것만 본다. */
@@ -62,23 +66,28 @@ data class BrainState(
     val forecast: MotionForecast? = null,
     /** 새로 말할 예보. 음성 흐름이 [TripBrain.onForecastSpoken]으로 받아 간다 (쿨다운 10분, F1-10). */
     val speakForecast: MotionForecast? = null,
+    /** 앞 1km 곡률(1/m, [ROAD_STEP_M] 간격) — 주행 화면 도로 그림. 형상이 없으면 빈 목록. */
+    val roadAhead: List<Float> = emptyList(),
 )
 
 /**
  * 멀미 예보·피로·배변 니즈 엔진과 반려견 맞춤 쉼표 플래너를 묶는다 (flowchart §2·§3 "10초마다").
  * 시뮬레이터·실차 모두 같은 입력을 1초마다 넣고, 플래너·예보는 [EVAL_INTERVAL_MS]마다 돈다.
- * 경로 형상([shape])은 경로 진행 거리 [shapeStartM]부터 적용한다(시연 GPX). 없으면 방위만, 그것도 없으면 종방향만.
+ * 경로 형상([shape])은 경로 진행 거리 [shapeStartM]부터 적용한다: 시연 GPX([RouteShape]) 또는 실차 회전 안내·방위 추정([TbtRouteShape]).
+ * 없으면 방위만, 그것도 없으면 종방향만.
  * 순수 로직이라 시나리오를 그대로 재생해 단위 테스트한다.
  */
 class TripBrain(
     private val setup: TripSetup,
-    shape: RouteShape? = null,
+    shape: RouteShapeProvider? = null,
     private val shapeStartM: Int = 0,
     private val stops: () -> List<RestStop>,
 ) {
     private val fatigue = FatigueEngine(setup.sleepHours)
     private val needs = NeedsEngine(setup.passengers, setup.ev)
     private val motion = MotionComfortEngine(setup.pet, shape)
+    private val tbt = shape as? TbtRouteShape
+    private var lastTurns: List<RouteTurn>? = null
     private val preferred = setup.pet.facilityPrefs.mapNotNull(Facility::fromCode).toSet()
     private var lastForecastMs: Long? = null
     /** 마지막으로 말한 예보: (시각, 구간 시작, 구간 끝) — 경로 진행 거리(m) 기준. */
@@ -98,6 +107,13 @@ class TripBrain(
         )
         val traveledKm = traveledKm(i)
         val routeM = (traveledKm * 1000 - shapeStartM).takeIf { motion.shape != null }
+        if (tbt != null && routeM != null) {
+            i.sample.headingDeg?.let { tbt.observe(routeM, it) }
+            if (i.turns != lastTurns) {
+                lastTurns = i.turns
+                tbt.onTurns(routeM, i.turns)
+            }
+        }
         val m = motion.update(MotionInput(i.nowMs, i.sample.speedKph, i.sample.headingDeg, routeM))
         var forecast = state.forecast
         var speak = state.speakForecast
@@ -122,7 +138,8 @@ class TripBrain(
             val d = PetRestPlanner.plan(PetPlannerInput(stops(), traveledKm, kmPerMin, f, n.needs, m.index, preferred, lastSuggestedId))
             if (d !is PlanDecision.NoNeed) pending = d
         }
-        state = BrainState(f, n, pending, heading, traveledKm, m, forecast, speak)
+        val road = routeM?.let { at -> motion.shape?.let { sh -> List(ROAD_SAMPLES) { k -> sh.curvatureAt(at + k * ROAD_STEP_M).toFloat() } } }.orEmpty()
+        state = BrainState(f, n, pending, heading, traveledKm, m, forecast, speak, road)
         return state
     }
 
@@ -199,5 +216,7 @@ class TripBrain(
         const val EVAL_INTERVAL_MS = 10_000L
         const val ANNOUNCE_WITHIN_M = 5_000.0
         const val ANNOUNCE_MIN_AHEAD_M = 300.0
+        const val ROAD_STEP_M = 50.0
+        const val ROAD_SAMPLES = 21
     }
 }

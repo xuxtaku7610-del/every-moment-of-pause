@@ -38,3 +38,5 @@ AGENTS.md
 # 공공데이터 원본 파일(크고 자주 바뀜) — server/data/raw/README.md만 커밋
 server/data/raw/*
 !server/data/raw/README.md
+# TourAPI 응답 캐시(하루 호출 수 제한) — 언제든 다시 받을 수 있다
+server/data/cache/

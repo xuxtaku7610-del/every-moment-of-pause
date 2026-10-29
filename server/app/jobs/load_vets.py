@@ -2,9 +2,12 @@
 
 공공데이터 "지방행정 인허가 데이터 — 동물병원" 파일(CSV)을 server/data/raw/에 두면 그 파일로 적재한다.
 파일이 없으면 app/data/sample_vets.json(샘플, 전화번호 없음)을 적재한다.
-- 영업 중인 곳만(영업상태명에 "영업" 또는 "정상"), 좌표가 없거나 변환에 실패한 행은 건너뛴다.
-- 좌표: 위도·경도 열이 있으면 그대로, 없으면 좌표정보(X·Y)를 VET_SOURCE_CRS(기본 EPSG:5174)에서 WGS84로 바꾼다(pyproj).
-  TODO(vet-file): 실제 파일을 받으면 열 이름·좌표계를 확인한다.
+- 실제 파일(2026-10-30, vets.csv, cp949, 10,660행) 확인 결과:
+  열 = 관리번호·사업장명·영업상태코드(01=영업/정상)·영업상태명·도로명주소·지번주소·전화번호·좌표정보(X)·좌표정보(Y) …
+  좌표 = EPSG:5174(보정 Bessel TM 중부): 강릉동물병원 (367319.9, 474516.5) → 37.758, 128.899 로 주소와 맞는다.
+- 영업 중인 곳만(영업상태코드 01, 코드 열이 없으면 영업상태명에 "영업"·"정상"). 좌표가 없거나 변환에 실패한 행은 건너뛴다.
+- 영업시간·24시 여부는 데이터에 없다 → 화면에 쓰지 않는다(이름에 "24"가 있어도).
+- 반려견 앱이므로 이름이 가축·양계·양돈·축협 등인 농장 동물 병원은 뺀다(이름 규칙, 2026-10 파일 기준 224곳). 뺀 수는 로그 excluded.
 
 실행: python -m app.jobs.load_vets
 """
@@ -26,6 +29,9 @@ from app.models import VetClinic
 
 log = logging.getLogger(__name__)
 SAMPLE_PATH = Path(__file__).resolve().parent.parent / "data" / "sample_vets.json"
+OPEN_CODE = "01"
+# 농장 동물(가축·가금·양봉·수산) 병원 이름 — 반려견 안내에서 뺀다. 이름 규칙이라 완벽하지 않다.
+LIVESTOCK = re.compile(r"가축|양계|양돈|축협|축산|한우|젖소|낙농|양봉|수산|어류|양식")
 RAW_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "raw"
 
 
@@ -94,17 +100,24 @@ def make_transform(crs: str) -> Callable[[float, float], tuple[float, float]] | 
 
 
 def parse_licensing_csv(text: str, transform: Callable[[float, float], tuple[float, float]] | None) -> tuple[list[NormalizedVet], int]:
-    """인허가 CSV → 영업 중 병원. (목록, 건너뛴 행 수)."""
+    """인허가 CSV → 영업 중 반려동물 병원. (목록, 건너뛴 행 수). 농장 동물 병원 수는 [parse_licensing_csv.excluded]."""
     out: list[NormalizedVet] = []
     skipped = 0
+    excluded = 0
     for row in csv.DictReader(io.StringIO(text)):
+        code = _col(row, "영업상태코드")
         status = _col(row, "영업상태명", "상세영업상태명") or ""
-        if "영업" not in status and "정상" not in status:
+        if code is not None and code != OPEN_CODE:
+            continue
+        if code is None and "영업" not in status and "정상" not in status:
             continue
         lic = _col(row, "관리번호", "인허가번호")
         name = _col(row, "사업장명")
         if not lic or not name:
             skipped += 1
+            continue
+        if LIVESTOCK.search(name):
+            excluded += 1
             continue
         lat = lng = None
         try:
@@ -117,7 +130,10 @@ def parse_licensing_csv(text: str, transform: Callable[[float, float], tuple[flo
         if lat is None or lng is None or not (33 <= lat <= 39 and 124 <= lng <= 132):
             skipped += 1
             continue
-        out.append(NormalizedVet(lic, "licensing", name, _col(row, "도로명전체주소", "소재지전체주소"), _col(row, "소재지전화", "전화번호"), lat, lng))
+        out.append(NormalizedVet(lic, "licensing", name, _col(row, "도로명주소", "도로명전체주소", "지번주소", "소재지전체주소"),
+                                 _col(row, "전화번호", "소재지전화"), lat, lng))
+    parse_licensing_csv.excluded = excluded  # type: ignore[attr-defined]
+    log.info("vets file excluded livestock clinics=%d", excluded)
     return out, skipped
 
 
@@ -165,6 +181,11 @@ def load(engine: Engine, settings: Settings | None = None, raw_dir: Path = RAW_D
         vets, skipped = normalize_sample(json.loads(sample_path.read_text(encoding="utf-8"))), 0
     with Session(engine) as session, session.begin():
         result = apply(session, vets, source)
+        if source == "licensing" and vets:
+            # 실제 인허가 데이터가 들어오면 샘플 병원은 내린다.
+            for row in session.scalars(select(VetClinic).where(VetClinic.source == "sample")):
+                session.delete(row)
+                result.deleted += 1
     result.skipped = skipped
     log.info("vets load source=%s inserted=%d updated=%d deleted=%d skipped=%d", source, result.inserted, result.updated, result.deleted, skipped)
     return result

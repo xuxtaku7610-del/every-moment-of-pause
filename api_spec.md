@@ -50,6 +50,9 @@
 | DELETE | `/wait/{token}` | 대기 공유 끝 | F3 |
 | GET | `/wait/{token}` (API) | 대기 상태 JSON | F3 |
 | GET | `/wait/{token}` (루트, `/api/v1` 밖) | **보호자 폰 웹페이지** (HTML) | F3 |
+| POST | `/wait/{token}/returning` (루트) | 보호자 폰 "돌아가는 중" | F3 |
+| POST | `/eta` | 동물병원 도착 예정 공유 링크 만들기 | F5 |
+| GET | `/eta/{token}` (루트) | 도착 예정 페이지 (HTML, 2시간) | F5 |
 | POST | `/llm/phrases` | 제안·기록 요약 문장 | F2·F7 |
 | POST | `/trips` | 여행 시작 | F7 |
 | POST | `/trips/{tripId}/events` | 여행 이벤트 일괄 업로드 | F7 |
@@ -162,7 +165,11 @@
       "offRouteKm": 1.2,
       "petPolicy": "소형견 동반 가능 (샘플)",
       "sample": true,
-      "source": "sample"
+      "source": "sample",
+      "imageUrl": null,
+      "indoor": null,
+      "largeDog": null,
+      "companion": null
     }
   ],
   "count": 1
@@ -171,6 +178,7 @@
 - `category`: `restaurant` · `cafe` · `lodging` · `tour` · `walk`(산책로·공원).
 - `sample=true`면 앱은 "샘플" 배지를 붙인다(키 없이 적재한 데이터). `source`: `tourapi` | `sample`.
 - 좌표 2개 미만 → `400 INVALID_REQUEST`, `bufferMeters`는 500~20000.
+- (2026-10-30) TourAPI `KorPetTourService2` 실제 응답으로 확인한 필드: `imageUrl`(대표 이미지 `firstimage`, https로 바꿈) · `companion`(동반 구분 `acmpyTypeCd`, "전구역 동반가능"/"일부구역 동반가능") · `largeDog`(`acmpyPsblCpam` 글에서: "대형견 불가"·"소형견만"·25kg 미만 제한 → false, "전 견종"·25kg 이상 → true) · `indoor`(글에 "실내"/"실외"가 있을 때만 `indoor`·`outdoor`·`both`). 글에 없으면 `null` — 지어내지 않는다. `petPolicy` = 가능 동물 · 필요 사항.
 
 ### 2.6 GET `/places/near`
 쿼리: `lat`, `lng`, `radiusMeters`(기본 3000, 최대 10000), `categories`(쉼표 구분, 기본 `walk,cafe`), `limit`(기본 10).
@@ -187,6 +195,7 @@
 }
 ```
 - 인허가 파일(`data/raw/`)로 적재했으면 `source=licensing`, `phone`은 파일에 있으면 채운다(사업장 번호). 샘플은 전화번호를 지어내지 않고 `null`.
+- 파일에는 영업 상태만 있고 영업시간·24시 여부는 없다 → 앱은 "영업 중"까지만 보인다. 농장 동물 병원(이름에 가축·축협·양돈 등)은 적재하지 않는다.
 
 ### 2.8 대기 공유 (F3)
 앱이 P단에서 "잠깐 다녀올게"를 시작하면 토큰을 받고, 10초마다 상태를 올린다. 보호자 폰은 차 화면의 QR(또는 짧은 주소)로 `GET /wait/{token}` 페이지를 연다. **위치는 받지도 저장하지도 않는다.**
@@ -211,9 +220,22 @@
 
 **DELETE `/wait/{token}`** → `204`, 상태 `ended`.
 
+PUT·GET 상태 응답에 `returning`(보호자가 폰에서 "돌아가는 중"을 눌렀는지)이 붙는다. 앱은 PUT 응답으로 받아 차 화면 문구를 "주인이 돌아오는 중이에요"로 바꾼다.
+
+**POST `/wait/{token}/returning`** (인증 없음, 폰 페이지 폼) → `303` 페이지로 돌아감. 끝났거나 없는 토큰은 `410`/`404`.
+
 **GET `/api/v1/wait/{token}`** (인증 없음) → 마지막 상태 JSON (`state`, `elapsedSec`, `limitMin`, `batteryPercent`, `cabinTempC`, `updatedAt`, `stale`). `stale`은 마지막 갱신이 30초를 넘으면 `true`.
 
-**GET `/wait/{token}`** (인증 없음, HTML) → 큰 글자 한 화면: "주인이 곧 돌아와요 / 3분째 / 배터리 61% / 실내 온도 정보 없음". 5초마다 새로고침(`<meta http-equiv="refresh" content="5">`), 초과면 빨간 배경 "시간 초과 — 차로 돌아가 주세요". 만료면 `410` 안내 페이지. 검색 엔진 색인 금지(`noindex`).
+**GET `/wait/{token}`** (인증 없음, HTML, v5 6번 화면 390×844) → "대기 중이에요 / 4분째", 칸: 남은 시간 · 배터리(값이 있을 때만) · 실내 온도(값이 있을 때만), 주 버튼 "돌아가는 중". 5초마다 새로고침, 초과면 앰버 띠 "설정 시간이 지났어요". 라이트·다크(`prefers-color-scheme`). 만료면 `410` 안내 페이지. 검색 엔진 색인 금지(`noindex`).
+
+### 2.8-1 동물병원 도착 예정 공유 (F5)
+**POST `/eta`** (기기 토큰 필요) — 보호자 폰으로 보낼 링크를 만든다. 앱·서버가 병원에 자동으로 보내지 않는다.
+```json
+{"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"]}
+```
+응답 `201` `{"token": "...", "pageUrl": "/eta/...", "expiresAt": "..."}`. 정의되지 않은 필드(위치 등) `422`. 토큰 128비트, 해시만 저장, 2시간 만료.
+
+**GET `/eta/{token}`** (인증 없음, HTML) → "콩이 · 동물병원으로 가는 중 / 12분 뒤 도착", 병원·도착 예정 시각(KST)·증상 메모. 만료 `410`.
 
 ### 2.9 POST `/llm/phrases`
 앱이 계산한 추천 결과를 자연스러운 한국어 2문장 이내로 바꾼다. 앱은 같은 내용의 템플릿 문장을 항상 함께 준비한다.

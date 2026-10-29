@@ -25,6 +25,12 @@ data class PetPlace(
     val alongKm: Double? = null,
     /** 경로·지점에서 떨어진 거리(km). */
     val offKm: Double? = null,
+    /** TourAPI 대표 이미지(https, 사진 한국관광공사). */
+    val imageUrl: String? = null,
+    /** indoor | outdoor | both, 모르면 null(지어내지 않는다). */
+    val indoor: String? = null,
+    val largeDog: Boolean? = null,
+    val companion: String? = null,
 )
 
 data class Vet(val id: String, val name: String, val lat: Double, val lng: Double, val distanceKm: Double, val address: String?, val phone: String?, val sample: Boolean)
@@ -100,7 +106,10 @@ class PetPlaceRepository(
         fun parseVets(text: String): List<Vet> = json.decodeFromString(VetsDoc.serializer(), text).items.filter { it.open }
             .map { Vet(it.licenseNo, it.name, it.lat, it.lng, 0.0, it.address, it.phone, sample = true) }
 
-        private fun fromDto(d: PlaceDto) = PetPlace(d.placeId, d.name, d.category, d.lat, d.lng, d.address, d.petPolicy, d.sample, d.distanceAlongRouteKm, d.offRouteKm ?: d.distanceKm)
+        private fun fromDto(d: PlaceDto) = PetPlace(
+            d.placeId, d.name, d.category, d.lat, d.lng, d.address, d.petPolicy, d.sample, d.distanceAlongRouteKm, d.offRouteKm ?: d.distanceKm,
+            d.imageUrl, d.indoor, d.largeDog, d.companion,
+        )
         private fun fromDto(d: VetDto) = Vet(d.vetId, d.name, d.lat, d.lng, d.distanceKm, d.address, d.phone, d.sample)
 
         /** 등장방형 근사 거리(m). */

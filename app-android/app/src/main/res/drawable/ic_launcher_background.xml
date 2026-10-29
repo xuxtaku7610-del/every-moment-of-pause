@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 앱 아이콘 배경 (v5 12번): 파란 그라디언트 + 아래 길. 직접 그린 도형, 다른 회사 로고·캐릭터를 본뜨지 않음. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="108"
+                android:startColor="#FF286FE5" android:endColor="#FF1C53A6" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0,88 Q54,64 108,74 L108,108 L0,108 Z" android:fillColor="#FF15418A" />
+    <path android:pathData="M8,95 Q54,76 100,83" android:strokeColor="#66FFFFFF" android:strokeWidth="1.6"
+        android:strokeLineCap="round" android:fillColor="#00000000" />
+</vector>

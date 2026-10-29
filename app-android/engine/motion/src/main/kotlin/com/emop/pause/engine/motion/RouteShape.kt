@@ -9,15 +9,15 @@ import kotlin.math.min
 
 /**
  * 경로 형상: 경로 진행 거리 s(m)마다 부호 있는 곡률 κ(1/m, 왼쪽 굽음 +).
- * NaviHelper가 폴리라인을 주지 않으므로 시연 GPX·시뮬레이터에서 만든다 (docs/plan/sdk_check.md).
+ * NaviHelper가 폴리라인을 주지 않으므로 시연 GPX·시뮬레이터에서 만든다 (docs/plan/sdk_check.md). 실차는 [TbtRouteShape].
  * 곡률은 [STEP_M] 간격으로 다시 뽑은 선에서 앞뒤 [WINDOW_M] 떨어진 세 점의 외접원(멩거 곡률)으로 구한다 —
  * 듬성듬성한 GPX 꼭짓점의 각도가 창 길이에 고르게 퍼진다.
  */
-class RouteShape private constructor(private val s: DoubleArray, private val kappa: DoubleArray) {
-    val lengthM: Double get() = s.last()
+class RouteShape private constructor(private val s: DoubleArray, private val kappa: DoubleArray) : RouteShapeProvider {
+    override val lengthM: Double get() = s.last()
 
     /** 경로 진행 거리 [atM]의 곡률. 범위 밖은 0. */
-    fun curvatureAt(atM: Double): Double {
+    override fun curvatureAt(atM: Double): Double {
         if (atM < 0 || atM > lengthM) return 0.0
         var lo = 0
         var hi = s.size - 1

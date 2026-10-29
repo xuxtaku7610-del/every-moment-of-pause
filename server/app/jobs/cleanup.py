@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import Engine, delete, select
 from sqlalchemy.orm import Session
 
-from app.models import Device, LlmCallLog, Trip, TripEvent, WaitSession
+from app.models import Device, EtaShare, LlmCallLog, Trip, TripEvent, WaitSession
 
 log = logging.getLogger(__name__)
 TRIP_DAYS = 90
@@ -39,6 +39,7 @@ def cleanup(engine: Engine, now: datetime | None = None) -> CleanupResult:
         trips = s.execute(delete(Trip).where(Trip.id.in_(old_trips))).rowcount if old_trips else 0
         logs = s.execute(delete(LlmCallLog).where(LlmCallLog.created_at < now - timedelta(days=LOG_DAYS))).rowcount
         waits = s.execute(delete(WaitSession).where(WaitSession.expires_at < now - timedelta(days=WAIT_KEEP_DAYS))).rowcount
+        waits += s.execute(delete(EtaShare).where(EtaShare.expires_at < now - timedelta(days=WAIT_KEEP_DAYS))).rowcount or 0
         from app.api.devices import delete_device
 
         idle = list(s.scalars(select(Device.id).where(Device.last_seen_at < now - timedelta(days=DEVICE_DAYS))))

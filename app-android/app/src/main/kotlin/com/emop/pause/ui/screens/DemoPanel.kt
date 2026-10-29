@@ -73,9 +73,9 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("발표 모드", style = Pause.type.title, color = c.ink)
+                Text("발표 모드", style = Pause.type.h2, color = c.text)
                 Spacer(Modifier.weight(1f))
-                PauseButton("닫기", a.close, kind = ButtonKind.GHOST, small = true)
+                PauseButton("닫기", a.close, kind = ButtonKind.SECONDARY, compact = true)
             }
             Section("시나리오")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -100,14 +100,14 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
             }
             Section("고갯길 비교 (안내 없이 vs 안내대로, docs/plan/demo_compare.md)")
             if (compare == null) {
-                Text("경로 형상이 있는 시나리오(pet-trip)에서 계산해요.", style = Pause.type.caption, color = c.ink2)
+                Text("경로 형상이 있는 시나리오(pet-trip)에서 계산해요.", style = Pause.type.caption, color = c.sub)
             } else {
                 Text(
                     "멀미 지수 ${compare.unguidedFinal} → ${compare.guidedFinal}  ·  " +
                         "${compare.unguidedSec / 60}분 → ${compare.guidedSec / 60}분 (굽이 최저 ${compare.guidedMinKph}km/h)",
-                    style = Pause.type.label, color = c.ink,
+                    style = Pause.type.label, color = c.text,
                 )
-                Text("주의 예보 지수(진단 아님), 합성 고갯길, 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.ink2)
+                Text("주의 예보 지수(진단 아님), 대관령 옛길(© OpenStreetMap, ODbL), 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.sub)
             }
             Section("시안 장면 고정 (화면 검증용)")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -117,8 +117,8 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
             Section("신호")
             signalRows(s, trip).forEach { (k, v) ->
                 Row {
-                    Text(k, Modifier.width(200.dp), style = Pause.type.caption, color = c.ink2)
-                    Text(v, style = Pause.type.caption.copy(fontFamily = FontFamily.Monospace), color = c.ink)
+                    Text(k, Modifier.width(200.dp), style = Pause.type.caption, color = c.sub)
+                    Text(v, style = Pause.type.caption.copy(fontFamily = FontFamily.Monospace), color = c.text)
                 }
             }
         }
@@ -127,7 +127,7 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
 
 @Composable
 private fun Section(t: String) {
-    Text(t, Modifier.padding(top = 12.dp), style = Pause.type.captionStrong, color = Pause.colors.ink2)
+    Text(t, Modifier.padding(top = 12.dp), style = Pause.type.label, color = Pause.colors.sub)
 }
 
 @Composable
@@ -137,12 +137,12 @@ private fun Choice(label: String, on: Boolean, onClick: () -> Unit) {
         Modifier
             .height(72.dp)
             .clip(RoundedCornerShape(36.dp))
-            .background(if (on) c.restSoft else c.paper)
-            .then(if (on) Modifier.border(2.dp, c.rest, RoundedCornerShape(36.dp)) else Modifier)
+            .background(if (on) c.primarySoft else c.bg)
+            .then(if (on) Modifier.border(2.dp, c.primary, RoundedCornerShape(36.dp)) else Modifier)
             .clickable(onClick = onClick)
             .padding(horizontal = 28.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(label, style = Pause.type.label, color = if (on) c.restInk else c.ink, maxLines = 1) }
+    ) { Text(label, style = Pause.type.label, color = if (on) c.primary else c.text, maxLines = 1) }
 }
 
 private fun signalRows(s: Snapshot, trip: TripUi): List<Pair<String, String>> = buildList {

@@ -13,6 +13,7 @@ import com.emop.pause.data.pet.PetStore
 import com.emop.pause.data.pet.RoomPetStore
 import com.emop.pause.trip.WaitShare
 import com.emop.pause.trip.WaitShareApi
+import com.emop.pause.data.net.EtaShareReq
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -86,7 +87,7 @@ object DataModule {
         val api = server.session?.let { s ->
             object : WaitShareApi {
                 override suspend fun start(limitMin: Int) = s.call { waitStart(WaitStartReq(limitMin)) }.let { it.token to it.pageUrl }
-                override suspend fun update(token: String, body: WaitUpdateReq) = s.call { waitUpdate(token, body) }
+                override suspend fun update(token: String, body: WaitUpdateReq) = s.call { waitUpdate(token, body) }.returning
                 override suspend fun end(token: String) = s.call { waitEnd(token) }
             }
         }
@@ -128,4 +129,5 @@ private class AuthedApi(private val s: ServerSession) : PauseApi {
     override suspend fun waitStart(body: WaitStartReq) = s.call { waitStart(body) }
     override suspend fun waitUpdate(token: String, body: WaitUpdateReq) = s.call { waitUpdate(token, body) }
     override suspend fun waitEnd(token: String) = s.call { waitEnd(token) }
+    override suspend fun etaShare(body: EtaShareReq) = s.call { etaShare(body) }
 }

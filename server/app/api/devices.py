@@ -33,13 +33,14 @@ def delete_device(session: Session, device_id: str) -> None:
     SQLite 테스트는 FK CASCADE가 꺼져 있을 수 있어 직접 지운다. 커밋은 호출하는 쪽이 한다."""
     from sqlalchemy import delete, update
 
-    from app.models import LlmCallLog, Trip, TripEvent, WaitSession
+    from app.models import EtaShare, LlmCallLog, Trip, TripEvent, WaitSession
 
     trips = [t for (t,) in session.execute(select(Trip.id).where(Trip.device_id == device_id))]
     if trips:
         session.execute(delete(TripEvent).where(TripEvent.trip_id.in_(trips)))
     session.execute(delete(Trip).where(Trip.device_id == device_id))
     session.execute(delete(WaitSession).where(WaitSession.device_id == device_id))
+    session.execute(delete(EtaShare).where(EtaShare.device_id == device_id))
     session.execute(update(LlmCallLog).where(LlmCallLog.device_id == device_id).values(device_id=None))
     session.execute(delete(Device).where(Device.id == device_id))
 

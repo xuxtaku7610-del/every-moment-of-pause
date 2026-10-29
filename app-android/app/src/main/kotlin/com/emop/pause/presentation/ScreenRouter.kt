@@ -4,7 +4,7 @@ import com.emop.pause.core.model.AppMode
 import com.emop.pause.core.model.DriveState
 
 /** 어떤 화면을 그릴지 (상태 값은 ViewModel이 채운다). */
-enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, TRIPLOG, PET, SETTINGS }
+enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, TRIPLOG, PET, SETTINGS, ONBOARDING }
 
 /** 정차 중에 위로 여는 화면. */
 enum class Overlay { NONE, PET, SETTINGS, PLACES, VETS }
@@ -22,7 +22,7 @@ object ScreenRouter {
         val simulation: Boolean,
         val sceneLocked: Boolean = false,
         val overlay: Overlay = Overlay.NONE,
-        /** 프로필을 아직 저장하지 않음(첫 실행) → 출발 전에 프로필 화면. */
+        /** 프로필을 아직 저장하지 않음(첫 실행) → 출발 전에 온보딩 3단계. */
         val needsProfile: Boolean = false,
         val waiting: Boolean = false,
         val leftConfirmed: Boolean = false,
@@ -35,7 +35,9 @@ object ScreenRouter {
         i.driveState.forcesDrivingUi -> Route.DRIVE
         i.waiting && i.mode == AppMode.PAUSE -> Route.WAIT
         i.overlay == Overlay.SETTINGS && i.setupAllowed -> Route.SETTINGS
-        (i.overlay == Overlay.PET || (i.needsProfile && i.mode == AppMode.PREPARE)) && i.setupAllowed -> Route.PET
+        i.overlay == Overlay.PET && i.setupAllowed -> Route.PET
+        // 첫 실행: 3단계 온보딩(반려견 프로필 → 차량 연동 → 멀미 민감도 진단) — v5 11번
+        i.needsProfile && i.mode == AppMode.PREPARE && i.setupAllowed -> Route.ONBOARDING
         i.overlay == Overlay.PLACES -> Route.PLACES
         i.overlay == Overlay.VETS -> Route.VETS
         else -> when (i.mode) {

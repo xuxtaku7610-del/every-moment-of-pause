@@ -35,17 +35,19 @@ def test_f3_07_start_update_and_phone_page(client):
     assert (js["state"], js["batteryPercent"], js["cabinTempC"], js["stale"]) == ("waiting", 61, None, False)
     page = client.get(f"/wait/{token}")
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
-    assert "3분째" in page.text and "배터리 61%" in page.text and "실내 온도 정보 없음" in page.text
+    # v5 폰 페이지: 남은 시간, 배터리는 값이 있을 때만, 실내 온도는 없으면 칸 자체를 그리지 않는다.
+    assert "3분째" in page.text and "61%" in page.text and "남은 시간" in page.text and "7분" in page.text
+    assert "실내 온도" not in page.text and "돌아가는 중" in page.text
     assert "http-equiv='refresh' content='5'" in page.text and "noindex" in page.text
     assert page.headers["cache-control"] == "no-store"
 
 
-def test_f3_03_overdue_page_is_red(client):
+def test_f3_03_overdue_page_warns(client):
     h = register(client)
     token = _start(client, h)["token"]
     client.put(f"{V1}/wait/{token}", json={"state": "overdue", "elapsedSec": 610, "limitMin": 10, "batteryPercent": 60, "cabinTempC": 24.4}, headers=h)
     page = client.get(f"/wait/{token}").text
-    assert "class='overdue'" in page and "시간 초과" in page and "실내 24℃" in page
+    assert "설정 시간이 지났어요" in page and "24℃" in page and "지남" in page
 
 
 def test_f3_08_location_fields_rejected_and_token_hashed(client, db_engine):
@@ -98,3 +100,16 @@ def test_sv_05_delete_me_removes_waits_and_cleanup_after_expiry(client, db_engin
     assert client.delete(f"{V1}/devices/me", headers=h).status_code == 204
     with Session(db_engine) as s:
         assert s.scalar(select(func.count()).select_from(WaitSession)) == 0
+
+
+def test_f3_10_phone_returning_reaches_car(client):
+    # 보호자 폰 "돌아가는 중" → 차의 다음 상태 업로드 응답에 returning = true (차 화면 문구가 바뀐다)
+    h = register(client)
+    token = _start(client, h)["token"]
+    body = {"state": "waiting", "elapsedSec": 60, "limitMin": 10}
+    assert client.put(f"{V1}/wait/{token}", json=body, headers=h).json()["returning"] is False
+    r = client.post(f"/wait/{token}/returning", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == f"/wait/{token}"
+    assert client.put(f"{V1}/wait/{token}", json=body, headers=h).json()["returning"] is True
+    assert "차 화면에" in client.get(f"/wait/{token}").text
+    assert client.post("/wait/nope/returning").status_code == 404

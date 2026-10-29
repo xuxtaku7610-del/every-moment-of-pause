@@ -51,7 +51,7 @@ $Scenes = @{
 }
 
 # 앱 시뮬레이터(scenarios/pet-trip.json)의 장면 시각(초) — DemoScenes.kt와 같다 (scripts/gen_demo_data.py 출력).
-$SimSec = @{ depart = 0; highway = 210; rest_stop = 5232; wait = 5532; mountain_road = 8871; arrive = 10696 }
+$SimSec = @{ depart = 0; highway = 210; rest_stop = 5232; wait = 5532; mountain_road = 8871; arrive = 10719 }
 # 장면에 들어가며 넣을 운전자 말 (대기 모드는 "잠깐 다녀올게"로 시작한다)
 $SimSay = @{ wait = "'잠깐 다녀올게'" }  # adb shell이 띄어쓰기로 나누지 않게 작은따옴표로 감싼다
 

@@ -10,11 +10,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+from app import pages
 from app.api.deps import get_session, hash_token, require_device
 from app.config import get_settings
 from app.errors import ApiError
@@ -72,6 +73,7 @@ def _status(row: WaitSession) -> dict:
         "cabinTempC": row.cabin_temp_c,
         "updatedAt": updated.isoformat(timespec="seconds"),
         "stale": (_now() - updated).total_seconds() > STALE_SEC,
+        "returning": bool(row.guardian_returning),
     }
 
 
@@ -119,52 +121,63 @@ def status(token: str, session: Session = Depends(get_session)) -> dict:
     return _status(row)
 
 
-# ───────────── 보호자 폰 페이지 (API 접두사 밖) ─────────────
+# ───────────── 보호자 폰 페이지 (API 접두사 밖, 6번 화면 v5) ─────────────
 
 def _mins(sec: int) -> str:
     m = sec // 60
     return f"{m}분째" if m >= 1 else f"{sec}초째"
 
 
-def render(row: WaitSession | None) -> tuple[int, str]:
+def render(row: WaitSession | None, token: str = "") -> tuple[int, str]:
     if row is None or not _live(row):
-        title, body, tone = "대기가 끝났어요", "<p class='big'>대기가 끝났거나 만료됐어요</p><p>새 대기를 시작하면 새 주소가 생겨요.</p>", "ended"
-        return (404 if row is None else 410), _page(title, body, tone, refresh=False)
+        body = (
+            f"<section class='card hero'>{pages.DOG}<p class='title'>대기가 끝났어요</p>"
+            "<p class='note'>끝났거나 만료됐어요. 새 대기를 시작하면 새 주소가 생겨요.</p></section>"
+        )
+        return (404 if row is None else 410), pages.page("대기가 끝났어요", body)
     s = _status(row)
-    temp = f"실내 {s['cabinTempC']:.0f}℃" if s["cabinTempC"] is not None else "실내 온도 정보 없음"
-    battery = f"배터리 {s['batteryPercent']}%" if s["batteryPercent"] is not None else "배터리 정보 없음"
     overdue = s["state"] == "overdue"
-    head = "시간 초과 — 차로 돌아가 주세요" if overdue else "반려견이 차에서 기다리는 중"
-    stale = f"<p class='warn'>차와 연결 확인 중 (마지막 갱신 {html.escape(s['updatedAt'][11:16])})</p>" if s["stale"] else ""
+    remain = max(0, s["limitMin"] * 60 - s["elapsedSec"])
+    tiles = [("남은 시간", f"{(remain + 59) // 60}분" if not overdue else "지남")]
+    # 배터리·실내 온도는 차가 실제로 보낸 값이 있을 때만 (지어내지 않는다).
+    if s["batteryPercent"] is not None:
+        tiles.append(("배터리", f"{s['batteryPercent']}%"))
+    if s["cabinTempC"] is not None:
+        tiles.append(("실내 온도", f"{s['cabinTempC']:.0f}℃"))
+    tile_html = "".join(f"<div class='tile'><div class='label'>{k}</div><div class='value'>{html.escape(v)}</div></div>" for k, v in tiles)
+    banner = "<div class='banner'><b>설정 시간이 지났어요</b>차로 돌아가 주세요.</div>" if overdue else ""
+    stale = f"<div class='banner'><b>차와 연결 확인 중</b>마지막 갱신 {html.escape(s['updatedAt'][11:16])}</div>" if s["stale"] else ""
+    if row.guardian_returning:
+        action = "<div class='ok'>차 화면에 '돌아오는 중'이라고 알렸어요</div>"
+    else:
+        action = (
+            f"<form method='post' action='/wait/{html.escape(token)}/returning'>"
+            "<button class='btn' type='submit'>돌아가는 중</button></form>"
+        )
     body = (
-        f"<p class='head'>{head}</p>"
-        f"<p class='big'>{_mins(s['elapsedSec'])}</p>"
-        f"<p>설정 {s['limitMin']}분 · {battery}</p>"
-        f"<p>{temp}</p>{stale}"
-        "<p class='note'>위치는 공유하지 않아요. 실내 온도는 참고용이에요.</p>"
+        f"{banner}{stale}<section class='card hero'>{pages.DOG}"
+        f"<p class='title'>{'시간이 지났어요' if overdue else '대기 중이에요'}</p><p class='big'>{_mins(s['elapsedSec'])}</p></section>"
+        f"<div class='tiles'>{tile_html}</div>{action}"
+        "<p class='note'>위치는 공유하지 않아요. 이 페이지는 보조 안내예요 — 반려견을 차에 오래 혼자 두지 마세요.</p>"
     )
-    return 200, _page(head, body, "overdue" if overdue else "waiting", refresh=True)
-
-
-def _page(title: str, body: str, tone: str, refresh: bool) -> str:
-    meta = f"<meta http-equiv='refresh' content='{REFRESH_SEC}'>" if refresh else ""
-    alert = "<script>try{navigator.vibrate&&navigator.vibrate([300,200,300])}catch(e){}</script>" if tone == "overdue" else ""
-    return (
-        "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
-        "<meta name='viewport' content='width=device-width,initial-scale=1'><meta name='robots' content='noindex,nofollow'>"
-        f"{meta}<title>{html.escape(title)} · 같이가개</title><style>"
-        "body{margin:0;font-family:system-ui,sans-serif;background:#f6f4ef;color:#1d1d1b;padding:24px;line-height:1.4}"
-        "body.overdue{background:#b3261e;color:#fff}body.ended{background:#e8e6e1}"
-        ".head{font-size:26px;font-weight:700}.big{font-size:64px;font-weight:800;margin:12px 0}"
-        "p{font-size:22px;margin:8px 0}.warn{color:#8a5a00}.overdue .warn{color:#ffe082}.note{font-size:16px;opacity:.7;margin-top:24px}"
-        f"</style></head><body class='{tone}'>{body}{alert}</body></html>"
-    )
+    return 200, pages.page("반려견 대기 중", body, refresh_sec=REFRESH_SEC)
 
 
 @page_router.get("/wait/{token}", response_class=HTMLResponse)
 def page(token: str, request: Request) -> HTMLResponse:
     with Session(request.app.state.engine) as session:
         row = session.get(WaitSession, hash_token(token))
-        code, text = render(row)
+        code, text = render(row, token)
     return HTMLResponse(text, status_code=code, headers={"Cache-Control": "no-store"})
 
+
+@page_router.post("/wait/{token}/returning")
+def returning(token: str, request: Request) -> Response:
+    """보호자 폰 "돌아가는 중" (인증 없음 — 토큰이 곧 권한). 차는 다음 상태 업로드 응답에서 받는다."""
+    with Session(request.app.state.engine) as session:
+        row = session.get(WaitSession, hash_token(token))
+        if row is None or not _live(row):
+            return HTMLResponse(render(row, token)[1], status_code=404 if row is None else 410)
+        row.guardian_returning = True
+        session.commit()
+    return RedirectResponse(f"/wait/{token}", status_code=303)

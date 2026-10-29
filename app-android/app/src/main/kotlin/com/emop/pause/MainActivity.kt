@@ -33,11 +33,13 @@ import com.emop.pause.ui.screens.PetProfileScreen
 import com.emop.pause.ui.screens.PlacesScreen
 import com.emop.pause.ui.screens.RestScreen
 import com.emop.pause.ui.screens.SettingsScreen
+import com.emop.pause.ui.screens.OnboardingScreen
 import com.emop.pause.ui.screens.TripLogScreen
 import com.emop.pause.ui.screens.VetsScreen
 import com.emop.pause.ui.screens.WaitScreen
 import com.emop.pause.ui.theme.LocalMotionAllowed
 import com.emop.pause.ui.theme.PauseTheme
+import com.emop.pause.ui.theme.designScale
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -56,7 +58,7 @@ class MainActivity : ComponentActivity() {
         applyDebugExtras(intent)
         val licenses = runCatching { assets.open("licenses/Pretendard-OFL.txt").bufferedReader().use { it.readText() } }.getOrDefault("")
         setContent {
-            PauseTheme {
+            PauseTheme(scale = designScale(screenWidthDp())) {
                 val ui by viewModel.ui.collectAsStateWithLifecycle()
                 CompositionLocalProvider(LocalMotionAllowed provides ui.motionAllowed) {
                     val w = forceWidth
@@ -69,6 +71,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** 화면 전체 폭(dp). 분할 창이어도 글자 배율이 바뀌지 않게 창이 아니라 화면 기준 (STYLE_V5 §0). */
+    private fun screenWidthDp(): Int {
+        val density = resources.displayMetrics.density
+        val px = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) windowManager.maximumWindowMetrics.bounds.width()
+        else resources.displayMetrics.widthPixels
+        return (px / density).toInt()
     }
 
     /** 마이크 권한이 필요한 이벤트는 권한 창을 먼저 띄운다 (정차 중 화면에서만 나온다). */
@@ -159,6 +169,7 @@ fun PauseRoot(ui: AppUiState, licenses: String, on: (UiEvent) -> Unit) {
         is Screen.TripLog -> TripLogScreen(sc.ui, on)
         is Screen.PetProfile -> PetProfileScreen(sc.ui, on)
         is Screen.Settings -> SettingsScreen(sc.ui, on, licenses)
+        is Screen.Onboarding -> OnboardingScreen(sc.ui, on)
     }
 }
 

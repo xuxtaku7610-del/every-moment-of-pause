@@ -41,6 +41,15 @@ data class RouteInfo(
     val shapeStartM: Int = 0,
 )
 
+/**
+ * 앞쪽 회전 안내 한 건 — NaviHelper `onTBTInfo(List<TBTInfo>)`, `TBTInfo(type: TurnType, distance: Double, description)` (javap 3.0.4).
+ * [distanceM]은 받은 시점 현재 위치에서 회전 지점까지 남은 거리(m)로 본다 — TODO(pleos-sdk): 에뮬레이터에서 단위·기준 확인.
+ */
+data class RouteTurn(val kind: TurnKind, val distanceM: Double)
+
+/** SDK `TurnType`을 멀미 예보에 필요한 만큼만 줄인 종류 (매핑은 core:navi `PleosNaviSource`). */
+enum class TurnKind { LEFT, RIGHT, SHARP_LEFT, SHARP_RIGHT, KEEP_LEFT, KEEP_RIGHT, UTURN, RAMP_LEFT, RAMP_RIGHT, ROUNDABOUT, STRAIGHT }
+
 /** 목적지·다음 경유지까지 남은 거리(m)와 시간(초). NaviHelper `remainDistance/remainTime`. */
 data class EtaInfo(
     val remainDistanceM: Int,

@@ -7,6 +7,7 @@ import com.emop.pause.core.model.EtaInfo
 import com.emop.pause.core.model.LatLng
 import com.emop.pause.core.model.PauseCause
 import com.emop.pause.core.model.RouteInfo
+import com.emop.pause.core.model.RouteTurn
 import com.emop.pause.core.model.Signal
 import com.emop.pause.core.model.SignalMerge
 import com.emop.pause.core.model.SignalSample
@@ -73,6 +74,8 @@ data class Snapshot(
     /** 현지 시각(분). 피로 엔진의 시간대 요인. */
     val clockMinute: Int = 0,
     val route: RouteInfo? = null,
+    /** NaviHelper 앞쪽 회전 안내 (실차만, 멀미 예보 형상 추정). */
+    val turns: List<RouteTurn> = emptyList(),
     /** 시나리오가 정한 출발 설정. 실차는 null(프리셋 사용). */
     val simSetup: ScenarioSetup? = null,
     /** 이번 여행에서 추가한 경유지 이름 (디버그 표시). */
@@ -212,7 +215,7 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
                     n.refreshLocation()
                 }
             }
-            combine(smoothed, combine(ux.driveState, ux.uxLimits, ::Pair), n.eta(), vehicleTrip, routeFlow) { merged, (drive, limits), eta, trip, route ->
+            combine(smoothed, combine(ux.driveState, ux.uxLimits, ::Pair), n.eta(), vehicleTrip, combine(routeFlow, n.turns(), ::Pair)) { merged, (drive, limits), eta, trip, (route, turns) ->
                 val now = System.currentTimeMillis()
                 val sample = merged.sample
                 modeState = AppModeReducer.reduce(modeState, ModeInput(now, drive, trip, sample.gear, sample.speedKph, sample.charging, sample.parkingBrakeOn))
@@ -230,6 +233,7 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
                     nowMs = now,
                     clockMinute = LocalTime.now().let { it.hour * 60 + it.minute },
                     route = route,
+                    turns = turns,
                 )
             }.collect { snap ->
                 logSignalsIfChanged(snap)

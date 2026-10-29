@@ -58,17 +58,17 @@ data class MotionForecast(
 /**
  * 멀미 예보 엔진 (F1, docs/plan/motion_model.md).
  * 1) 가속도 추정: a_x = Δv/Δt, a_y = v·Δψ/Δt (방위) 또는 v²·κ(s) (경로 형상)
- * 2) 축마다 0.1~0.5Hz 대역 필터 → 제곱 합
+ * 2) 축마다 0.02~0.5Hz 대역 필터 → 제곱 합 (결정 10/29, motion_model.md §3)
  * 3) 누설 적분 D ← D·e^(−Δt/τ) + a_w²·Δt (주행 τ 120분, 정차 τ 15분), MSDV = √D
  * 4) 지수 = 100·(1 − e^(−S·MSDV/M₀)), S = 프로필 민감도
  * 순수 로직이라 시뮬레이터·실차 모두 같은 입력으로 돌고, [forecast]는 현재 상태를 복사해 앞 구간을 미리 돌린다.
  */
 class MotionComfortEngine private constructor(
     private val sensitivity: Double,
-    val shape: RouteShape?,
+    val shape: RouteShapeProvider?,
     val sampleHz: Double,
 ) {
-    constructor(profile: PetProfile = PetProfile.DEFAULT, shape: RouteShape? = null, sampleHz: Double = 1.0) :
+    constructor(profile: PetProfile = PetProfile.DEFAULT, shape: RouteShapeProvider? = null, sampleHz: Double = 1.0) :
         this(MotionConstants.sensitivity(profile), shape, sampleHz)
 
     private var bandX = BandPass(sampleHz)
@@ -133,6 +133,8 @@ class MotionComfortEngine private constructor(
         val v = speedKph / 3.6
         if (v < MIN_FORECAST_SPEED_MPS) return null
         val end = minOf(sh.lengthM, atM + v * MotionConstants.FORECAST_MIN * 60)
+        // 구간 사이 간격이 지금 속도로 MERGE_GAP_SEC초 안(최소 MERGE_GAP_M)이면 한 구간 — 고속으로 다가가면 굽이 사이 직선도 금방 지난다.
+        val mergeGap = max(MotionConstants.MERGE_GAP_M, v * MotionConstants.MERGE_GAP_SEC)
         var segStart: Double? = null
         var segEnd = 0.0
         var kMax = 0.0
@@ -140,14 +142,20 @@ class MotionComfortEngine private constructor(
         while (d <= end) {
             val k = abs(sh.curvatureAt(d))
             if (v * v * k >= MotionConstants.A_RISK) {
+                if (segStart != null && d - segEnd > mergeGap) {
+                    // 앞 구간이 굽이 하나뿐(짧음)이면 버리고 다음 구간을 본다 — 멀미는 반복되는 흔들림에서 온다.
+                    if (segEnd - segStart >= MotionConstants.MIN_SEGMENT_M) break
+                    segStart = null
+                    kMax = 0.0
+                }
                 if (segStart == null) segStart = d
-                else if (d - segEnd > MotionConstants.MERGE_GAP_M) break
                 segEnd = d
                 kMax = max(kMax, k)
             }
             d += RouteShape.STEP_M
         }
         val start = segStart ?: return null
+        if (segEnd - start < MotionConstants.MIN_SEGMENT_M) return null
         val length = max(RouteShape.STEP_M, segEnd - start)
         return MotionForecast(
             startInM = start - atM,
@@ -159,12 +167,12 @@ class MotionComfortEngine private constructor(
     }
 
     /** 위치 [s]에서 "안내 없이" 운전자의 속도: 지금 속도, 단 굽이에서는 [MotionConstants.A_DRIVER_MAX] 이하. */
-    private fun naturalSpeed(sh: RouteShape, s: Double, v: Double): Double {
+    private fun naturalSpeed(sh: RouteShapeProvider, s: Double, v: Double): Double {
         val k = abs(sh.curvatureAt(s))
         return if (k < 1e-6) v else min(v, sqrt(MotionConstants.A_DRIVER_MAX / k))
     }
 
-    private fun travelSec(sh: RouteShape, from: Double, to: Double, v: Double): Double {
+    private fun travelSec(sh: RouteShapeProvider, from: Double, to: Double, v: Double): Double {
         var t = 0.0
         var s = from
         while (s < to) {

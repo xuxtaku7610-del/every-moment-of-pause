@@ -8,7 +8,8 @@ from app.models import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # 앱 로거(요청 로그·LLM warm-up)를 끄지 않는다 — 같은 프로세스의 pytest에서 마이그레이션을 돌려도 로그 테스트가 깨지지 않게.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # 테스트가 -x url=... 이나 config 옵션으로 넘기지 않으면 .env의 DATABASE_URL을 쓴다.
 if not config.get_main_option("sqlalchemy.url"):

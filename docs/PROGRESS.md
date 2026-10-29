@@ -4,11 +4,38 @@
 규칙: git add·commit·push 하지 않는다. 작업 단위마다 아래 "커밋 대기열 (같이가개)"에 메시지와 파일만 남기고, 커밋은 사용자가 직접 한다.
 
 ## 다음 할 일 (바로 이어서)
-1. 사용자 확인 대기: 커밋 대기열 처리, TourAPI 키·동물병원 파일, Docker Desktop 켜고 `alembic upgrade head`(0003) 확인, 실제 폰으로 대기 페이지 열기.
-2. 디자인 v5가 오면 `ui/screens/PetScreens.kt`·`ui/components/Kit.kt`·`PauseRoot`만 교체 (docs/ui_contract.md).
-3. P1 남은 것: F4-03 도착 10분 전 산책 코스 음성 제안, F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모, NaviHelper `requestRoute`·위치 콜백 주기 에뮬레이터 확인.
+1. 사용자: 커밋 대기열 2차·3차 처리. `docs/design/v5/assets/*.png`(디자이너 그림) 출처를 licenses/ASSETS.md에 — 그 전에는 커밋 여부도 사용자 판단(공개 저장소에 올라감).
+2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
+3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
 
-## 커밋 대기열 (같이가개)
+## V5 (2026-10-30) — 디자인 v5 + 공공데이터 실제 전환 (`_private/V5_PROMPT.md`)
+- 0 디자인: 새 overview(12화면+토큰 표)를 `docs/design/v5/screens/01~13`으로 자름, DESIGNER_NOTES 값 + 픽셀 샘플로 `STYLE_V5.md`(색 라이트·다크, 글자·간격 = 기준값×배율 2, 컴포넌트, 화면 치수, 분할 창). UI_SPEC·STYLE_V3·STYLE_V4에 "폐기 — v5가 기준".
+- 화면: 토큰·부품(Kit)·직접 그린 일러스트(Illustrations: 원근 도로=경로 곡률, 휴게소·병원·SUV·차·반려견·앱 표시)·화면 12종 + 온보딩 3단계(멀미 민감도 `MotionQuiz`)·설정. 계약에 v5 값 추가(ui_contract "v5에서 더한 값"). 아이콘 = Material Symbols Rounded + Fluent UI Emoji Flat 10개(벡터), 디자이너 그림(`docs/design/v5/assets`)은 디버그 빌드에서 우선 사용. 앱 아이콘 = 파란 바탕·반려견 얼굴·노란 차 adaptive 벡터.
+- 검증: 장면마다 시안↔캡처 비교 최대 4회(docs/ui_review.md v5), 최종 `artifacts/ui/final_v5/`, README용 `docs/screens/v5/`. 앱 영역이 1680dp라 FULL 기준을 1500dp로.
+- 공공데이터: TourAPI 실제 엔드포인트 `KorPetTourService2`(`areaBasedList2`·`detailPetTour2`), 강원 69곳 적재(사진 35, 대형견 정보 29, 실내/실외 7), 7일 파일 캐시·호출 예산 300(첫 수집 70건, 이후 0건). 동물병원 vets.csv(cp949, EPSG:5174 확인) → 영업 중 반려동물 병원 5,063곳(농장 동물 병원 224곳 제외, 좌표 없음 204곳 건너뜀). 실데이터가 들어오면 샘플 행 삭제("[샘플]" 사라짐). 실제 응답 일부를 `server/tests/fixtures/`에.
+- 보안: httpx INFO 로그가 serviceKey가 든 URL을 찍는 것을 발견 → 수집 잡에서 httpx 로그를 WARNING으로. 저장소 전체에 키 문자열 없음 확인.
+- 추가: 폰 대기 페이지 v5(라이트·다크, "돌아가는 중" → 차 화면 "주인이 돌아오는 중이에요"), 동물병원 도착 예정 공유(`POST /eta`, `/eta/{token}`, 위치 없음·2시간). 마이그레이션 0004.
+- 테스트: `./gradlew test` 고유 249개(디버그·릴리스 실행 380) 실패 0, `pytest` 68 통과(PostgreSQL 포함).
+
+## 커밋 대기열 (같이가개 3차 — V5, 10/30) — 2차 다음에
+1. `[V5] 디자인 v5 기준 문서: 시안 자르기·STYLE_V5, 이전 디자인 폐기 표시` — `docs/design/v5/STYLE_V5.md docs/design/v5/DESIGNER_NOTES.md docs/design/v5/overview.png docs/design/v5/overview_a.png docs/design/v5/screens docs/design/v5/icon_1024.png docs/design/v5/assets/README.md docs/design/UI_SPEC.md docs/design/v3/STYLE_V3.md docs/design/v4/STYLE_V4.md` (assets/*.png는 출처 확인 후 따로)
+2. `[V5] 공공데이터 실제 전환: TourAPI KorPetTourService2·캐시, 동물병원 인허가 파일, 마이그레이션 0004` — `server/app/jobs/ingest_pet_places.py server/app/jobs/load_vets.py server/app/models.py server/alembic/versions/0004_place_details.py server/app/api/places.py server/tests/fixtures server/tests/test_places_vets.py server/tests/test_schema.py .gitignore`
+3. `[V5] 폰 대기 페이지 v5·돌아가는 중, 동물병원 도착 예정 공유` — `server/app/pages.py server/app/api/wait.py server/app/api/eta.py server/app/api/devices.py server/app/jobs/cleanup.py server/app/main.py server/tests/test_wait.py server/tests/test_eta.py api_spec.md database.md`
+4. `[V5] 화면 계약 v5 값·온보딩·멀미 민감도 진단` — `app-android/core/uistate app-android/engine/motion/src/main/kotlin/com/emop/pause/engine/motion/MotionPhrases.kt app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripBrain.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripCoordinator.kt app-android/app/src/main/kotlin/com/emop/pause/trip/WaitShare.kt app-android/app/src/main/kotlin/com/emop/pause/di/DataModule.kt app-android/data app-android/app/src/test docs/ui_contract.md test_plan.md`
+5. `[V5] 화면 v5: 토큰·부품·일러스트·12화면·앱 아이콘, 아이콘 출처` — `app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/res app-android/app/build.gradle.kts app-android/app/src/debug/assets/DEMO_ASSETS.md app-android/gradle/libs.versions.toml licenses/ASSETS.md licenses/FluentUI-Emoji-MIT.txt`
+6. `[V5] 검증 기록·README 화면·진행 기록` — `docs/ui_review.md docs/screens/v5 README.md docs/PROGRESS.md docs/BLOCKED.md todo.md`
+(2차와 같은 파일(TripCoordinator.kt·TripBrain.kt·MainViewModel.kt·PetScreens.kt 등)이 겹치므로 2·3차를 `git add -A` 한 번으로 묶어도 된다. 그때 `docs/design/v5/assets/*.png`를 넣을지 먼저 정한다.)
+
+## 커밋 대기열 (같이가개 2차, 10/29 저녁)
+1. `[P2] 출발 미리보기를 주행 추천과 같은 플래너로(PetTripPreview), 점프 뒤 쉼표 화면 휴게소 이름` — `app-android/engine/planner/src/main/kotlin/com/emop/pause/engine/planner/PetTripPreview.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripCoordinator.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripRecorder.kt app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/test/kotlin/com/emop/pause/trip/PetTripScenarioTest.kt app-android/app/src/test/kotlin/com/emop/pause/trip/TripRecorderTest.kt`
+2. `[P2] 서버: 마이그레이션 실행이 앱 로거를 끄지 않게` — `server/alembic/env.py`
+3. `[P3] 고갯길 GPX를 OSM 대관령 옛길로(ODbL 출처 표기), 비교 실험 다시` — `scripts/gen_demo_data.py scenarios/geo/mountain_road.gpx scenarios/pet-trip.json scripts/vhal.ps1 app-android/app/src/main/kotlin/com/emop/pause/presentation/DemoScenes.kt app-android/app/src/main/kotlin/com/emop/pause/ui/screens/DemoPanel.kt app-android/app/src/test/kotlin/com/emop/pause/trip/DemoCompareTest.kt app-android/core/uistate app-android/app/src/main/kotlin/com/emop/pause/ui/screens/PetScreens.kt docs/plan/demo_compare.md docs/plan/demo_compare.csv docs/plan/demo_compare_normal.csv README.md docs/ui_contract.md`
+4. `[P1] 실차 앞 구간 형상 TbtRouteShape(회전 안내·진행 방위)와 GPX 비교, 예보 구간 병합·짧은 굽이 제외` — `app-android/core/model app-android/core/navi app-android/engine/motion app-android/app/src/main/kotlin/com/emop/pause/runtime/SignalRuntime.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripBrain.kt app-android/app/src/test/kotlin/com/emop/pause/trip/ShapeProviderCompareTest.kt docs/plan/shape_compare.md docs/plan/motion_model.md docs/plan/sdk_check.md`
+5. `[P4] 도착 10분 전 산책 제안(F4-03)과 발표 장면` — `app-android/app/src/main/kotlin/com/emop/pause/trip/ArrivalWalk.kt app-android/app/src/test/kotlin/com/emop/pause/trip/ArrivalWalkTest.kt`
+6. `[P5] 시연 대본(폰 대기 페이지 연결 순서), test_plan·QA·진행 기록` — `docs/demo_script.md test_plan.md docs/qa_report.md docs/PROGRESS.md docs/BLOCKED.md todo.md`
+(파일이 여러 항목에 걸치면(TripCoordinator.kt·DemoScenes.kt 등) 한 번에 `git add -A` 후 1개 커밋도 가능.)
+
+## 커밋 대기열 (같이가개 1차 — 처리됨: 사용자가 `38bdcc7 같이가개 전환 작업`으로 커밋)
 메시지 그대로, 파일은 경로 기준. 삭제 파일은 `git add -A <경로>`로 함께 잡힌다.
 1. `[P0] 같이가개 전환: 재사용 지도·SDK 재확인 문서` — `docs/plan/REUSE_MAP.md docs/plan/sdk_check.md docs/plan/CONCEPT.md`
 2. `[P0] 뺀 기능 제거: 라디오·원정대·아직 멀었어·파워냅(앱)` — `app-android/settings.gradle.kts app-android/engine/content app-android/engine/pause app-android/voice app-android/core/uistate app-android/app`
@@ -27,6 +54,11 @@
 15. `[P4] 화면 계약 재작성(같이가개 화면 10종)과 최소 화면, 장소·병원 저장소(내장 샘플)` — `app-android/core/uistate app-android/app app-android/data docs/ui_contract.md`
 16. `[P4] 예보 속도 상한·문구 길이, 대기 공유 주소 adb` — `app-android/engine/motion docs/plan/motion_model.md`
 17. `[P5] README 대응표·실행 방법, 시연 대본, QA 점검·노출 검사, 진행 기록` — `README.md docs/demo_script.md docs/qa_report.md docs/PROGRESS.md docs/BLOCKED.md todo.md .gitignore server/data/raw/README.md`
+
+## 2026-10-29 (저녁) — 사용자 결정 반영·알려진 문제·P1
+- 한 일: ① 출발 미리보기 = `PetTripPreview`(PetRestPlanner를 피로·배변 엔진과 함께 앞으로 돌림) → 미리보기·주행 모두 횡성휴게소. ② 점프 뒤 "길가" → 재생 중 이름을 비우고 실시간 기록에서 채움. ③ Docker 켜고 PG 테스트 3개 통과, 0001↔0003 왕복, 샘플 적재; alembic이 앱 로거를 꺼 로그 테스트 2개가 깨지던 것 수정. ④ TourAPI 키 없음·vets.csv 없음 → 샘플 유지. ⑤ 고갯길 = OSM 지방도 456호선 15.0km(Overpass), ODbL 표기 README·GPX·앱 설정; 비교 55 → 30(−45%, 7분 12초 더). ⑥ `RouteShapeProvider` + `TbtRouteShape`(회전 안내 원호·방위 무늬), GPX와 비교 14곳 중 12곳. ⑦ 실제 도로에서 예보가 정상 부근 굽이 하나만 "1분"으로 말하던 것 → 30초 병합·300m 미만 제외 → "3.2km 뒤 굽은 길 12분, 콩이 멀미 걱정 — 17km/h 아래로". ⑧ F4-03 도착 10분 전 산책 제안. ⑨ motion_model.md 0장 가정값 표, demo_script 폰 연결 순서.
+- 검증: `./gradlew test` 243 통과, 서버 pytest 61 통과. 에뮬레이터 캡처 `artifacts/pet2/`(01 출발 미리보기, 03 쉼표 이름, 05 예보, 05b 산책 제안).
+- 남은 리스크: 실차 TBT 값 미확인, 장면 점프 직후 지수는 재생을 따라잡는 몇 초 동안 0으로 보일 수 있음.
 
 ## 2026-10-29 — PIVOT 5단계: 마무리
 - 한 일: README 심사 대응표(근거·확인 방법), 실행 방법(pet-trip 장면 명령, 폰 대기 페이지, vhal.ps1, 데이터 생성기), 공공데이터 출처. `docs/demo_script.md`(CONCEPT 7장 3분, 예비 대응·숫자 출처). `docs/qa_report.md` P0 점검표 재작성. 노출 검사: 280파일·커밋 작성자 — 실명·개인 이메일·키 없음, 전화번호 형태는 테스트용 가짜 `033-000-0000` 하나, `.env`·`local.properties` 추적 0.

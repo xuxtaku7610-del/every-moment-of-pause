@@ -47,7 +47,8 @@ class ScreenRouterTest {
 
     @Test
     fun `첫 실행은 출발 전에 반려견 프로필, 정차 중 위로 여는 화면`() {
-        assertEquals(Route.PET, route(Input(p, AppMode.PREPARE, false, needsProfile = true)))
+        assertEquals(Route.ONBOARDING, route(Input(p, AppMode.PREPARE, false, needsProfile = true)))
+        assertEquals(Route.PET, route(Input(p, AppMode.PREPARE, false, overlay = Overlay.PET, needsProfile = true)))
         assertEquals(Route.REST, route(Input(p, AppMode.PAUSE, false, needsProfile = true)))
         assertEquals(Route.SETTINGS, route(Input(p, AppMode.PREPARE, false, overlay = Overlay.SETTINGS)))
         assertEquals(Route.PLACES, route(Input(p, AppMode.PAUSE, false, overlay = Overlay.PLACES)))

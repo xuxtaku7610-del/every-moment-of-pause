@@ -62,6 +62,9 @@ android {
         compose = true
         buildConfig = true
     }
+    // v5 그림 자리 (STYLE_V5 §1): docs/design/v5/assets/의 그림(사용자가 넣는 도로·휴게소·병원·반려견)은 디버그 빌드에만 묶는다.
+    // 저작권을 확인하기 전에는 릴리스에 넣지 않는다. 없으면 화면은 직접 그린 일러스트를 쓴다.
+    sourceSets.getByName("debug").assets.srcDir("../../docs/design/v5/assets")
 }
 
 composeCompiler {
@@ -91,6 +94,8 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.coil.compose)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
 
