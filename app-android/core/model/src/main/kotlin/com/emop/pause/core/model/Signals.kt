@@ -1,7 +1,13 @@
 package com.emop.pause.core.model
 
 /** 앱이 읽는 차량 신호. 차종마다 지원 여부가 다르므로 값은 모두 nullable (architecture §3.1 신호 수급 전략). */
-enum class Signal { SPEED, GEAR, BATTERY_SOC, CHARGING, HVAC_TEMP, HVAC_AC, HVAC_RECIRCULATION }
+enum class Signal { SPEED, GEAR, PARKING_BRAKE, BATTERY_SOC, CHARGING, HVAC_TEMP, HVAC_AC, HVAC_RECIRCULATION }
+
+/**
+ * 신호를 어디서 받았는지 (COMMERCIAL_READINESS A P0). 발표 모드·설정 "이 차에서 쓰는 신호"에 표시한다.
+ * 우선순위: Pleos Vehicle SDK → AAOS CarPropertyManager → (시연 보충을 켰을 때만) 시뮬레이터 → 없음.
+ */
+enum class SignalSource { PLEOS_SDK, AAOS_PROPERTY, SIM, NONE }
 
 enum class Gear { PARK, REVERSE, NEUTRAL, DRIVE, UNKNOWN }
 
@@ -10,6 +16,7 @@ data class SignalSample(
     val timestampMs: Long,
     val speedKph: Float? = null,
     val gear: Gear? = null,
+    val parkingBrakeOn: Boolean? = null,
     val batterySocPercent: Int? = null,
     val charging: Boolean? = null,
     val hvacTempC: Float? = null,

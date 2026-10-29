@@ -6,6 +6,7 @@ import com.emop.pause.core.model.RouteInfo
 import com.emop.pause.core.model.Signal
 import com.emop.pause.core.model.SignalSample
 import com.emop.pause.core.model.TripPhase
+import com.emop.pause.core.model.UxLimits
 import com.emop.pause.core.navi.NaviSource
 import com.emop.pause.core.restriction.DriveStateRepository
 import com.emop.pause.core.vehicle.VehicleSource
@@ -50,4 +51,8 @@ class SimNaviSource(private val player: ScenarioPlayer) : NaviSource {
 class SimDriveStateRepository(player: ScenarioPlayer, scope: CoroutineScope) : DriveStateRepository {
     override val driveState: StateFlow<DriveState> =
         player.frame.map { it.driveState }.stateIn(scope, SharingStarted.Eagerly, player.frame.value.driveState)
+
+    /** 시나리오에는 제한 플래그가 없어 DriveState로 근사한다 ([UxLimits.approximate]). */
+    override val uxLimits: StateFlow<UxLimits> =
+        driveState.map(UxLimits::approximate).stateIn(scope, SharingStarted.Eagerly, UxLimits.approximate(player.frame.value.driveState))
 }

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     ollama_num_predict: int = 60
     llm_timeout_seconds: float = 2.5
     llm_max_sentences: int = 2
+    # 기기당 분당 요청 수 (J P0). 앱은 출발 시·제안 때만 부르므로 넉넉하다.
+    rate_limit_per_minute: int = 120
 
 
 @lru_cache

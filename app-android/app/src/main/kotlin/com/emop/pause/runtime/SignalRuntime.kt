@@ -5,17 +5,27 @@ import com.emop.pause.core.model.AppMode
 import com.emop.pause.core.model.DriveState
 import com.emop.pause.core.model.EtaInfo
 import com.emop.pause.core.model.PauseCause
+import com.emop.pause.core.model.RouteInfo
 import com.emop.pause.core.model.Signal
+import com.emop.pause.core.model.SignalMerge
 import com.emop.pause.core.model.SignalSample
+import com.emop.pause.core.model.SignalSmoother
+import com.emop.pause.core.model.SignalSource
+import com.emop.pause.core.model.SourceReading
 import com.emop.pause.core.model.TripPhase
+import com.emop.pause.core.model.UxLimits
+import com.emop.pause.core.navi.NaviSource
 import com.emop.pause.core.navi.PleosNaviSource
 import com.emop.pause.core.restriction.CarUxDriveStateRepository
+import com.emop.pause.core.vehicle.AaosPropertySource
 import com.emop.pause.core.vehicle.PleosVehicleSource
 import com.emop.pause.mode.AppModeReducer
 import com.emop.pause.mode.ModeInput
 import com.emop.pause.mode.ModeState
 import com.emop.pause.sim.Scenario
 import com.emop.pause.sim.ScenarioPlayer
+import com.emop.pause.sim.ScenarioSetup
+import com.emop.pause.sim.SimNaviSource
 import com.emop.pause.sim.SimFrame
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +37,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,12 +56,25 @@ data class Snapshot(
     val simPlaying: Boolean = false,
     val label: String? = null,
     val capabilities: Set<Signal> = emptySet(),
+    /** 신호마다 실제로 쓴 공급원 (COMMERCIAL_READINESS A P0). 없는 신호는 NONE. */
+    val sources: Map<Signal, SignalSource> = emptyMap(),
     val sample: SignalSample = SignalSample(0),
     val driveState: DriveState = DriveState.PARKED,
+    /** CarUxRestrictions 활성 플래그. 시뮬레이터는 DriveState로 근사. */
+    val uxLimits: UxLimits = UxLimits.NONE,
     val trip: TripPhase = TripPhase.NOT_STARTED,
     val eta: EtaInfo? = null,
     val mode: AppMode = AppMode.PREPARE,
     val pauseCause: PauseCause? = null,
+    /** 엔진 시계(ms). 시뮬레이션은 시나리오 시각, 실차는 벽시계. */
+    val nowMs: Long = 0,
+    /** 현지 시각(분). 피로 엔진의 시간대 요인. */
+    val clockMinute: Int = 0,
+    val route: RouteInfo? = null,
+    /** 시나리오가 정한 출발 설정. 실차는 null(프리셋 사용). */
+    val simSetup: ScenarioSetup? = null,
+    /** 이번 여행에서 추가한 경유지 이름 (디버그 표시). */
+    val waypoints: List<String> = emptyList(),
 )
 
 /**
@@ -64,7 +91,13 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
     private var job: Job? = null
     private var player: ScenarioPlayer? = null
     private var vehicle: PleosVehicleSource? = null
+    private var aaos: AaosPropertySource? = null
+    private var fillPlayer: ScenarioPlayer? = null
     private var navi: PleosNaviSource? = null
+    private var simNavi: SimNaviSource? = null
+
+    /** 지금 공급원의 내비 (경유지 추가에 쓴다). */
+    val naviSource: NaviSource? get() = simNavi ?: navi
     private var uxRestrictions: CarUxDriveStateRepository? = null
     private val vehicleTrip = MutableStateFlow(TripPhase.NOT_STARTED)
 
@@ -74,37 +107,78 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
     /** 시뮬레이션 모드: assets/scenarios/<name>.json을 처음부터 재생할 준비를 한다. */
     fun useScenario(name: String) {
         stopAll()
-        val text = context.assets.open("$SCENARIO_DIR/$name.json").bufferedReader().use { it.readText() }
-        val p = ScenarioPlayer(Scenario.parse(text), scope)
+        val p = ScenarioPlayer(loadScenario(name), scope)
+        val sn = SimNaviSource(p)
         player = p
+        simNavi = sn
         job = scope.launch {
-            combine(p.frame, p.speed, p.playing) { f, speed, playing -> Triple(f, speed, playing) }
-                .collect { (f, speed, playing) -> publishSim(p.scenario, f, speed, playing) }
+            combine(p.frame, p.speed, p.playing, sn.waypoints) { f, speed, playing, wps -> SimTick(f, speed, playing, wps) }
+                .collect { publishSim(p.scenario, it) }
         }
     }
 
     fun play() = player?.play()
     fun pause() = player?.pause()
     fun setSpeed(multiplier: Int) = player?.setSpeed(multiplier)
+    /**
+     * 시나리오 시각으로 점프. 타이머 상태를 맞추려고 처음부터 1초씩 다시 계산하고,
+     * 지나간 프레임 묶음을 [replays]로 내보내 엔진(피로·니즈·기록)도 같은 과정을 조용히 거치게 한다.
+     */
     fun seek(tSec: Double) {
-        // 뒤로 점프하면 타이머 상태가 맞지 않으므로 처음부터 다시 계산한다.
         val p = player ?: return
         modeState = ModeState()
-        val step = 1.0
+        val frames = ArrayList<Snapshot>()
         var t = 0.0
         while (t < tSec) {
-            reduceSim(ScenarioPlayer.frameAt(p.scenario, t))
-            t += step
+            val f = ScenarioPlayer.frameAt(p.scenario, t)
+            reduceSim(f)
+            frames += simSnapshot(p.scenario, f, p.speed.value, false, emptyList())
+            t += 1.0
         }
+        _replays.tryEmit(frames)
         p.seek(tSec)
     }
 
-    /** 실차 모드: Vehicle SDK·NaviHelper·CarUxRestrictions에 연결한다. */
-    fun useVehicle() {
+    private val _replays = kotlinx.coroutines.flow.MutableSharedFlow<List<Snapshot>>(extraBufferCapacity = 1)
+
+    /** 점프할 때 건너뛴 프레임 (1초 간격). 음성·제안 없이 엔진만 따라잡는다. */
+    val replays: kotlinx.coroutines.flow.SharedFlow<List<Snapshot>> = _replays
+
+    private fun tick() = flow {
+        while (true) {
+            emit(Unit)
+            delay(TICK_MS)
+        }
+    }
+
+    private fun loadScenario(name: String): Scenario =
+        Scenario.parse(context.assets.open("$SCENARIO_DIR/$name.json").bufferedReader().use { it.readText() })
+
+    /**
+     * 실차 모드: Vehicle SDK + AAOS 차량 속성 + NaviHelper + CarUxRestrictions.
+     * 신호는 신호마다 Pleos SDK → AAOS 속성 순으로 고른다 ([SignalMerge]).
+     * [fillScenario]를 주면 두 곳 모두에 없는 신호만 그 시나리오(1배속)로 채운다 — 에뮬레이터 시연 보충용, 출처는 SIM으로 표시.
+     * 합친 값은 [SignalSmoother]로 잡음을 거른다. 디바운스가 시간으로 확정되도록 값이 그대로여도 1초마다 다시 합친다.
+     */
+    fun useVehicle(fillScenario: String? = null) {
         stopAll()
         val v = PleosVehicleSource(context).also { it.start() }
+        val a = AaosPropertySource(context).also { it.start() }
+        val fill = fillScenario?.let { runCatching { loadScenario(it) }.getOrNull() }?.let { sc -> ScenarioPlayer(sc, scope).also { it.play() } }
+        val fillFlow = fill?.frame?.map { SourceReading(SignalSource.SIM, fill.scenario.capabilities, it.sample) } ?: flowOf(null)
+        val readings = combine(
+            combine(v.samples(), v.capabilities) { sample, caps -> SourceReading(SignalSource.PLEOS_SDK, caps, sample) },
+            combine(a.samples(), a.capabilities) { sample, caps -> SourceReading(SignalSource.AAOS_PROPERTY, caps, sample) },
+            fillFlow,
+            tick(),
+        ) { p, aa, f, _ -> SignalMerge.merge(listOfNotNull(p, aa, f), System.currentTimeMillis()) }
+        val smoother = SignalSmoother()
+        val smoothed = readings.map { it.copy(sample = smoother.apply(it.sample)) }
+        aaos = a
+        fillPlayer = fill
         val n = PleosNaviSource(context).also { it.start() }
         val ux = CarUxDriveStateRepository(context)
+        val routeFlow = runCatching { n.route() }.getOrDefault(flowOf(null))
         vehicle = v
         navi = n
         uxRestrictions = ux
@@ -115,20 +189,51 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
                     n.refresh()
                 }
             }
-            combine(v.samples(), v.capabilities, ux.driveState, n.eta(), vehicleTrip) { sample, caps, drive, eta, trip ->
+            combine(smoothed, combine(ux.driveState, ux.uxLimits, ::Pair), n.eta(), vehicleTrip, routeFlow) { merged, (drive, limits), eta, trip, route ->
                 val now = System.currentTimeMillis()
-                modeState = AppModeReducer.reduce(modeState, ModeInput(now, drive, trip, sample.gear.takeIf { Signal.GEAR in caps }, sample.speedKph, sample.charging))
+                val sample = merged.sample
+                modeState = AppModeReducer.reduce(modeState, ModeInput(now, drive, trip, sample.gear, sample.speedKph, sample.charging, sample.parkingBrakeOn))
                 Snapshot(
                     source = SourceMode.VEHICLE,
-                    capabilities = caps,
+                    capabilities = merged.capabilities,
+                    sources = merged.sources,
+                    uxLimits = limits,
                     sample = sample,
                     driveState = drive,
                     trip = trip,
                     eta = eta,
                     mode = modeState.mode,
                     pauseCause = modeState.pauseCause,
+                    nowMs = now,
+                    clockMinute = LocalTime.now().let { it.hour * 60 + it.minute },
+                    route = route,
                 )
-            }.collect { _snapshot.value = it }
+            }.collect { snap ->
+                logSignalsIfChanged(snap)
+                _snapshot.value = snap
+            }
+        }
+    }
+
+    private var lastLogged: String? = null
+
+    /** 실차 모드에서 신호가 바뀔 때만 한 줄 로그 (scripts/vhal.ps1이 `adb logcat -s PauseSignals`로 읽어 docs/vhal_check.md에 남긴다). */
+    private fun logSignalsIfChanged(s: Snapshot) {
+        val x = s.sample
+        fun src(sig: Signal) = s.sources[sig]?.name ?: "NONE"
+        val line = "speed=${x.speedKph}(${src(Signal.SPEED)}) gear=${x.gear}(${src(Signal.GEAR)}) brake=${x.parkingBrakeOn}(${src(Signal.PARKING_BRAKE)}) " +
+            "soc=${x.batterySocPercent}(${src(Signal.BATTERY_SOC)}) charging=${x.charging}(${src(Signal.CHARGING)}) drive=${s.driveState} mode=${s.mode}"
+        if (line != lastLogged) {
+            lastLogged = line
+            android.util.Log.i("PauseSignals", line)
+        }
+    }
+
+    /** CAR_SPEED 같은 런타임 권한을 받은 뒤 AAOS 속성 구독을 다시 건다. */
+    fun refreshVehicleProperties() {
+        aaos?.let {
+            it.stop()
+            it.start()
         }
     }
 
@@ -137,9 +242,16 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
         vehicleTrip.value = phase
     }
 
-    private fun publishSim(scenario: Scenario, f: SimFrame, speed: Int, playing: Boolean) {
+    private data class SimTick(val f: SimFrame, val speed: Int, val playing: Boolean, val waypoints: List<String>)
+
+    private fun publishSim(scenario: Scenario, tick: SimTick) {
+        val (f, speed, playing, waypoints) = tick
         reduceSim(f)
-        _snapshot.value = Snapshot(
+        _snapshot.value = simSnapshot(scenario, f, speed, playing, waypoints)
+    }
+
+    private fun simSnapshot(scenario: Scenario, f: SimFrame, speed: Int, playing: Boolean, waypoints: List<String>): Snapshot {
+        return Snapshot(
             source = SourceMode.SIMULATION,
             scenarioName = scenario.name,
             simTimeSec = f.tSec,
@@ -147,19 +259,26 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
             simPlaying = playing,
             label = f.label,
             capabilities = scenario.capabilities,
+            sources = Signal.entries.associateWith { if (it in scenario.capabilities) SignalSource.SIM else SignalSource.NONE },
             sample = f.sample,
             driveState = f.driveState,
+            uxLimits = UxLimits.approximate(f.driveState),
             trip = f.trip,
             eta = if (f.remainDistanceM != null && f.remainTimeSec != null) EtaInfo(f.remainDistanceM!!, f.remainTimeSec!!) else null,
             mode = modeState.mode,
             pauseCause = modeState.pauseCause,
+            nowMs = (f.tSec * 1000).toLong(),
+            clockMinute = scenario.startMinute + (f.tSec / 60).toInt(),
+            route = scenario.route.let { r -> RouteInfo(r.destinationName, r.destination.toModel(), r.totalDistanceM, r.points.map { it.toModel() }) },
+            simSetup = scenario.setup,
+            waypoints = waypoints,
         )
     }
 
     private fun reduceSim(f: SimFrame) {
         modeState = AppModeReducer.reduce(
             modeState,
-            ModeInput((f.tSec * 1000).toLong(), f.driveState, f.trip, f.sample.gear, f.sample.speedKph, f.sample.charging),
+            ModeInput((f.tSec * 1000).toLong(), f.driveState, f.trip, f.sample.gear, f.sample.speedKph, f.sample.charging, f.sample.parkingBrakeOn),
         )
     }
 
@@ -167,10 +286,15 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
         job?.cancel()
         player?.pause()
         vehicle?.stop()
+        aaos?.stop()
+        fillPlayer?.pause()
         navi?.stop()
         uxRestrictions?.release()
         player = null
+        simNavi = null
         vehicle = null
+        aaos = null
+        fillPlayer = null
         navi = null
         uxRestrictions = null
         modeState = ModeState()
@@ -179,5 +303,6 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
     private companion object {
         const val SCENARIO_DIR = "scenarios"
         const val NAVI_REFRESH_MS = 10_000L
+        const val TICK_MS = 1_000L
     }
 }

@@ -45,6 +45,7 @@
 | GET | `/content/missions` | 원정대 미션 목록 | 멈춤 화면 |
 | POST | `/llm/phrases` | 휴게소 제안 문장 생성 | 제안 카드 |
 | POST | `/llm/kid-answer` | "아직 멀었어?" 답변 생성 | 음성 |
+| DELETE | `/devices/me` | 내 데이터 삭제 | 설정 |
 | POST | `/trips` | 여행 시작 | 출발 준비 |
 | POST | `/trips/{tripId}/events` | 여행 이벤트 일괄 업로드 | 백그라운드 |
 | PATCH | `/trips/{tripId}` | 여행 종료 | 도착 |
@@ -86,6 +87,8 @@
 
 ### 2.3 POST `/reststops/along-route`
 경로를 일정 간격으로 샘플링한 좌표를 보내면, 진행 방향 기준 앞쪽 휴게소를 경로상 거리 순으로 반환한다. 좌표는 저장하지 않는다.
+- 반대 방향 휴게소는 뺀다: `direction`(방향 종점 이름, 예 "부산")이 경로 진행 방향과 맞지 않으면 제외. 경로 끝이 시작보다 그 종점에 가까우면 그쪽 방향이다. 종점을 모르는 방향 표기는 남긴다 (2026-10-29).
+- `routeLengthMeters`(선택, 내비 총거리)를 주면 `distanceAlongRouteKm`을 좌표열 직선 거리 대신 그 척도로 늘려 준다. 앱은 같은 계산(`RouteGeo`)을 기기에서도 한다.
 
 요청
 ```json
@@ -96,7 +99,8 @@
     {"lat": 36.8065, "lng": 127.1522}
   ],
   "corridorMeters": 1500,
-  "types": ["service_area", "drowsy_shelter"]
+  "types": ["service_area", "drowsy_shelter"],
+  "routeLengthMeters": 395000
 }
 ```
 
@@ -214,24 +218,28 @@
 모델명은 `.env`의 `OLLAMA_MODEL`, 상주 시간은 `OLLAMA_KEEP_ALIVE`, 최대 토큰은 `OLLAMA_NUM_PREDICT`에서 읽는다. `temperature`는 0.3 고정. 실측(2026-10-27, `gemma4:12b`, 모델 상주, 100% GPU) 2.58초였으므로 2.5초 목표에 맞추려고 `num_predict`로 출력 길이를 묶는다. OpenAI 호환 API는 `think` 지원이 불확실해 쓰지 않는다.
 
 ### 2.9 POST `/llm/kid-answer`
+**LLM을 부르지 않는다** (결정 2026-10-29, CLAUDE.md 규칙 4 "아이용 콘텐츠 실시간 LLM 생성 금지"): 검수된 고정 문장 틀만 쓰고 `source`는 항상 `template`. 앱도 같은 틀(`voice/EtaAnswer`)로 오프라인에서 답한다.
+
 요청
 ```json
 {"question": "아직 멀었어?", "minutesToNextStop": 18, "remainingEpisodes": 2, "nextStopHighlights": ["kids_zone"], "childAge": 5}
 ```
 응답 `200`
 ```json
-{"text": "속담 라디오 두 편만 들으면 키즈존 휴게소에 도착해!", "source": "ollama"}
+{"text": "라디오 2편만 들으면 키즈존 있는 휴게소에 도착해!", "source": "template"}
 ```
 
 ### 2.10 POST `/trips`
 요청
 ```json
-{"startedAt": "2026-11-02T09:00:00+09:00", "originLabel": "서울", "destinationLabel": "부산", "plannedDistanceKm": 395, "passengerSummary": {"adults": 2, "children": [5], "pets": ["dog"]}, "powertrain": "ev"}
+{"startedAt": "2026-11-02T09:00:00+09:00", "originLabel": "서울", "destinationLabel": "부산", "plannedDistanceKm": 395, "passengerSummary": {"adults": 2, "children": 1, "pets": 1}, "powertrain": "ev"}
 ```
 응답 `201`
 ```json
 {"tripId": "tr_5b0e", "status": "active"}
 ```
+
+`passengerSummary`는 **인원 수만** 받는다(결정 2026-10-29: 개인정보 안내 "동승자 이름·나이는 보내지 않아요"와 맞춤). 나이 목록·이름 같은 다른 필드는 `422`.
 
 ### 2.11 POST `/trips/{tripId}/events`
 네트워크가 끊긴 동안 쌓인 이벤트를 한 번에 올린다. `clientEventId`로 중복 업로드를 무시한다.
@@ -273,6 +281,13 @@
   "tips": ["다음엔 첫 휴식을 20분 앞당겨 보세요."]
 }
 ```
+
+### 2.14 DELETE `/devices/me`
+내 데이터 삭제. 이 기기와 그 기기의 여행·이벤트·플레이리스트를 지운다. LLM 호출 기록은 기기 연결만 끊는다. 응답 `204`. 이후 같은 토큰은 `401`.
+
+### 공통: 요청 ID·레이트 리밋 (2026-10-29)
+- 모든 응답에 `X-Request-ID` 헤더. 요청에 `X-Request-ID`(영숫자·`-`·`_` 64자 이하)를 보내면 그대로 쓴다. 서버 로그(JSON 한 줄)에 같은 ID가 남는다.
+- 기기 토큰(없으면 IP)마다 60초에 120회(`RATE_LIMIT_PER_MINUTE`). 넘으면 `429 RATE_LIMITED`, `Retry-After: 60`. `/health`는 제외.
 
 ## 3. 앱 내부 인터페이스 (참고)
 서버 API는 아니지만 시뮬레이터와 실제 SDK가 같은 계약을 따르도록 정의한다.

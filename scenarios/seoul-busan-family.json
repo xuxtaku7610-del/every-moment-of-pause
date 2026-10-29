@@ -3,6 +3,7 @@
   "description": "서울→부산 전기차, 아이(5세)·반려견 동승. 휴게소 충전 정차, 정체 구간(기어 D 정지), 도착까지.",
   "startClock": "09:00",
   "capabilities": ["SPEED", "GEAR", "BATTERY_SOC", "CHARGING", "HVAC_TEMP", "HVAC_AC", "HVAC_RECIRCULATION"],
+  "setup": {"childAges": [5], "dog": true, "ev": true, "sleepHours": 6},
   "route": {
     "destinationName": "부산",
     "destination": {"lat": 35.1796, "lng": 129.0756},

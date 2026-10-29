@@ -128,7 +128,7 @@ erDiagram
 | `content_episodes` | 아이 라디오 | `reviewed = true`만 서비스 |
 | `missions` | 원정대 미션 | `context`: `rest_stop` · `charging` |
 | `playlists`, `playlist_items` | 편성 결과 | 리포트·재생 기록용 |
-| `trips` | 여행 단위 | 동승자는 인원·나이·반려동물 종류만 요약 |
+| `trips` | 여행 단위 | 동승자는 인원 수만(`{"adults","children","pets"}` 정수). 나이·이름·반려동물 종류는 받지 않는다 (2026-10-29) |
 | `trip_events` | 여행 중 이벤트 | `(trip_id, client_event_id)` 고유로 중복 방지 |
 | `llm_call_logs` | LLM 품질 모니터링 | 프롬프트·응답 원문 저장 안 함 |
 

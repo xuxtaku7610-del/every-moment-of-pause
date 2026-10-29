@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Pause" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+    <!-- 첫 프레임 배경을 paper로 맞춰 시작할 때 검은 화면이 깜빡이지 않게 한다. -->
+    <style name="Theme.Pause" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@color/paper</item>
     </style>
+    <color name="paper">#EEF2F4</color>
 </resources>

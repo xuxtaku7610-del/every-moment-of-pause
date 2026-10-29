@@ -28,7 +28,7 @@ def raising_transport(exc: type[Exception]) -> httpx.MockTransport:
 
 
 def get_health(engine, llm: LlmHealth) -> httpx.Response:
-    with TestClient(create_app(engine=engine, llm_health=llm)) as client:
+    with TestClient(create_app(engine=engine, llm_health=llm, warm_up=False)) as client:
         return client.get(f"{API_PREFIX}/health")
 
 

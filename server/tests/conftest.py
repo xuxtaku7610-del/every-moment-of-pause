@@ -32,3 +32,38 @@ def pg_url() -> str:
     finally:
         admin.dispose()
     return url.render_as_string(hide_password=False)
+
+
+FACILITY_CODES = {
+    "nursing_room": "수유실", "kids_zone": "키즈존", "pet_zone": "반려동물 놀이터", "ev_fast": "전기차 급속충전기",
+    "ev_slow": "전기차 완속충전기", "shower": "샤워실", "accessible_toilet": "장애인 화장실", "sleep_room": "수면실",
+}
+
+
+@pytest.fixture
+def db_engine(sqlite_engine):
+    """모델 테이블 + 편의시설 코드표(마이그레이션 시드와 같음)가 있는 SQLite."""
+    from sqlalchemy.orm import Session
+
+    from app.models import Base, FacilityCode
+
+    Base.metadata.create_all(sqlite_engine)
+    with Session(sqlite_engine) as s, s.begin():
+        s.add_all(FacilityCode(code=c, label_ko=label) for c, label in FACILITY_CODES.items())
+    return sqlite_engine
+
+
+def make_client(engine, **kwargs):
+    from fastapi.testclient import TestClient
+
+    from app.api.health import LlmHealth
+    from app.main import create_app
+
+    app = create_app(engine=engine, llm_health=LlmHealth("http://ollama", "m"), warm_up=False, **kwargs)
+    return TestClient(app)
+
+
+def register(client) -> dict[str, str]:
+    resp = client.post("/api/v1/devices", json={"platform": "pleos-connect", "appVersion": "0.1.0"})
+    assert resp.status_code == 201
+    return {"X-Device-Token": resp.json()["token"]}

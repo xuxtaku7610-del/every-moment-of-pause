@@ -1,0 +1,167 @@
+package com.emop.pause.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import com.emop.pause.uistate.Scene
+import com.emop.pause.presentation.DemoScenes
+import com.emop.pause.core.model.Signal
+import com.emop.pause.runtime.SourceMode
+import com.emop.pause.runtime.Snapshot
+import com.emop.pause.sim.ScenarioPlayer
+import com.emop.pause.trip.TripUi
+import com.emop.pause.ui.components.ButtonKind
+import com.emop.pause.ui.components.PauseButton
+import com.emop.pause.ui.theme.Pause
+import java.util.Locale
+
+class DemoActions(
+    val scenario: (String) -> Unit = {},
+    val vehicle: () -> Unit = {},
+    val play: () -> Unit = {},
+    val pause: () -> Unit = {},
+    val speed: (Int) -> Unit = {},
+    val jump: (Int, Boolean) -> Unit = { _, _ -> },
+    val say: (String) -> Unit = {},
+    val scene: (Scene?) -> Unit = {},
+    val close: () -> Unit = {},
+)
+
+/**
+ * 발표 모드 패널 (COMMERCIAL_READINESS I P0). 로고 5번 탭으로 열린다. 릴리스에도 있지만 진입 경로는 알리지 않는다.
+ * 예전 디버그 신호 화면을 이 안으로 옮겼다. 실차 주행 중에는 상위(PauseRoot)가 열지 않는다.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene?, a: DemoActions) {
+    val c = Pause.colors
+    Box(Modifier.fillMaxSize().background(c.scrim).clickable(remember { MutableInteractionSource() }, null, onClick = a.close)) {
+        Column(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(760.dp)
+                .background(c.surface)
+                .clickable(remember { MutableInteractionSource() }, null) {}
+                .verticalScroll(rememberScrollState())
+                .padding(40.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("발표 모드", style = Pause.type.title, color = c.ink)
+                Spacer(Modifier.weight(1f))
+                PauseButton("닫기", a.close, kind = ButtonKind.GHOST, small = true)
+            }
+            Section("시나리오")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                scenarios.forEach { n -> Choice(n, s.scenarioName == n && s.source == SourceMode.SIMULATION) { a.scenario(n) } }
+                Choice("실차 SDK", s.source == SourceMode.VEHICLE, a.vehicle)
+            }
+            if (s.source == SourceMode.SIMULATION) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Choice(if (s.simPlaying) "일시정지" else "재생", false, if (s.simPlaying) a.pause else a.play)
+                    ScenarioPlayer.SPEEDS.forEach { x -> Choice("${x}×", s.simSpeed == x) { a.speed(x) } }
+                }
+                Section("장면으로 이동")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    DemoScenes.JUMPS.forEach { j -> Choice(j.label, false) { a.jump(j.tSec, j.nap); j.say?.let(a.say) } }
+                }
+            }
+            Section("운전자 응답 넣기")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Choice("\"응\"", false) { a.say("응") }
+                Choice("\"나중에\"", false) { a.say("나중에") }
+                Choice("\"아직 멀었어?\"", false) { a.say("아직 멀었어?") }
+            }
+            Section("시안 장면 고정 (화면 검증용)")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Choice("실제 상태", current == null) { a.scene(null) }
+                Scene.entries.forEach { sc -> Choice(sc.name.lowercase(), current == sc) { a.scene(sc) } }
+            }
+            Section("신호")
+            signalRows(s, trip).forEach { (k, v) ->
+                Row {
+                    Text(k, Modifier.width(200.dp), style = Pause.type.caption, color = c.ink2)
+                    Text(v, style = Pause.type.caption.copy(fontFamily = FontFamily.Monospace), color = c.ink)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Section(t: String) {
+    Text(t, Modifier.padding(top = 12.dp), style = Pause.type.captionStrong, color = Pause.colors.ink2)
+}
+
+@Composable
+private fun Choice(label: String, on: Boolean, onClick: () -> Unit) {
+    val c = Pause.colors
+    Box(
+        Modifier
+            .height(72.dp)
+            .clip(RoundedCornerShape(36.dp))
+            .background(if (on) c.restSoft else c.paper)
+            .then(if (on) Modifier.border(2.dp, c.rest, RoundedCornerShape(36.dp)) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 28.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text(label, style = Pause.type.label, color = if (on) c.restInk else c.ink, maxLines = 1) }
+}
+
+private fun signalRows(s: Snapshot, trip: TripUi): List<Pair<String, String>> = buildList {
+    add("source" to (s.scenarioName?.let { "sim: $it" } ?: "vehicle SDK"))
+    if (s.source == SourceMode.SIMULATION) add("simTime" to hms(s.simTimeSec) + "  (${s.simSpeed}×${if (s.simPlaying) " ▶" else " ❚❚"})")
+    add("label" to (s.label ?: "-"))
+    add("trip" to s.trip.name)
+    add("DriveState" to s.driveState.name)
+    add("AppMode" to s.mode.name + (s.pauseCause?.let { " ($it)" } ?: ""))
+    add("speed" to sig(s, Signal.SPEED, s.sample.speedKph?.let { "%.1f km/h".format(Locale.US, it) }))
+    add("gear" to sig(s, Signal.GEAR, s.sample.gear?.name))
+    add("parking brake" to sig(s, Signal.PARKING_BRAKE, s.sample.parkingBrakeOn?.toString()))
+    add("battery" to sig(s, Signal.BATTERY_SOC, s.sample.batterySocPercent?.let { "$it %" }))
+    add("charging" to sig(s, Signal.CHARGING, s.sample.charging?.toString()))
+    add("hvac temp" to sig(s, Signal.HVAC_TEMP, s.sample.hvacTempC?.let { "%.1f ℃".format(Locale.US, it) }))
+    add("recirc" to sig(s, Signal.HVAC_RECIRCULATION, s.sample.recirculationOn?.toString()))
+    add("ETA" to (s.eta?.let { "${it.remainDistanceM / 1000} km · ${it.remainTimeSec / 60} 분" } ?: "-"))
+    add("fatigue" to (trip.fatigue?.let { "${it.score} ${it.level} · 연속 ${it.continuousDriveMinutes}분" } ?: "-"))
+    add("rest stops" to (trip.stopSource?.let { "${trip.stopCount}곳 ($it)" } ?: "-"))
+    add("plan" to (trip.plan?.stops?.joinToString { it.stop.name } ?: "-"))
+    add("suggestion" to (trip.suggestion ?: "-"))
+    add("spoken" to (trip.lastSpoken ?: "-"))
+    add("radio" to (trip.radio.title?.let { "${trip.radio.index + 1}/${trip.radio.count} $it${if (trip.radio.draft) "  [DRAFT]" else ""}" } ?: if (trip.radioUnlocked) "열림 (다음 구간)" else "-"))
+    add("missions" to (trip.missions.joinToString { (if (it.id in trip.missionsDone) "✓" else "·") + it.title }.ifEmpty { "-" }))
+    add("waypoints" to s.waypoints.joinToString().ifEmpty { "-" })
+}
+
+private fun sig(s: Snapshot, signal: Signal, value: String?): String =
+    if (signal !in s.capabilities) "미지원" else "${value ?: "(값 없음)"}  [${s.sources[signal] ?: "?"}]"
+
+private fun hms(tSec: Double): String {
+    val t = tSec.toInt()
+    return "%02d:%02d:%02d".format(Locale.US, t / 3600, t / 60 % 60, t % 60)
+}

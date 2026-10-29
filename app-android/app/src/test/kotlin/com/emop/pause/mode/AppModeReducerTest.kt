@@ -22,9 +22,10 @@ class AppModeReducerTest {
             speed: Float? = 80f,
             charging: Boolean? = false,
             advanceMs: Long = 1_000,
+            brake: Boolean? = null,
         ): AppMode {
             now += advanceMs
-            state = AppModeReducer.reduce(state, ModeInput(now, drive, trip, gear, speed, charging))
+            state = AppModeReducer.reduce(state, ModeInput(now, drive, trip, gear, speed, charging, brake))
             return state.mode
         }
     }
@@ -112,5 +113,62 @@ class AppModeReducerTest {
         val d = Driver()
         d.step(DRIVING, gear = null, speed = null)
         assertEquals(AppMode.DRIVING, d.step(PARKED, gear = null, speed = null, advanceMs = 600_000))
+    }
+
+    @Test
+    fun `T6-14 기어 UNKNOWN은 기어 미지원과 같이 속도 60초 규칙`() {
+        val d = Driver()
+        d.step(DRIVING, gear = Gear.UNKNOWN)
+        d.step(PARKED, gear = Gear.UNKNOWN, speed = 0f)
+        assertEquals(AppMode.DRIVING, d.step(PARKED, gear = Gear.UNKNOWN, speed = 0f, advanceMs = 30_000))
+        assertEquals(AppMode.PAUSE, d.step(PARKED, gear = Gear.UNKNOWN, speed = 0f, advanceMs = 30_000))
+    }
+
+    @Test
+    fun `T6-14 기어 미지원이어도 주차 브레이크가 걸리고 멈춰 있으면 바로 PAUSE`() {
+        val d = Driver()
+        d.step(DRIVING, gear = null)
+        assertEquals(AppMode.PAUSE, d.step(PARKED, gear = null, speed = 0f, brake = true))
+        // 브레이크를 풀면 속도가 아직 0이어도 DRIVING (안전 쪽)
+        assertEquals(AppMode.DRIVING, d.step(PARKED, gear = null, speed = 0f, brake = false))
+    }
+
+    @Test
+    fun `T6-14 주차 브레이크만 걸리고 속도를 모르면 PAUSE, 속도가 0이 아니면 DRIVING`() {
+        val d = Driver()
+        d.step(DRIVING, gear = null, speed = null)
+        assertEquals(AppMode.PAUSE, d.step(PARKED, gear = null, speed = null, brake = true))
+        val e = Driver()
+        e.step(DRIVING, gear = null)
+        assertEquals(AppMode.DRIVING, e.step(PARKED, gear = null, speed = 5f, brake = true))
+    }
+
+    @Test
+    fun `T6-13 기어가 있으면 주차 브레이크와 상관없이 기어 P만 본다`() {
+        val d = Driver()
+        d.step(DRIVING)
+        assertEquals(AppMode.DRIVING, d.step(PARKED, gear = Gear.NEUTRAL, speed = 0f, brake = true, advanceMs = 120_000))
+    }
+
+    @Test
+    fun `T6-12 여행 시작 전·종료 후`() {
+        val d = Driver()
+        assertEquals(AppMode.PREPARE, d.step(PARKED, trip = TripPhase.NOT_STARTED))
+        // 여행을 시작했어도 실제로 주행하기 전에는 출발 준비에 머문다
+        assertEquals(AppMode.PREPARE, d.step(PARKED, gear = Gear.PARK, speed = 0f))
+        assertEquals(AppMode.DRIVING, d.step(DRIVING))
+        assertEquals(AppMode.ARRIVED, d.step(PARKED, trip = TripPhase.ENDED, gear = Gear.PARK, speed = 0f))
+        // 여행 전이라도 DRIVING이면 주행 화면이 우선 — 그건 화면 라우터 책임이고, AppMode는 PREPARE
+        assertEquals(AppMode.PREPARE, d.step(DRIVING, trip = TripPhase.NOT_STARTED))
+    }
+
+    @Test
+    fun `PAUSE 원인은 충전 상태를 따라 바뀐다`() {
+        val d = Driver()
+        d.step(DRIVING)
+        d.step(PARKED, gear = Gear.PARK, speed = 0f, charging = false)
+        assertEquals(PauseCause.REST, d.state.pauseCause)
+        d.step(PARKED, gear = Gear.PARK, speed = 0f, charging = true)
+        assertEquals(PauseCause.CHARGING, d.state.pauseCause)
     }
 }

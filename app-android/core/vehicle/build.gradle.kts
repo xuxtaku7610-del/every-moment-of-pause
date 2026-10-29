@@ -5,6 +5,8 @@ plugins {
 
 android {
     namespace = "com.emop.pause.core.vehicle"
+    // CarPropertyManager (AAOS 플랫폼 android.car 라이브러리): Pleos SDK에 없는 속도·주차 브레이크·충전 상태
+    useLibrary("android.car")
 }
 
 dependencies {

@@ -31,3 +31,6 @@ captures/
 
 # 스크린샷 등 로컬 산출물
 artifacts/
+
+# 로컬 에이전트 지침 (CLAUDE.md와 같은 내용)
+AGENTS.md

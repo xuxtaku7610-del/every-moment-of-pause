@@ -16,5 +16,29 @@ services:
       timeout: 3s
       retries: 10
 
+  # API 서버. Ollama는 호스트에서 돈다(host.docker.internal). 키는 셸 환경 변수나 server/.env에서 넘긴다(커밋 금지).
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: pause-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://pause:pause@db:5432/pause
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:12b}
+      EX_API_KEY: ${EX_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
 volumes:
   pause-db-data:

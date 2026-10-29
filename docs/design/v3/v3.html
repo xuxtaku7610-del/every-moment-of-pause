@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>쉼표 시안 v3 — 깔끔하고 친근하게</title>
+<style>
+:root{
+  --bg:#FFFFFF; --grey:#F2F4F6; --grey2:#E5E8EB; --ink:#191F28; --ink2:#4E5968; --ink3:#8B95A1;
+  --rest:#0B8A74; --rest-d:#08705E; --rest-l:#E3F5F0;
+  --kid:#3182F6; --kid-l:#E8F3FF;
+  --pet:#FF8A3D; --pet-l:#FFF1E6;
+  --ev:#12B886; --ev-l:#E6F8F1;
+  --zz:#7C5CFC; --zz-l:#F0ECFF;
+  --warn:#F59F00; --warn-l:#FFF6E0;
+  --road:#3B424B;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#8E9AA3;font-family:"Pretendard","Noto Sans CJK KR",sans-serif;color:var(--ink);padding:40px;display:flex;flex-direction:column;gap:40px;align-items:flex-start}
+.board{width:1600px;height:1280px;background:var(--bg);position:relative;overflow:hidden;font-variant-numeric:tabular-nums}
+.ab{height:88px;display:flex;align-items:center;justify-content:space-between;padding:0 56px}
+.brand{display:flex;align-items:center;gap:12px;font-size:30px;font-weight:800}
+.brand svg{width:22px;height:36px;color:var(--rest);transform:translateY(4px)}
+.meta{font-size:26px;color:var(--ink2);font-weight:600}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;height:120px;border-radius:32px;font-size:38px;font-weight:700;border:0;font-family:inherit;padding:0 56px}
+.btn.primary{background:var(--rest);color:#fff}
+.btn.grey{background:var(--grey);color:var(--ink2)}
+
+/* ===== 주행 ===== */
+.sign{position:absolute;left:56px;top:112px;width:900px;height:520px;border-radius:44px;background:var(--rest);color:#fff;padding:52px 56px;overflow:hidden}
+.sign::after{content:"";position:absolute;inset:14px;border:4px solid rgba(255,255,255,.35);border-radius:32px;pointer-events:none}
+.sign .k{font-size:32px;font-weight:700;opacity:.85;display:flex;align-items:center;gap:14px}
+.sign .k svg{width:22px;height:36px}
+.sign .name{font-size:96px;font-weight:800;letter-spacing:-0.04em;margin-top:22px;line-height:1}
+.sign .dir{font-size:30px;opacity:.85;margin-top:16px;font-weight:600}
+.sign .eta{position:absolute;left:56px;bottom:52px;display:flex;align-items:baseline;gap:28px}
+.sign .eta b{font-size:150px;font-weight:800;letter-spacing:-0.05em;line-height:.8}
+.sign .eta b small{font-size:56px;margin-left:6px}
+.sign .eta span{font-size:40px;font-weight:700;opacity:.85}
+.sign .exit{position:absolute;right:56px;bottom:56px;width:150px;height:150px;border-radius:40px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+.sign .exit svg{width:84px;height:84px}
+
+.solve{position:absolute;left:56px;top:664px;width:900px}
+.solve h3{font-size:32px;font-weight:800;letter-spacing:-0.02em}
+.solve h3 span{color:var(--rest)}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:22px}
+.tile{background:var(--grey);border-radius:28px;height:220px;padding:24px;display:flex;flex-direction:column;justify-content:space-between}
+.tile .ic{flex:none;width:72px;height:72px;border-radius:22px;display:flex;align-items:center;justify-content:center}
+.tile .ic svg{width:40px;height:40px}
+.tile .t{font-size:28px;font-weight:800;letter-spacing:-0.02em}
+.tile .d{font-size:22px;color:var(--ink2);font-weight:600;margin-top:6px;white-space:nowrap}
+
+.side{position:absolute;right:56px;top:112px;width:584px;height:808px;display:flex;flex-direction:column;justify-content:space-between}
+.box{background:var(--grey);border-radius:36px;padding:44px 40px}
+.ringrow{display:flex;align-items:center;gap:36px}
+.ring{position:relative;width:200px;height:200px;flex:none}
+.ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .in b{font-size:64px;font-weight:800;line-height:1}
+.ring .in span{font-size:22px;color:var(--ink2);font-weight:700;margin-top:6px}
+.lvl{font-size:44px;font-weight:800;color:#B37400}
+.lvl-d{font-size:26px;color:var(--ink2);line-height:1.45;margin-top:10px;font-weight:500}
+.actions{display:flex;flex-direction:column;gap:16px}
+.actions .btn{width:100%;height:136px}
+.voice{display:flex;align-items:center;justify-content:center;gap:16px;font-size:26px;font-weight:700;color:var(--rest);height:72px}
+.voice i{width:16px;height:16px;border-radius:50%;background:var(--rest);box-shadow:0 0 0 9px var(--rest-l)}
+
+.strip{position:absolute;left:56px;right:56px;bottom:56px;height:200px}
+.road{position:absolute;left:0;right:0;top:96px;height:72px;border-radius:36px;background:var(--road)}
+.road::before{content:"";position:absolute;left:36px;right:36px;top:34px;height:4px;background:repeating-linear-gradient(90deg,#fff 0 36px,transparent 36px 72px);opacity:.75}
+.road .done{position:absolute;left:0;top:0;bottom:0;width:39%;border-radius:36px;background:#2A3037}
+.car{position:absolute;top:104px;width:92px;height:56px;margin-left:-46px}
+.pin{position:absolute;top:0;width:0}
+.pin .bub{position:absolute;bottom:-84px;left:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center}
+.pin .c{width:64px;height:84px;border-radius:32px 32px 32px 8px;background:var(--rest);display:flex;align-items:center;justify-content:center;transform:rotate(0)}
+.pin .c svg{width:22px;height:36px;color:#fff}
+.pin.later .c{background:#fff;box-shadow:0 0 0 4px var(--grey2)}
+.pin.later .c svg{color:var(--ink3)}
+.pin .lab{position:absolute;top:-6px;left:44px;white-space:nowrap;font-size:26px;font-weight:800}
+.pin.later .lab{color:var(--ink3);font-weight:700;font-size:24px}
+.ends{position:absolute;left:0;right:0;top:178px;display:flex;justify-content:space-between;font-size:22px;color:var(--ink3);font-weight:600}
+
+/* ===== 충전 ===== */
+.hero2{position:absolute;left:56px;top:112px;width:1488px;height:380px;border-radius:44px;background:var(--grey);display:flex;align-items:center;gap:56px;padding:0 64px}
+.bigring{position:relative;width:300px;height:300px;flex:none}
+.bigring>svg{width:300px;height:300px}
+.bigring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.bigring .in b{font-size:96px;font-weight:800;letter-spacing:-0.04em;line-height:1}
+.bigring .in b small{font-size:40px}
+.bigring .in span{font-size:24px;color:var(--ink2);font-weight:700;margin-top:10px}
+.hero2 h1{font-size:72px;font-weight:800;letter-spacing:-0.04em;line-height:1.15}
+.hero2 h1 em{font-style:normal;color:var(--rest)}
+.hero2 p{font-size:30px;color:var(--ink2);margin-top:20px;font-weight:500;line-height:1.45}
+.gantt{position:absolute;left:56px;right:56px;top:520px}
+.gantt h3{font-size:32px;font-weight:800}
+.axis{position:relative;margin:26px 0 0 360px;height:40px}
+.axis span{white-space:nowrap;position:absolute;top:0;transform:translateX(-50%);font-size:22px;color:var(--ink3);font-weight:700}
+.lane{display:grid;grid-template-columns:344px 1fr;gap:16px;align-items:center;height:110px;border-top:2px solid var(--grey)}
+.lane .who{display:flex;align-items:center;gap:22px}
+.lane .ic{flex:none;width:80px;height:80px;border-radius:26px;display:flex;align-items:center;justify-content:center;flex:none}
+.lane .ic svg{width:44px;height:44px}
+.lane .t{font-size:34px;font-weight:800;letter-spacing:-0.02em}
+.lane .d{font-size:22px;color:var(--ink2);font-weight:600;margin-top:4px}
+.track{position:relative;height:72px;border-radius:22px;background:var(--grey)}
+.bar{position:absolute;top:0;bottom:0;border-radius:22px;display:flex;align-items:center;padding:0 24px;font-size:24px;font-weight:800;color:#fff;white-space:nowrap}
+.now{position:absolute;top:-8px;bottom:-8px;width:4px;border-radius:2px;background:var(--ink)}
+.wake{position:absolute;top:-20px;bottom:-20px;width:0;border-left:4px dashed var(--warn)}
+.cta2{position:absolute;left:56px;right:56px;bottom:56px;display:flex;gap:20px;align-items:center}
+.cta2 .btn.primary{flex:1}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="comma" viewBox="0 0 40 64"><path d="M20 2a17 17 0 0 1 17 17c0 21-11 36-28 44l-4-7c9-5 15-12 17-20A17 17 0 0 1 20 2z" fill="currentColor"/></symbol>
+  <symbol id="exit" viewBox="0 0 24 24"><path d="M7 20V12a5 5 0 0 1 5-5h5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M14 3l4 4-4 4" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="kid" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.4" fill="currentColor"/><path d="M5.5 21v-3.5a6.5 6.5 0 0 1 13 0V21z" fill="currentColor"/></symbol>
+  <symbol id="paw" viewBox="0 0 24 24"><circle cx="6" cy="10" r="2.2" fill="currentColor"/><circle cx="10" cy="5.5" r="2.2" fill="currentColor"/><circle cx="14" cy="5.5" r="2.2" fill="currentColor"/><circle cx="18" cy="10" r="2.2" fill="currentColor"/><path d="M12 11c-3.5 0-6 4.5-6 7 0 2 2 3 3.5 2.4 1.6-.6 3.4-.6 5 0C16 21 18 20 18 18c0-2.5-2.5-7-6-7z" fill="currentColor"/></symbol>
+  <symbol id="bolt" viewBox="0 0 24 24"><path d="M13 2 5 14h6l-1 8 8-12h-6z" fill="currentColor"/></symbol>
+  <symbol id="moon" viewBox="0 0 24 24"><path d="M20 15A8 8 0 1 1 9 4a6.5 6.5 0 0 0 11 11z" fill="currentColor"/></symbol>
+  <symbol id="flag" viewBox="0 0 24 24"><path d="M6 21V3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M7 4h11l-2.5 4L18 12H7z" fill="currentColor"/></symbol>
+  <symbol id="cup" viewBox="0 0 24 24"><path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z" fill="currentColor"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c0 1.5 1 1.5 1 3M12 3c0 1.5 1 1.5 1 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></symbol>
+  <symbol id="car" viewBox="0 0 92 56"><rect x="6" y="6" width="80" height="44" rx="18" fill="#FFFFFF"/><rect x="54" y="12" width="20" height="32" rx="8" fill="#BFE6DC"/><rect x="18" y="12" width="14" height="32" rx="6" fill="#DDE3E8"/><circle cx="86" cy="18" r="3" fill="#FFE08A"/><circle cx="86" cy="38" r="3" fill="#FFE08A"/></symbol>
+</svg>
+
+<!-- ============ 주행 v3 ============ -->
+<section class="board" id="v3-drive">
+  <div class="ab"><div class="brand"><svg><use href="#comma"/></svg>쉼표</div><div class="meta">부산 해운대까지 3시간 10분</div></div>
+
+  <div class="sign">
+    <div class="k"><svg><use href="#comma"/></svg>다음 쉼표</div>
+    <div class="name">안성휴게소</div>
+    <div class="dir">경부고속도로 부산방향</div>
+    <div class="eta"><b>18<small>분</small></b><span>12km</span></div>
+    <div class="exit"><svg><use href="#exit"/></svg></div>
+  </div>
+
+  <div class="solve">
+    <h3>여기서 <span>한 번에</span> 해결돼요</h3>
+    <div class="tiles">
+      <div class="tile"><span class="ic" style="background:var(--zz-l);color:var(--zz)"><svg><use href="#moon" width="100%" height="100%"/></svg></span><div><div class="t">운전 휴식</div><div class="d">1시간 40분째</div></div></div>
+      <div class="tile"><span class="ic" style="background:var(--kid-l);color:var(--kid)"><svg><use href="#kid" width="100%" height="100%"/></svg></span><div><div class="t">지우 화장실</div><div class="d">키즈존 있어요</div></div></div>
+      <div class="tile"><span class="ic" style="background:var(--pet-l);color:var(--pet)"><svg><use href="#paw" width="100%" height="100%"/></svg></span><div><div class="t">콩이 산책</div><div class="d">놀이터 있어요</div></div></div>
+      <div class="tile"><span class="ic" style="background:var(--ev-l);color:var(--ev)"><svg><use href="#bolt" width="100%" height="100%"/></svg></span><div><div class="t">충전 34%</div><div class="d">급속 4대 비어요</div></div></div>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="box">
+      <div class="ringrow">
+        <div class="ring">
+          <svg viewBox="0 0 200 200" width="200" height="200"><circle cx="100" cy="100" r="84" fill="none" stroke="#E5E8EB" stroke-width="22"/><circle cx="100" cy="100" r="84" fill="none" stroke="#F59F00" stroke-width="22" stroke-linecap="round" stroke-dasharray="528" stroke-dashoffset="206" transform="rotate(-90 100 100)"/></svg>
+          <div class="in"><b>61</b><span>피로</span></div>
+        </div>
+        <div><div class="lvl">주의</div><div class="lvl-d">5시간 주무셨고<br>1시간 40분째 운전 중</div></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary">여기서 쉴게요</button>
+      <button class="btn grey">다음 휴게소로</button>
+      <div class="voice"><i></i>"응"이라고 말해도 돼요</div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="road"><div class="done"></div></div>
+    <svg class="car" style="left:39%"><use href="#car"/></svg>
+    <div class="pin" style="left:49%"><div class="bub"><div class="c"><svg><use href="#comma"/></svg></div></div><div class="lab">18분 뒤 안성</div></div>
+    <div class="pin later" style="left:78%"><div class="bub"><div class="c"><svg><use href="#comma"/></svg></div></div><div class="lab">1시간 50분 뒤 칠곡</div></div>
+    <div class="ends"><span>서울</span><span>부산</span></div>
+  </div>
+</section>
+
+<!-- ============ 충전 v3 ============ -->
+<section class="board" id="v3-pause">
+  <div class="ab"><div class="brand"><svg><use href="#comma"/></svg>쉼표</div><div class="meta">안성휴게소에서 쉬는 중</div></div>
+
+  <div class="hero2">
+    <div class="bigring">
+      <svg viewBox="0 0 320 320" width="320" height="320"><circle cx="160" cy="160" r="136" fill="none" stroke="#E5E8EB" stroke-width="30"/><circle cx="160" cy="160" r="136" fill="none" stroke="#12B886" stroke-width="30" stroke-linecap="round" stroke-dasharray="855" stroke-dashoffset="462" transform="rotate(-90 160 160)"/></svg>
+      <div class="in"><b>46<small>%</small></b><span>목표 80%</span></div>
+    </div>
+    <div>
+      <h1>충전하는 <em>27분</em>,<br>이렇게 보내요</h1>
+      <p>급속충전 182kW, 13:12에 끝나요.<br>끝나기 2분 전에 모두에게 알려 드릴게요.</p>
+    </div>
+  </div>
+
+  <div class="gantt">
+    <h3>모두의 27분</h3>
+    <div class="axis"><span style="left:0%">지금</span><span style="left:37%">10분</span><span style="left:74%">20분</span><span style="left:100%;transform:translateX(-100%)">27분</span></div>
+    <div class="lane">
+      <div class="who"><span class="ic" style="background:var(--zz-l);color:var(--zz)"><svg><use href="#moon" width="100%" height="100%"/></svg></span><div><div class="t">아빠 파워냅</div><div class="d">피로 주의, 가장 필요해요</div></div></div>
+      <div class="track"><div class="bar" style="left:0;width:74%;background:var(--zz)">20분 눈 붙이기</div><div class="wake" style="left:92%"></div></div>
+    </div>
+    <div class="lane">
+      <div class="who"><span class="ic" style="background:var(--kid-l);color:var(--kid)"><svg><use href="#flag" width="100%" height="100%"/></svg></span><div><div class="t">지우 원정대</div><div class="d">화장실, 물, 기지개</div></div></div>
+      <div class="track"><div class="bar" style="left:0;width:56%;background:var(--kid)">미션 3개 15분</div><div class="wake" style="left:92%"></div></div>
+    </div>
+    <div class="lane">
+      <div class="who"><span class="ic" style="background:var(--pet-l);color:var(--pet)"><svg><use href="#paw" width="100%" height="100%"/></svg></span><div><div class="t">콩이 산책</div><div class="d">놀이터는 주차장 B 옆</div></div></div>
+      <div class="track"><div class="bar" style="left:56%;width:37%;background:var(--pet)">엄마와 10분</div><div class="wake" style="left:92%"></div></div>
+    </div>
+    <div class="lane">
+      <div class="who"><span class="ic" style="background:var(--warn-l);color:var(--warn)"><svg><use href="#cup" width="100%" height="100%"/></svg></span><div><div class="t">출발 준비</div><div class="d">모두 차로 모여요</div></div></div>
+      <div class="track"><div class="bar" style="left:92%;width:8%;background:var(--warn);padding:0;justify-content:center">2분</div></div>
+    </div>
+  </div>
+
+  <div class="cta2">
+    <button class="btn primary">이대로 시작</button>
+    <button class="btn grey">바꾸기</button>
+  </div>
+</section>
+</body>
+</html>

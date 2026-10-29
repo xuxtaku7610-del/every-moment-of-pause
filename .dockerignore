@@ -1,0 +1,12 @@
+# 이미지에 넣지 않는 것: 비밀값·로컬 산출물·앱 코드
+**/.env
+**/*.env
+**/.venv
+**/__pycache__
+**/.pytest_cache
+app-android/
+artifacts/
+_private/
+docs/
+.git/
+.claude/

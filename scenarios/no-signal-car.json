@@ -3,6 +3,7 @@
   "description": "속도만 읽히는 차종(기어·공조·배터리 신호 없음). 정차 판정은 PARKED + 속도 0이 60초 이상 (architecture §5.2).",
   "startClock": "14:00",
   "capabilities": ["SPEED"],
+  "setup": {},
   "route": {
     "destinationName": "천안",
     "destination": {"lat": 36.8065, "lng": 127.1522},

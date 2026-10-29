@@ -24,7 +24,7 @@
 - [x] (CC) 저장소 구조 생성, `.gitignore`, `docker-compose.yml`, `server/.env.example`
 - [x] (CC) FastAPI 골격 + `/health`, PostgreSQL 연결, Alembic 초기 마이그레이션(database.md DDL)
 - [x] (CC) Android 멀티모듈 골격 (app, core:*, engine:*, voice, data, sim), Hilt, 디자인 토큰 테마 (compileSdk 35 빌드, 에뮬레이터 3화면 확인 10/28)
-- [ ] (CC) GitHub Actions: 서버 pytest + APK 디버그 빌드 — 워크플로 작성 완료. BLOCKED: push 승인 후 실행 결과 확인
+- [ ] (CC) GitHub Actions: 서버 pytest + APK 디버그 빌드 — 첫 실행(10/28) server 성공, android는 `gradlew` 실행 권한 누락으로 실패 → 수정(ef8cffc). BLOCKED: 다음 push 후 결과 확인
 
 ## M1 · 뼈대 + 시뮬레이터 (10/30 ~ 11/2)
 - [x] (CC) `VehicleSource` / `NaviSource` 인터페이스 + `Sim*` 구현
@@ -36,27 +36,40 @@
 - [x] (CC) `DriveStateRepository`: `CarUxRestrictions` → PARKED/DRIVING/RESTRICTED (매핑 테스트. 실제 전환은 에뮬레이터 신호 패널 조작 필요)
 - [x] (CC) `AppModeReducer`: DriveState + 기어 + 충전 + 여행 진행 → PREPARE/DRIVING/PAUSE/ARRIVED + 테스트
 - [x] (CC) 디버그 화면: 현재 신호·주행 상태 실시간 표시
-- [ ] (나) 화면 시안 확정 (주행 글랜스, 제안 카드, 멈춤 화면)
+- [x] (나) 화면 시안 확정 — docs/design/UI_SPEC.md v2 + mockups 17장
 
 ## M2 · 핵심 엔진 + 추천 (11/3 ~ 11/7)
-- [ ] (CC) `FatigueEngine` v1 + 단위 테스트 (기여 요인, 신호 미지원 재정규화)
-- [ ] (CC) `NeedsEngine` (아이·반려동물·충전) + 테스트
-- [ ] (CC) 서버: 도로공사 수집 잡, `/reststops/along-route`, `/reststops/{id}`. `EX_API_KEY`가 비어 있으면 `server/app/data/sample_reststops.json`으로 적재 (키는 나중에 받음)
-- [ ] (CC) 앱: 휴게소 캐시(Room) + 앱 번들 기본 데이터
-- [ ] (CC) `RestPlanner` 점수화 + 이유 생성 + 테스트
-- [ ] (CC) 서버 `/llm/phrases` (Ollama, 2.5초 타임아웃, `num_predict=60`·`temperature=0.3`, 검사, 폴백)
-- [ ] (CC) 서버 시작 시 Ollama warm-up (lifespan 백그라운드, `messages=[]`, 실패해도 기동) — architecture.md §3.3
-- [ ] (CC) `voice`: Android TTS/STT 공급자, "응/나중에" 의도 인식, 템플릿 문장
-- [ ] (CC) 화면: 출발 준비(프리셋·수면 한마디), 주행 글랜스, 제안 카드
+- [x] (CC) `FatigueEngine` v1 + 단위 테스트 (기여 요인, 신호 미지원 재정규화, 정차 리셋, 신호 끊김, 시계 역행)
+- [x] (CC) `NeedsEngine` (아이·반려동물·충전) + 테스트
+- [x] (CC) 서버: 도로공사 수집 잡, `/reststops/along-route`, `/reststops/{id}`. `EX_API_KEY`가 비어 있으면 `server/app/data/sample_reststops.json`으로 적재 (가상 휴게소 12곳. 실제 API 호출부는 `TODO(ex-api)`: 키·응답 형식 확인 후 구현) + `/devices` 토큰
+- [x] (CC) 앱: 휴게소 캐시(Room) + 앱 번들 기본 데이터 (서버 → 캐시 → 내장 순서)
+- [x] (CC) `RestPlanner` 점수화 + 이유 생성 + 테스트 (+ `SuggestionPolicy`: 나중에 10분, 연속 거절 3회 2배)
+- [x] (CC) 서버 `/llm/phrases` (Ollama, 2.5초 타임아웃, `num_predict=60`·`temperature=0.3`, 검사, 폴백) — httpx mock 테스트. 실제 Ollama 연동 확인은 아침 항목
+- [x] (CC) 서버 시작 시 Ollama warm-up (lifespan 백그라운드, `messages=[]`, 실패해도 기동) — architecture.md §3.3
+- [x] (CC) `voice`: Android TTS/STT 공급자, "응/나중에" 의도 인식, 템플릿 문장 (STT 실제 인식은 마이크 필요 → 아침 확인. 시뮬레이터는 `--es say 응` 주입)
+- [x] (CC) 화면: 출발 준비(프리셋·수면 한마디), 주행 글랜스, 제안 카드 (시안 확정 전 임시 디자인)
 - [ ] (나) 매일 에뮬레이터 스크린샷 → 비평 → 수정 1회
 
+## U · UI 재구축 (10/28 ~ 10/31) — UI_SPEC v2 기준
+- [x] (CC) 디자인 토큰(Color/Type/Dimens), Pretendard(OFL) 포함
+- [x] (CC) 컴포넌트 13종 + @Preview (`ui/components`)
+- [x] (CC) 화면 17종 + 반응형 3단계 + 발표 모드 패널(디버그 신호 화면 흡수)
+- [x] (CC) 화면별 시안 비교 검증 (`docs/ui_review.md`, `artifacts/ui/final/`)
+- [x] (CC) 앱 아이콘(adaptive)·스플래시
+- [ ] (CC) 커밋 — BLOCKED: commit 권한 (docs/BLOCKED.md, 대기열은 docs/PROGRESS.md)
+
+## F · 백엔드 우선 (10/29, `_private/BACKEND_FIRST_PROMPT.md`)
+- [x] (CC) 화면 계약 `:core:uistate` + `docs/ui_contract.md` (새 디자인은 화면만 교체)
+- [x] (CC) COMMERCIAL_READINESS P0: A 신호·B 추천·C 음성·D 정책·E 멈춤·F 콘텐츠·H 품질·I 발표 모드·G 설정·J 서버·K 버전 — 남은 P0 2개는 BLOCKED(Docker 데몬, Pleos 문서)
+- [ ] (나) VHAL 장면 값 바꾸기 — BLOCKED: user 빌드 에뮬레이터 (`docs/vhal_check.md`)
+
 ## M3 · 시그니처 기능 (11/8 ~ 11/11)
-- [ ] (나+CC) `content/` 라디오 에피소드 20편 이상 · 미션 15개 이상 작성 (LLM 초안 → **직접 검수**)
-- [ ] (CC) 서버 `/content/*`, 플레이리스트 편성 알고리즘 + 테스트
-- [ ] (CC) "아직 멀었어?" 응답기 + `/llm/kid-answer`
-- [ ] (CC) 라디오 플레이어 (TTS 낭독, 퀴즈, 오디오 포커스)
-- [ ] (CC) `PauseCurator` + 멈춤 화면: 충전 대기 카드, 파워냅(벽난로·소리·타이머·기상), 원정대 미션, 펫 산책
-- [ ] (CC) 여행 API(`/trips`, `/events`, `/report`) + 오프라인 큐 + 리포트 화면
+- [ ] (나+CC) `content/` 라디오 에피소드 20편 이상 · 미션 15개 이상 작성 (LLM 초안 → **직접 검수**) — 초안 20·15 완료(`content/drafts/`, reviewed=false). BLOCKED: 사람 검수
+- [x] (CC) 서버 `/content/*`, 플레이리스트 편성 알고리즘 + 테스트 (앱 `engine:content`와 같은 배낭 DP)
+- [x] (CC) "아직 멀었어?" 응답기 + `/llm/kid-answer` (아이 답은 템플릿만 — LLM 금지 규칙)
+- [x] (CC) 라디오 플레이어 (TTS 낭독, 퀴즈, 오디오 포커스) — `RadioDirector`·`SpeechQueue`
+- [ ] (CC) `PauseCurator` + 멈춤 화면: 충전 대기 카드, 파워냅(벽난로·소리·타이머·기상), 원정대 미션, 펫 산책 — 큐레이터·화면·벽난로·타이머 완료, AlarmManager 기상·원정대 완료. 남은 것: 장작 소리 파일, 미션 화면(새 디자인)
+- [ ] (CC) 여행 API(`/trips`, `/events`, `/report`) + 오프라인 큐 + 리포트 화면 — 서버 API 완료(10/29). 남은 것: 앱 오프라인 이벤트 큐·업로드(P1)
 
 ## M4 · 다듬기 + 제출 (11/12 ~ 11/14)
 - [ ] (나+CC) test_plan.md P0 항목 전부 통과

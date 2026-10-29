@@ -36,16 +36,18 @@
 ## 2. 핵심 기능
 
 ### MVP (11/15 접수 전 완성 목표)
-| ID | 기능 | 상태 |
+| ID | 기능 | 지금 동작하는 것 (2026-10-29) |
 | --- | --- | --- |
-| F1 | 출발 준비: 동승자 프리셋 + 수면 한마디 | 필수 |
-| F2 | 피로 위험 지수 v1 (규칙 기반, 기여 요인 공개) | 필수 |
-| F3 | 가족 니즈 타이머 (아이·반려동물·충전) | 필수 |
-| F4 | 휴게소 추천 + 음성 제안 + 경유지 추가 | 필수 (핵심) |
-| F5 | "아직 멀었어?" 응답기 + 도착 맞춤 라디오 | 필수 (시그니처) |
-| F6 | 멈춤 큐레이터: 충전 대기 · 파워냅(벽난로) · 원정대 미션 · 펫 산책 | 필수 (시그니처) |
-| F7 | 여행 리포트 | 필수 |
-| F8 | 시연용 주행 시뮬레이터 (서울→부산 5시간 → 3분 재생) | 필수 (개발·시연용) |
+| F1 | 출발 준비: 동승자 프리셋 + 수면 한마디 | 프리셋 저장·재사용, 수면 시간 반영("다섯 시간"·"5시간"·"오 시간" 모두 인식) |
+| F2 | 피로 위험 지수 v1 (규칙 기반, 기여 요인 공개) | 연속 주행 + 시간대·단조로움·실내 온열·수면 부족, 미지원 신호는 빼고 재정규화 |
+| F3 | 가족 니즈 타이머 (아이·반려동물·충전) | 나이별 화장실·수유 간격, 산책, 배터리로 갈 수 있는 거리 vs 남은 거리 |
+| F4 | 휴게소 추천 + 음성 제안 + 경유지 추가 | 점수 정책(ScoringPolicy)·제안 깜빡임 방지·반대 방향 제외, 이유는 실제로 크게 기여한 요인 1~2개, "응/나중에" → 경유지 |
+| F5 | "아직 멀었어?" 응답기 + 도착 맞춤 라디오 | 아이·어른 말투 구분 템플릿 답, 남은 시간에 맞춘 편성. 아이용 콘텐츠는 검수본만(초안은 디버그에서 DRAFT 표시) |
+| F6 | 멈춤 큐레이터: 충전 대기 · 파워냅(벽난로) · 원정대 미션 · 펫 산책 | 충전 완료 "예상" 시각, 파워냅 시스템 알람, 원정대 완료 시 라디오 열림 |
+| F7 | 여행 리포트 | 최장 연속 주행·피로 최고점·제안 수락 수·다음 여행 팁 |
+| F8 | 시연용 주행 시뮬레이터 (서울→부산 5시간 → 3분 재생) | 시나리오 3개, 1·10·100배속, 발표 모드 장면 점프 |
+
+공통: 주행 안전(CarUxRestrictions가 DRIVING/RESTRICTED면 항상 주행 화면, 텍스트·버튼 제한), 오프라인 우선(서버·LLM이 없어도 내장 데이터·템플릿), 실차 신호는 Pleos SDK → AAOS 차량 속성 순으로 신호마다 고르고 잡음을 거른다(속도 3초 평균, 기어 2초·충전 5초 확정), 실차 여행 중 앱이 재시작되면 이어서 안내.
 
 ### 확장 (서류 통과 후, 12/3 PT 전)
 정체 구간 호흡 코치 · 빗길 위험 가중 · 교대 운전 제안 · 하차 안심 루틴 · 피로 모델 v2(개인화) · 보호자 폰 알림
@@ -163,26 +165,47 @@ cp server/.env.example server/.env
 ```bash
 docker compose up -d db
 cd server
-python -m venv .venv && .venv\Scripts\activate      # Windows
+python -m venv .venv
+.venv\Scriptsctivate                              # Windows
 pip install -r requirements.txt
-alembic upgrade head
+python -m alembic upgrade head
 python -m app.jobs.ingest_reststops                  # 휴게소 데이터 적재 (EX_API_KEY 없으면 샘플)
-python -m app.jobs.seed_content                      # 라디오·미션 콘텐츠 적재
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m app.jobs.load_content                      # 라디오·미션 콘텐츠 적재 (reviewed=true만 서비스)
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
-확인: `http://localhost:8000/docs`
+확인: `http://127.0.0.1:8000/api/v1/health` → `{"status":"ok", ...}`, API 문서는 `/docs`.
+Docker로 한 번에: `docker compose up -d --build` (db + api).
+보관 기간 정리(하루 1회): `python -m app.jobs.cleanup`.
 
 ### 3) 차량 앱
-1. Android Studio에서 `app-android/` 열기
-2. `local.properties`에 `SERVER_BASE_URL=http://10.0.2.2:8000` (에뮬레이터 → 호스트 PC)
-3. Pleos Connect Emulator AVD 선택 후 Run
-4. 시연: 앱 설정 → **시뮬레이션 모드** → `scenarios/seoul-busan-family.json` 재생
+```bash
+cd app-android
+./gradlew -Pkotlin.compiler.execution.strategy=in-process assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+- 서버 주소는 빌드 종류로 정해진다: 디버그 `http://10.0.2.2:8000/api/v1/`(에뮬레이터 → 호스트 PC), 릴리스는 비어 있음 = 오프라인(내장 휴게소·템플릿).
+- 에뮬레이터: Pleos Connect Emulator AVD(`Pleos_Connect_API34`).
+- 시연(디버그 빌드):
+  ```bash
+  adb shell am start -n com.emop.pause/.MainActivity --es sim seoul-busan-family --ei speed 100 --es action play
+  adb shell am start -n com.emop.pause/.MainActivity --ei seek 3180          # 첫 제안 직전으로 점프
+  adb shell am start -n com.emop.pause/.MainActivity --es say 응              # 음성 응답 주입
+  adb shell am start -n com.emop.pause/.MainActivity --ez vehicle true       # 실차 신호(Pleos SDK·AAOS 속성)
+  ```
+  릴리스에서도 로고를 5번 누르면 발표 모드(장면 점프) 패널이 열린다.
+- 차량 신호 점검: `powershell -File scripts/vhal.ps1 check` (결과는 [docs/vhal_check.md](docs/vhal_check.md)).
 
 ### 4) 테스트
 ```bash
-cd server && pytest
-cd app-android && ./gradlew test connectedAndroidTest
+cd server
+.venv\Scripts\python -m pytest                     # PostgreSQL 테스트는 DB가 없으면 건너뜀
+cd ../app-android
+./gradlew -Pkotlin.compiler.execution.strategy=in-process test
 ```
+테스트 이름에는 [test_plan.md](test_plan.md) 항목 ID(T<장>-<번호>)를 쓴다. 점검 결과는 [docs/qa_report.md](docs/qa_report.md).
+
+### 5) 릴리스 APK
+[docs/release.md](docs/release.md) — 서명 키는 저장소 밖에 두고, 비밀번호는 환경 변수로만 넘긴다.
 
 ---
 

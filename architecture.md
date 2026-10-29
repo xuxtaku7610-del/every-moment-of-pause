@@ -202,6 +202,7 @@ stateDiagram-v2
 - 여행 중 DriveState = PARKED인데 기어가 P가 아님(신호 대기 등) → **DRIVING 유지** (안전 쪽).
 - 기어 신호를 지원하지 않는 차종 → DriveState = PARKED이고 **속도 0이 60초 이상** 이어지면 PAUSE. 60초가 되기 전에 속도가 0이 아니게 되면 타이머를 0으로 되돌린다. PAUSE 중 속도가 0이 아니게 되면 DRIVING.
 - 여행 전·종료 후라도 DriveState가 DRIVING/RESTRICTED면 주행 UI가 우선한다 (최우선 규칙).
+- 기어 신호가 없거나 `UNKNOWN`인 차종에서 **주차 브레이크(PARKING_BRAKE_ON)가 걸리고 속도가 0(또는 속도 미지원)** 이면 60초를 기다리지 않고 PAUSE. 그렇게 들어온 PAUSE는 브레이크를 풀면 DRIVING (추가 2026-10-29). 기어 신호가 있으면 브레이크는 보지 않는다.
 
 ## 6. 보안·개인정보
 

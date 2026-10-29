@@ -22,10 +22,15 @@ data class Scenario(
     /** 시나리오 시작 시각(HH:mm). 피로 엔진의 시간대 요인에 쓴다. */
     val startClock: String = "09:00",
     val capabilities: Set<Signal>,
+    /** 출발 준비에서 고를 값(동승자·전기차·수면). 시뮬레이션에서는 프리셋 대신 이것을 쓴다. */
+    val setup: ScenarioSetup = ScenarioSetup(),
     val route: ScenarioRoute,
     val timeline: List<Keyframe>,
 ) {
     val durationSec: Int get() = timeline.maxOf { it.t }
+
+    /** startClock(HH:mm)을 자정부터의 분으로. */
+    val startMinute: Int get() = startClock.split(":").let { (h, m) -> h.toInt() * 60 + m.toInt() }
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
@@ -38,6 +43,14 @@ data class Scenario(
         }
     }
 }
+
+@Serializable
+data class ScenarioSetup(
+    val childAges: List<Int> = emptyList(),
+    val dog: Boolean = false,
+    val ev: Boolean = false,
+    val sleepHours: Float? = null,
+)
 
 @Serializable
 data class ScenarioRoute(

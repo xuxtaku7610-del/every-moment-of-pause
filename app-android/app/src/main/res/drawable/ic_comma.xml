@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 쉼표 기호 (UI_SPEC §3 CommaMark). 이 앱에서 "휴식 지점"을 뜻하는 유일한 기호. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp" android:height="64dp" android:viewportWidth="40" android:viewportHeight="64">
+    <path android:fillColor="#FF0B7A6B" android:pathData="M20 2a17 17 0 0 1 17 17c0 21-11 36-28 44l-4-7c9-5 15-12 17-20A17 17 0 0 1 20 2z" />
+</vector>
