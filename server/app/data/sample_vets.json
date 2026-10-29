@@ -1,0 +1,95 @@
+{
+  "_comment": "동물병원 샘플. 지역명은 실제, 병원 이름·좌표는 시연용 샘플이다(실재 병원 아님). 전화번호는 지어내지 않는다. server/data/raw/에 지방행정 인허가(동물병원) 파일을 두면 load_vets가 그 파일로 적재한다.",
+  "items": [
+    {
+      "licenseNo": "SAMPLE-V001",
+      "name": "[샘플] 서울특별시 동물병원 A",
+      "address": "서울특별시 (샘플)",
+      "phone": null,
+      "lat": 37.577292,
+      "lng": 126.967789,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V002",
+      "name": "[샘플] 서울특별시 동물병원 B",
+      "address": "서울특별시 (샘플)",
+      "phone": null,
+      "lat": 37.560205,
+      "lng": 126.996153,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V003",
+      "name": "[샘플] 원주시 동물병원 A",
+      "address": "강원특별자치도 원주시 (샘플)",
+      "phone": null,
+      "lat": 37.338524,
+      "lng": 127.832432,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V004",
+      "name": "[샘플] 원주시 동물병원 B",
+      "address": "강원특별자치도 원주시 (샘플)",
+      "phone": null,
+      "lat": 37.321437,
+      "lng": 127.860706,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V005",
+      "name": "[샘플] 횡성군 동물병원 A",
+      "address": "강원특별자치도 횡성군 (샘플)",
+      "phone": null,
+      "lat": 37.484343,
+      "lng": 128.039481,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V006",
+      "name": "[샘플] 횡성군 동물병원 B",
+      "address": "강원특별자치도 횡성군 (샘플)",
+      "phone": null,
+      "lat": 37.467256,
+      "lng": 128.067811,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V007",
+      "name": "[샘플] 평창군 동물병원 A",
+      "address": "강원특별자치도 평창군 (샘플)",
+      "phone": null,
+      "lat": 37.568639,
+      "lng": 128.316872,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V008",
+      "name": "[샘플] 평창군 동물병원 B",
+      "address": "강원특별자치도 평창군 (샘플)",
+      "phone": null,
+      "lat": 37.551552,
+      "lng": 128.345233,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V009",
+      "name": "[샘플] 강릉시 동물병원 A",
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "phone": null,
+      "lat": 37.762692,
+      "lng": 128.865863,
+      "open": true
+    },
+    {
+      "licenseNo": "SAMPLE-V010",
+      "name": "[샘플] 강릉시 동물병원 B",
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "phone": null,
+      "lat": 37.745605,
+      "lng": 128.894299,
+      "open": true
+    }
+  ]
+}

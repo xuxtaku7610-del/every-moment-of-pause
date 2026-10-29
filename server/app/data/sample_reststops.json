@@ -1,5 +1,5 @@
 {
-  "_comment": "샘플 데이터. 이름·순서·방향은 경부선(서울↔부산) 실제 휴게소를 따랐지만 도로공사 API로 확인하기 전이다(확인 필요). 'OO 부근 졸음쉼터'는 위치만 나타내는 이름이다. 좌표는 scenarios/seoul-busan-family.json 경로 직선 위 근사치(approxKmFromSeoul 기준), 편의시설은 모두 샘플(실제와 다를 수 있음). EX_API_KEY가 없을 때 수집 잡이 적재하고, 앱은 같은 파일을 내장 기본 데이터로 묶는다.",
+  "_comment": "샘플 데이터. 이름·순서·방향은 경부선(서울↔부산) 실제 휴게소를 따랐지만 도로공사 API로 확인하기 전이다(확인 필요). 'OO 부근 졸음쉼터'는 위치만 나타내는 이름이다. 좌표는 scenarios/seoul-busan-family.json 경로 직선 위 근사치(approxKmFromSeoul 기준), 편의시설은 모두 샘플(실제와 다를 수 있음). EX_API_KEY가 없을 때 수집 잡이 적재하고, 앱은 같은 파일을 내장 기본 데이터로 묶는다. 영동선(Y01~Y07, 강릉 방향)은 같이가개 시연 경로(scenarios/pet-trip.json) 위 근사 좌표이고, 반려견 놀이터 등 편의시설은 샘플이다(확인 필요).",
   "restAreas": [
     {
       "serviceAreaCode": "G01",
@@ -276,6 +276,90 @@
       "telNo": null,
       "svarAddr": null,
       "approxKmFromSeoul": 145
+    },
+    {
+      "serviceAreaCode": "Y01",
+      "serviceAreaName": "용인휴게소",
+      "stopType": "service_area",
+      "routeName": "영동선",
+      "direction": "강릉",
+      "yValue": 37.287139,
+      "xValue": 127.128119,
+      "telNo": null,
+      "svarAddr": null,
+      "approxKmFromSeoul": 40
+    },
+    {
+      "serviceAreaCode": "Y02",
+      "serviceAreaName": "덕평자연휴게소",
+      "stopType": "service_area",
+      "routeName": "영동선",
+      "direction": "강릉",
+      "yValue": 37.261737,
+      "xValue": 127.326061,
+      "telNo": null,
+      "svarAddr": null,
+      "approxKmFromSeoul": 60
+    },
+    {
+      "serviceAreaCode": "Y03",
+      "serviceAreaName": "여주휴게소",
+      "stopType": "service_area",
+      "routeName": "영동선",
+      "direction": "강릉",
+      "yValue": 37.290776,
+      "xValue": 127.574657,
+      "telNo": null,
+      "svarAddr": null,
+      "approxKmFromSeoul": 85
+    },
+    {
+      "serviceAreaCode": "Y04",
+      "serviceAreaName": "문막휴게소",
+      "stopType": "service_area",
+      "routeName": "영동선",
+      "direction": "강릉",
+      "yValue": 37.327732,
+      "xValue": 127.842611,
+      "telNo": null,
+      "svarAddr": null,
+      "approxKmFromSeoul": 112
+    },
+    {
+      "serviceAreaCode": "Y05",
+      "serviceAreaName": "횡성휴게소",
+      "stopType": "service_area",
+      "routeName": "영동선",
+      "direction": "강릉",
+      "yValue": 37.473551,
+      "xValue": 128.04968,
+      "telNo": null,
+      "svarAddr": null,
+      "approxKmFromSeoul": 140
+    },
+    {
+      "serviceAreaCode": "Y06",
+      "serviceAreaName": "평창휴게소",
+      "stopType": "service_area",
+      "routeName": "영동선",
+      "direction": "강릉",
+      "yValue": 37.557847,
+      "xValue": 128.327082,
+      "telNo": null,
+      "svarAddr": null,
+      "approxKmFromSeoul": 170
+    },
+    {
+      "serviceAreaCode": "Y07",
+      "serviceAreaName": "강릉휴게소",
+      "stopType": "service_area",
+      "routeName": "영동선",
+      "direction": "강릉",
+      "yValue": 37.619734,
+      "xValue": 128.598937,
+      "telNo": null,
+      "svarAddr": null,
+      "approxKmFromSeoul": 198
     }
   ],
   "facilities": [
@@ -552,6 +636,76 @@
     {
       "serviceAreaCode": "G54",
       "facilityCode": "sleep_room",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y01",
+      "facilityCode": "ev_fast",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y01",
+      "facilityCode": "nursing_room",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y02",
+      "facilityCode": "pet_zone",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y02",
+      "facilityCode": "ev_fast",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y02",
+      "facilityCode": "kids_zone",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y03",
+      "facilityCode": "ev_fast",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y04",
+      "facilityCode": "ev_fast",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y04",
+      "facilityCode": "nursing_room",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y05",
+      "facilityCode": "pet_zone",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y05",
+      "facilityCode": "ev_fast",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y06",
+      "facilityCode": "pet_zone",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y06",
+      "facilityCode": "ev_fast",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y07",
+      "facilityCode": "ev_fast",
+      "quantity": 1
+    },
+    {
+      "serviceAreaCode": "Y07",
+      "facilityCode": "kids_zone",
       "quantity": 1
     }
   ]

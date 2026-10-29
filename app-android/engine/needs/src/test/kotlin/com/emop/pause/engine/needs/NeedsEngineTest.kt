@@ -22,7 +22,7 @@ class NeedsEngineTest {
 
     @Test
     fun `P0 5세 아이 화장실과 반려견 산책 타이머가 각자 진행된다`() {
-        val e = NeedsEngine(listOf(Passenger.Child(5), Passenger.Dog))
+        val e = NeedsEngine(listOf(Passenger.Child(5), Passenger.Dog()))
         val r = e.runMinutes(0, 60)
         val toilet = r.needs.first { it.kind == NeedKind.TOILET }
         val walk = r.needs.first { it.kind == NeedKind.PET_WALK }
@@ -85,7 +85,7 @@ class NeedsEngineTest {
 
     @Test
     fun `P1 배터리 신호 미지원이면 충전 니즈를 만들지 않고 충전 정보 없음`() {
-        val r = NeedsEngine(listOf(Passenger.Dog), EvProfile()).tick(0, soc = null, remainKm = 300, caps = setOf(Signal.SPEED))
+        val r = NeedsEngine(listOf(Passenger.Dog()), EvProfile()).tick(0, soc = null, remainKm = 300, caps = setOf(Signal.SPEED))
         assertFalse(r.chargeInfoAvailable)
         assertNotNull(r.needs.single { it.kind == NeedKind.PET_WALK })
     }

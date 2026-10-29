@@ -6,7 +6,8 @@ import kotlin.math.max
 /** 동승자 프리셋 한 명. 서버로 보내지 않는다 (architecture §6). */
 sealed interface Passenger {
     data class Child(val age: Int) : Passenger
-    data object Dog : Passenger
+    /** 반려견. [walkIntervalMin]은 프로필의 배변·산책 간격(분). */
+    data class Dog(val walkIntervalMin: Int = NeedsEngine.PET_WALK_MIN) : Passenger
 }
 
 enum class NeedKind { TOILET, NURSING, PET_WALK, CHARGE }
@@ -49,7 +50,7 @@ class NeedsEngine(
     private val timers: List<Pair<NeedKind, Int>> = passengers.mapNotNull { p ->
         when (p) {
             is Passenger.Child -> intervalFor(p.age)
-            Passenger.Dog -> NeedKind.PET_WALK to PET_WALK_MIN
+            is Passenger.Dog -> NeedKind.PET_WALK to p.walkIntervalMin
         }
     }
     private val elapsedSec = DoubleArray(timers.size)

@@ -48,7 +48,7 @@ object TripPlanPreview {
         val needIntervals = passengers.map {
             when (it) {
                 is Passenger.Child -> NeedsEngine.intervalFor(it.age).second
-                Passenger.Dog -> NeedsEngine.PET_WALK_MIN
+                is Passenger.Dog -> it.walkIntervalMin
             }
         }
         val interval = (listOf(if (eager) EAGER_LIMIT_MIN else DRIVE_LIMIT_MIN) + needIntervals).min()
@@ -62,7 +62,7 @@ object TripPlanPreview {
             passengers.forEach {
                 when (it) {
                     is Passenger.Child -> add(if (NeedsEngine.intervalFor(it.age).first == NeedKind.NURSING) Facility.NURSING_ROOM else Facility.KIDS_ZONE)
-                    Passenger.Dog -> add(Facility.PET_ZONE)
+                    is Passenger.Dog -> add(Facility.PET_ZONE)
                 }
             }
             if (ev) add(Facility.EV_FAST)

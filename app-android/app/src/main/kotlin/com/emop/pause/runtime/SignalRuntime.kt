@@ -4,6 +4,7 @@ import android.content.Context
 import com.emop.pause.core.model.AppMode
 import com.emop.pause.core.model.DriveState
 import com.emop.pause.core.model.EtaInfo
+import com.emop.pause.core.model.LatLng
 import com.emop.pause.core.model.PauseCause
 import com.emop.pause.core.model.RouteInfo
 import com.emop.pause.core.model.Signal
@@ -22,6 +23,7 @@ import com.emop.pause.core.vehicle.PleosVehicleSource
 import com.emop.pause.mode.AppModeReducer
 import com.emop.pause.mode.ModeInput
 import com.emop.pause.mode.ModeState
+import com.emop.pause.sim.Gpx
 import com.emop.pause.sim.Scenario
 import com.emop.pause.sim.ScenarioPlayer
 import com.emop.pause.sim.ScenarioSetup
@@ -154,6 +156,17 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
     private fun loadScenario(name: String): Scenario =
         Scenario.parse(context.assets.open("$SCENARIO_DIR/$name.json").bufferedReader().use { it.readText() })
 
+    /** 시나리오의 경로 형상 GPX (멀미 예보용). 시나리오마다 한 번만 읽는다. */
+    private var shapeCache: Pair<String, List<LatLng>>? = null
+
+    private fun shapeOf(scenario: Scenario): List<LatLng> {
+        val gpx = scenario.route.shapeGpx ?: return emptyList()
+        shapeCache?.takeIf { it.first == gpx }?.let { return it.second }
+        val pts = runCatching { Gpx.parse(context.assets.open("$SCENARIO_DIR/$gpx").bufferedReader().use { it.readText() }) }.getOrDefault(emptyList())
+        shapeCache = gpx to pts
+        return pts
+    }
+
     /**
      * 실차 모드: Vehicle SDK + AAOS 차량 속성 + NaviHelper + CarUxRestrictions.
      * 신호는 신호마다 Pleos SDK → AAOS 속성 순으로 고른다 ([SignalMerge]).
@@ -173,10 +186,13 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
             tick(),
         ) { p, aa, f, _ -> SignalMerge.merge(listOfNotNull(p, aa, f), System.currentTimeMillis()) }
         val smoother = SignalSmoother()
-        val smoothed = readings.map { it.copy(sample = smoother.apply(it.sample)) }
+        val n = PleosNaviSource(context).also { it.start() }
+        // 방위는 NaviHelper 현재 위치에서 받는다 (멀미 예보 횡가속, docs/plan/sdk_check.md). 잡음 처리 뒤에 붙인다.
+        val smoothed = combine(readings.map { it.copy(sample = smoother.apply(it.sample)) }, n.heading()) { m, h ->
+            if (h == null) m else m.copy(sample = m.sample.copy(headingDeg = h), sources = m.sources + (Signal.HEADING to SignalSource.PLEOS_SDK))
+        }
         aaos = a
         fillPlayer = fill
-        val n = PleosNaviSource(context).also { it.start() }
         val ux = CarUxDriveStateRepository(context)
         val routeFlow = runCatching { n.route() }.getOrDefault(flowOf(null))
         vehicle = v
@@ -187,6 +203,13 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
                 while (true) {
                     delay(NAVI_REFRESH_MS)
                     n.refresh()
+                }
+            }
+            // TODO(pleos-sdk): onCurrentLocationInfo가 스스로 주기적으로 오는지 에뮬레이터에서 확인. 지금은 1초마다 요청한다.
+            launch {
+                while (true) {
+                    delay(TICK_MS)
+                    n.refreshLocation()
                 }
             }
             combine(smoothed, combine(ux.driveState, ux.uxLimits, ::Pair), n.eta(), vehicleTrip, routeFlow) { merged, (drive, limits), eta, trip, route ->
@@ -269,7 +292,7 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
             pauseCause = modeState.pauseCause,
             nowMs = (f.tSec * 1000).toLong(),
             clockMinute = scenario.startMinute + (f.tSec / 60).toInt(),
-            route = scenario.route.let { r -> RouteInfo(r.destinationName, r.destination.toModel(), r.totalDistanceM, r.points.map { it.toModel() }) },
+            route = scenario.route.let { r -> RouteInfo(r.destinationName, r.destination.toModel(), r.totalDistanceM, r.points.map { it.toModel() }, shapeOf(scenario), r.shapeStartM) },
             simSetup = scenario.setup,
             waypoints = waypoints,
         )

@@ -1,6 +1,7 @@
 package com.emop.pause.trip
 
 import android.content.Context
+import com.emop.pause.core.model.PetProfile
 import com.emop.pause.engine.needs.EvProfile
 import com.emop.pause.engine.needs.Passenger
 import com.emop.pause.sim.ScenarioSetup
@@ -55,8 +56,13 @@ class PresetStore @Inject constructor(@param:ApplicationContext context: Context
 
     companion object {
         fun passengers(childAges: List<Int>, dog: Boolean): List<Passenger> =
-            childAges.map { Passenger.Child(it) } + listOfNotNull(Passenger.Dog.takeIf { dog })
+            childAges.map { Passenger.Child(it) } + listOfNotNull(Passenger.Dog().takeIf { dog })
 
-        fun fromScenario(s: ScenarioSetup) = TripSetup(passengers(s.childAges, s.dog), if (s.ev) EvProfile() else null, s.sleepHours)
+        /** 시나리오 설정. 반려견 프로필이 있으면 그 배변 간격으로 니즈 타이머를 만든다. */
+        fun fromScenario(s: ScenarioSetup): TripSetup {
+            val pet = s.pet?.toModel()
+            val dog = if (pet != null) Passenger.Dog(pet.pottyIntervalMin) else Passenger.Dog().takeIf { s.dog }
+            return TripSetup(s.childAges.map { Passenger.Child(it) } + listOfNotNull(dog), if (s.ev) EvProfile() else null, s.sleepHours, pet ?: PetProfile.DEFAULT)
+        }
     }
 }

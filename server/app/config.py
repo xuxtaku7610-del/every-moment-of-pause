@@ -12,6 +12,12 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://pause:pause@127.0.0.1:5432/pause"
     ex_api_key: str = ""
+    # 한국관광공사 TourAPI(반려동물 동반여행) 키. 비우면 sample_pet_places.json (F4). 로그에 남기지 않는다.
+    tour_api_key: str = ""
+    # 동물병원 인허가 파일 좌표계 (F5). 지방행정 인허가 데이터의 좌표정보(X·Y) — 파일을 받으면 확인한다.
+    vet_source_crs: str = "EPSG:5174"
+    # 대기 공유 (F3): 토큰 만료(분)
+    wait_ttl_minutes: int = 120
 
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "gemma4:12b"

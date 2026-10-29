@@ -1,12 +1,26 @@
 package com.emop.pause.trip
 
 import com.emop.pause.core.model.TripPhase
+import com.emop.pause.core.model.PetProfile
+import com.emop.pause.data.pet.PetStore
+import com.emop.pause.engine.motion.MotionForecast
+import com.emop.pause.engine.motion.MotionPhrases
+import com.emop.pause.engine.motion.MotionState
+import com.emop.pause.engine.motion.RouteShape
+import com.emop.pause.engine.pet.ArrivalInput
+import com.emop.pause.engine.pet.ArrivalPrompt
+import com.emop.pause.engine.pet.BoardingCheck
+import com.emop.pause.engine.pet.CheckItem
+import com.emop.pause.engine.pet.Josa
+import com.emop.pause.engine.pet.WaitEvent
+import com.emop.pause.engine.pet.WaitInput
+import com.emop.pause.engine.pet.WaitMode
+import com.emop.pause.engine.pet.WaitStatus
 import com.emop.pause.data.RestStopRepository
 import com.emop.pause.data.StopSource
 import com.emop.pause.engine.fatigue.FatigueResult
 import com.emop.pause.engine.needs.NeedKind
 import com.emop.pause.engine.needs.NeedsResult
-import com.emop.pause.engine.needs.Passenger
 import com.emop.pause.engine.planner.PlanDecision
 import com.emop.pause.engine.planner.RestPhrases
 import com.emop.pause.engine.planner.RestStop
@@ -21,16 +35,11 @@ import com.emop.pause.voice.ReplyIntent
 import com.emop.pause.voice.SpeechInput
 import com.emop.pause.voice.SpeechOutput
 import com.emop.pause.voice.AudioFocus
-import com.emop.pause.core.model.PauseCause
 import com.emop.pause.core.model.AppMode
-import com.emop.pause.engine.content.ExpeditionTracker
-import com.emop.pause.engine.content.Mission
-import com.emop.pause.voice.EtaAnswer
-import com.emop.pause.voice.EtaFacts
 import com.emop.pause.voice.SpeechPriority
 import com.emop.pause.voice.SpeechQueue
-import com.emop.pause.voice.Tone
 import com.emop.pause.voice.Utterance
+import com.emop.pause.engine.needs.Passenger
 import com.emop.pause.voice.VoiceIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,13 +81,22 @@ data class TripUi(
     val passengers: List<Passenger> = emptyList(),
     val sleepHours: Float? = null,
     val chargeInfoAvailable: Boolean = false,
-    /** 도착 맞춤 라디오. */
-    val radio: RadioState = RadioState(),
-    /** 이번 정차의 원정대 미션과 완료한 미션 ID. */
-    val missions: List<Mission> = emptyList(),
-    val missionsDone: Set<String> = emptySet(),
-    /** 원정대를 다 해서 다음 구간 라디오가 열림. */
-    val radioUnlocked: Boolean = false,
+    /** 반려견 프로필 (시뮬레이션은 시나리오 값, 실차는 기기 저장 값). */
+    val pet: PetProfile = PetProfile.DEFAULT,
+    /** 멀미 예보 (F1). */
+    val motion: MotionState = MotionState(),
+    val forecast: MotionForecast? = null,
+    /** 잠깐 대기 모드 (F3). */
+    val wait: WaitStatus = WaitStatus(),
+    /** 출발 전 체크한 항목 (F6). */
+    val checks: Set<CheckItem> = emptySet(),
+    /** "내렸나요?" 알림 (F6). 확인하면 null. */
+    val arrival: ArrivalPrompt? = null,
+    val leftConfirmed: Boolean = false,
+    /** 보호자 폰 공유 (주소·연결 상태). */
+    val share: WaitShareState = WaitShareState(),
+    /** 기기에 저장된 프로필이 있는지 (없으면 첫 실행 → 프로필 화면). 불러오기 전에는 null. */
+    val profileSaved: Boolean? = null,
 )
 
 /**
@@ -95,8 +113,9 @@ class TripCoordinator @Inject constructor(
     private val speechIn: SpeechInput,
     private val presets: PresetStore,
     focus: AudioFocus,
-    private val content: ContentRepository,
     private val resumeStore: TripResumeStore,
+    private val petStore: PetStore,
+    val share: WaitShare,
 ) {
     // 엔진 상태는 한 스레드에서만 만진다(신호 수집과 음성 응답이 같은 큐를 쓴다).
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
@@ -110,59 +129,125 @@ class TripCoordinator @Inject constructor(
     @Volatile private var stops: List<RestStop> = emptyList()
     private var voiceJob: Job? = null
     private var toastJob: Job? = null
-    /** 안전 경고 > 제안 > 아이 답변 > 라디오, 오디오 포커스 (COMMERCIAL_READINESS C P0). */
+    /** 안전 경고 > 제안 > 안내 > 배경음, 오디오 포커스 (COMMERCIAL_READINESS C P0). */
     private val speech = SpeechQueue(speechOut, focus, scope)
-    private val radio = RadioDirector({ content.library }, speech, scope)
-    private val expedition by lazy { ExpeditionTracker(content.library.missions) }
     private var lastMode: AppMode? = null
     /** 앱 시작 뒤 저장된 여행을 한 번만 확인한다. */
     private var resumeChecked = false
     private var pendingResume: TripResume? = null
     private var lastSaveMs: Long? = null
 
-    /** 설정 "아이 질문에 답하기". 끄면 아이 말투 질문에도 어른 답(시간·거리)으로 답한다. */
-    @Volatile var kidAnswerEnabled: Boolean = true
-
     /** 음성 제안을 켤지 (설정 "음성으로 제안"). 꺼지면 화면 카드와 버튼만. */
     @Volatile var voiceEnabled: Boolean = true
 
+    private val waitMode = WaitMode()
+    private val boarding = BoardingCheck()
+    /** 기기에 저장된 반려견 프로필 (실차). 시뮬레이션은 시나리오 값을 쓴다. */
+    @Volatile private var savedPet: PetProfile? = null
+
     init {
         scope.launch { runtime.snapshot.collect(::onSnapshot) }
-        scope.launch { radio.state.collect { r -> _ui.update { it.copy(radio = r) } } }
         scope.launch { runtime.replays.collect(::replay) }
+        scope.launch { share.state.collect { st -> _ui.update { it.copy(share = st) } } }
+        scope.launch {
+            savedPet = runCatching { petStore.profile() }.getOrNull()
+            _ui.update { it.copy(profileSaved = savedPet != null) }
+            savedPet?.let { p -> if (brain == null && runtime.snapshot.value.simSetup?.pet == null) _ui.update { it.copy(pet = p) } }
+        }
     }
 
-    /**
-     * 들은 말 (STT 결과, 카드 버튼, 디버그 주입). "아직 멀었어?" 계열이면 언제든 답하고,
-     * 그 밖의 말은 제안에 대한 응답으로 듣기 창에 넘긴다.
-     */
+    /** 들은 말 (STT 결과, 카드 버튼, 디버그 주입). "잠깐 다녀올게"면 대기 모드, 그 밖의 말은 제안 응답으로 듣기 창에 넘긴다. */
     fun reply(text: String) {
-        when (val u = VoiceIntent.parse(text)) {
-            is Utterance.AskEta -> scope.launch { answerEta(u.tone) }
-            is Utterance.Radio -> scope.launch { if (u.on) startRadio() else radio.stop() }
+        when (VoiceIntent.parse(text)) {
+            Utterance.StartWait -> startWait()
             is Utterance.Answer -> replies.trySend(text)
         }
     }
 
-    /** "아직 멀었어?" 응답기 (test_plan T5-1·T5-5·T5-6). 템플릿만 — 아이용 문장은 LLM으로 만들지 않는다. */
-    private suspend fun answerEta(asked: Tone) {
-        val s = runtime.snapshot.value
-        val eta = s.eta ?: return
-        val t = _ui.value
-        val next = (t.heading ?: t.plan?.stops?.map { it.stop }?.firstOrNull { it.distanceAlongRouteKm > t.traveledKm + 1 })
-        val speed = t.kmPerMin.takeIf { it > 0 }
-        val facts = EtaFacts(
-            destination = s.route?.destinationName ?: "목적지",
-            remainMin = (eta.remainTimeSec + 59) / 60,
-            remainKm = eta.remainDistanceM / 1000.0,
-            nextStopName = next?.name,
-            nextStopMin = if (next != null && speed != null) maxOf(1, ((next.distanceAlongRouteKm - t.traveledKm) / speed).toInt()) else null,
-            episodesLeft = radio.state.value.episodesLeft.takeIf { it > 0 },
-        )
-        val tone = if (asked == Tone.KID && !kidAnswerEnabled) Tone.ADULT else asked
-        val text = EtaAnswer.answer(facts, tone)
-        _ui.update { it.copy(lastSpoken = text) }
-        speech.say(text, if (tone == Tone.KID) SpeechPriority.KID_ANSWER else SpeechPriority.SUGGESTION)
+    // ───────────── 반려견 프로필·체크·대기 (F3·F6) ─────────────
+
+    fun savePet(p: PetProfile) {
+        scope.launch {
+            runCatching { petStore.saveProfile(p) }
+            savedPet = p
+            _ui.update { it.copy(pet = p, profileSaved = true) }
+        }
+        refreshPreview()
+    }
+
+    fun toggleCheck(item: CheckItem) {
+        scope.launch {
+            boarding.toggle(item)
+            _ui.update { it.copy(checks = boarding.checkedItems) }
+        }
+    }
+
+    /** "잠깐 다녀올게" (P단에서만, F3-05). */
+    fun startWait() {
+        scope.launch {
+            val ev = waitMode.start(waitInput(runtime.snapshot.value))
+            if (ev.isEmpty()) {
+                if (!waitMode.status.active) showToast(WAIT_PARK_ONLY)
+                return@launch
+            }
+            publishWait(ev.first())
+            say("대기 모드를 켰어요. ${Josa.waGwa(_ui.value.pet.name)} 함께 기다릴게요.")
+        }
+    }
+
+    fun stopWait() {
+        scope.launch { waitMode.stop().firstOrNull()?.let(::publishWait) }
+    }
+
+    fun setWaitLimit(minutes: Int) {
+        scope.launch {
+            waitMode.setLimit(minutes)
+            publishWait(null)
+        }
+    }
+
+    /** 화면 결과 한 줄 (장소를 경유지로 넣었을 때 등). */
+    fun notify(text: String) {
+        scope.launch { showToast(text) }
+    }
+
+    /** "내 데이터 삭제": 저장한 프로필도 잊는다. */
+    fun forgetPet() {
+        scope.launch {
+            savedPet = null
+            _ui.update { it.copy(pet = PetProfile.DEFAULT, profileSaved = false) }
+        }
+    }
+
+    /** "내렸어요" (F6-04). */
+    fun confirmLeft() {
+        scope.launch {
+            boarding.confirmLeft()
+            _ui.update { it.copy(arrival = null, leftConfirmed = true) }
+        }
+    }
+
+    private fun waitInput(s: Snapshot) = WaitInput(s.nowMs, s.driveState, s.sample.gear, s.sample.parkingBrakeOn, s.sample.batterySocPercent, s.sample.hvacTempC)
+
+    private fun publishWait(event: WaitEvent?) {
+        _ui.update { it.copy(wait = waitMode.status) }
+        share.onChanged(waitMode.status, event)
+    }
+
+    /** 대기 모드·도착 체크는 여행 단계와 상관없이 1초마다 본다. */
+    private fun tickPetCare(s: Snapshot, silent: Boolean) {
+        val events = waitMode.tick(waitInput(s))
+        if (events.isNotEmpty() || waitMode.status.active) publishWait(events.firstOrNull())
+        if (!silent && WaitEvent.Overdue in events) scope.launch { say(WAIT_OVERDUE, SpeechPriority.SAFETY) }
+        val near = s.trip == TripPhase.ACTIVE && (s.eta?.remainDistanceM ?: Int.MAX_VALUE) <= ARRIVE_NEAR_M
+        val ending = s.mode == AppMode.ARRIVED || s.trip == TripPhase.ENDED || near
+        val prompt = boarding.tick(ArrivalInput(s.nowMs, s.sample.gear, s.sample.parkingBrakeOn, ending, s.sample.hvacTempC, java.time.LocalDate.now().monthValue))
+            ?: return
+        _ui.update { it.copy(arrival = prompt) }
+        if (silent) return
+        val name = _ui.value.pet.name
+        val line = if (prompt.strong) "$name 내렸나요? 차 안이 더워질 수 있어요. 꼭 확인해 주세요." else "$name 내렸나요?"
+        scope.launch { say(line, if (prompt.strong) SpeechPriority.SAFETY else SpeechPriority.SUGGESTION) }
     }
 
     /** 발표 모드 점프: 건너뛴 구간을 음성 없이 따라잡는다. 그 사이 제안은 없었던 것으로 본다. */
@@ -186,6 +271,7 @@ class TripCoordinator @Inject constructor(
 
     private fun onSnapshot(s: Snapshot, silent: Boolean) {
         if (s.source == SourceMode.VEHICLE && checkResume(s)) return
+        tickPetCare(s, silent)
         val key = s.source to s.scenarioName
         if (key != tripKey || s.trip == TripPhase.NOT_STARTED) {
             if (brain != null || key != tripKey) reset()
@@ -214,7 +300,6 @@ class TripCoordinator @Inject constructor(
             }
         }
         val state = b.tick(BrainInput(s.nowMs, s.clockMinute, s.mode, s.driveState, s.sample, s.capabilities, s.eta, s.route?.totalDistanceM))
-        if (!silent && s.mode != lastMode) onModeChanged(s)
         // 주행 중 쉼표 계획을 지금 위치·니즈로 다시 잡는다 (출발 전 계획이 낡아 "77분 뒤"가 보이지 않게).
         if (s.mode == AppMode.DRIVING && (s.mode != lastMode || lastReplanMs.let { it == null || s.nowMs - it >= REPLAN_MS })) {
             lastReplanMs = s.nowMs
@@ -234,7 +319,20 @@ class TripCoordinator @Inject constructor(
                 traveledKm = state.traveledKm,
                 kmPerMin = kmPerMin,
                 chargeInfoAvailable = state.needs?.chargeInfoAvailable == true,
+                motion = state.motion,
+                forecast = state.forecast,
             )
+        }
+        // 멀미 예보는 제안·질문 중이 아닐 때 한 줄로 말한다 (F1-10: 같은 구간은 다시 말하지 않음).
+        state.speakForecast?.let { f ->
+            if (silent) {
+                b.dropForecast()
+            } else if (voiceJob?.isActive != true) {
+                b.onForecastSpoken(s.nowMs)
+                val line = MotionPhrases.forecast(f, setup.pet.name)
+                showToast(line)
+                scope.launch { say(line) }
+            }
         }
         val d = state.pending ?: return
         if (silent || voiceJob?.isActive == true) return
@@ -244,9 +342,10 @@ class TripCoordinator @Inject constructor(
 
     private fun startTrip(s: Snapshot): TripBrain {
         setup = setupFor(s)
-        val b = TripBrain(setup) { stops }
+        val shape = s.route?.shape?.takeIf { it.size >= 2 }?.let(RouteShape::fromLatLng)
+        val b = TripBrain(setup, shape, s.route?.shapeStartM ?: 0) { stops }
         brain = b
-        _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours) }
+        _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours, pet = setup.pet) }
         // 출발 준비에서 받아 둔 휴게소가 있으면 그대로 쓰고, 계획만 이번 설정으로 다시 잡는다.
         val resumed = pendingResume
         pendingResume = null
@@ -266,7 +365,12 @@ class TripCoordinator @Inject constructor(
     private var previewFor: Pair<SourceMode, String?>? = null
     private var lastSnapshot: Snapshot? = null
 
-    private fun setupFor(s: Snapshot) = s.simSetup?.let(PresetStore::fromScenario) ?: presets.setup()
+    /** 시뮬레이션은 시나리오 설정, 실차는 저장된 반려견 프로필 + 프리셋(전기차·수면). 같이가개는 반려견이 늘 함께 탄다. */
+    private fun setupFor(s: Snapshot): TripSetup {
+        s.simSetup?.let { return PresetStore.fromScenario(it) }
+        val pet = savedPet ?: PetProfile.DEFAULT
+        return presets.setup().copy(passengers = listOf(Passenger.Dog(pet.pottyIntervalMin)), pet = pet)
+    }
 
     /** 출발 준비 화면의 "오늘의 쉼표" (경로를 알면 출발 전에 미리 받는다). */
     private fun loadPreview(s: Snapshot, key: Pair<SourceMode, String?>) {
@@ -276,7 +380,7 @@ class TripCoordinator @Inject constructor(
         scope.launch {
             loadStops(s)
             setup = setupFor(s)
-            _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours) }
+            _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours, pet = setup.pet) }
             replan(s)
         }
     }
@@ -313,27 +417,6 @@ class TripCoordinator @Inject constructor(
     /** 설정 "제안 시점: 빠르게" 또는 출발 준비 "먼저 알려 주기". */
     @Volatile var eager: Boolean = false
 
-    /**
-     * 멈춤이 시작되면 아이가 있을 때 원정대 미션 3개를 고르고 라디오를 멈춘다.
-     * 다시 주행하면 미션을 접고, 원정대를 다 했으면 다음 구간 라디오를 튼다 (COMMERCIAL_READINESS E P0).
-     */
-    private fun onModeChanged(s: Snapshot) {
-        when (s.mode) {
-            AppMode.PAUSE -> {
-                radio.stop()
-                val age = setup.passengers.filterIsInstance<Passenger.Child>().maxOfOrNull { it.age }
-                if (age != null && age >= 3) expedition.start(s.pauseCause == PauseCause.CHARGING, age)
-            }
-            AppMode.DRIVING -> {
-                val unlocked = expedition.radioUnlocked
-                expedition.onDrivingStarted()
-                if (unlocked && startRadio()) expedition.consumeRadio()
-            }
-            else -> radio.stop()
-        }
-        publishContent()
-    }
-
     private var lastReplanMs: Long? = null
 
     private fun replanDriving(s: Snapshot, st: BrainState) {
@@ -345,34 +428,6 @@ class TripCoordinator @Inject constructor(
         val speed = _ui.value.kmPerMin.takeIf { it > 0 } ?: (100.0 / 60)
         val plan = TripPlanPreview.plan(stops, totalKm, speed, setup.passengers, setup.ev != null, setup.sleepHours, eager, fromKm = st.traveledKm, firstGapMin = gap)
         _ui.update { it.copy(plan = plan.copy(intervalMin = interval)) }
-    }
-
-    /** 원정대 미션 완료 (멈춤 화면). */
-    fun completeMission(id: String) {
-        scope.launch {
-            expedition.complete(id)
-            publishContent()
-        }
-    }
-
-    /** 도착까지 남은 시간에 맞춰 라디오를 튼다. 아이 나이를 모르면 나이 제한 없이. */
-    private fun startRadio(): Boolean {
-        val remain = runtime.snapshot.value.eta?.remainTimeSec ?: return false
-        val age = setup.passengers.filterIsInstance<Passenger.Child>().maxOfOrNull { it.age }
-        val ok = radio.start(remain, age)
-        publishContent()
-        return ok
-    }
-
-    private fun publishContent() {
-        _ui.update {
-            it.copy(
-                radio = radio.state.value,
-                missions = expedition.current,
-                missionsDone = expedition.current.filter { m -> expedition.isDone(m.id) }.map { m -> m.id }.toSet(),
-                radioUnlocked = expedition.radioUnlocked,
-            )
-        }
     }
 
     /**
@@ -402,8 +457,6 @@ class TripCoordinator @Inject constructor(
 
     private fun reset() {
         voiceJob?.cancel()
-        radio.resetTrip()
-        expedition.resetTrip()
         lastMode = null
         lastReplanMs = null
         lastSaveMs = null
@@ -411,7 +464,9 @@ class TripCoordinator @Inject constructor(
         brain = null
         stops = emptyList()
         previewFor = null
-        _ui.value = TripUi()
+        waitMode.stop()
+        boarding.reset()
+        _ui.value = TripUi(pet = savedPet ?: PetProfile.DEFAULT, share = share.state.value, profileSaved = _ui.value.profileSaved)
     }
 
     private suspend fun handle(b: TripBrain, d: PlanDecision) {
@@ -424,7 +479,7 @@ class TripCoordinator @Inject constructor(
 
     private suspend fun suggest(b: TripBrain, d: PlanDecision.Suggest) {
         val level = b.state.fatigue?.level ?: return
-        val phrase = phrases.restSuggestion(d, level, setup.passengers)
+        val phrase = phrases.restSuggestion(d, level, setup.passengers, setup.pet.name)
         while (replies.tryReceive().isSuccess) Unit // 지난 응답은 버린다
         _ui.update { it.copy(asking = d, suggestion = phrase.text, voice = VoicePhase.IDLE) }
         var answer = Reply.UNKNOWN
@@ -493,6 +548,11 @@ class TripCoordinator @Inject constructor(
         const val BUTTON_WAIT_MS = 15_000L
         const val TOAST_MS = 8_000L
         const val RESUME_PHRASE = "이어서 안내할게요."
+        const val WAIT_PARK_ONLY = "차가 P단일 때만 대기 모드를 켤 수 있어요."
+        const val WAIT_OVERDUE = "대기 시간이 지났어요. 보호자 화면에도 알렸어요."
+
+        /** 목적지 이만큼 안에서 P단이면 여행이 끝나는 중으로 본다 (F6). */
+        const val ARRIVE_NEAR_M = 300
     }
 }
 

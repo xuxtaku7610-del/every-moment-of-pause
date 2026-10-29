@@ -11,7 +11,7 @@ android {
 }
 
 val copyScenarios by tasks.registering(Copy::class) {
-    from(rootProject.file("../scenarios")) { include("*.json") }
+    from(rootProject.file("../scenarios")) { include("*.json", "geo/*.gpx") }
     into(layout.buildDirectory.dir("generated/scenarioAssets/scenarios"))
 }
 tasks.named("preBuild") { dependsOn(copyScenarios) }

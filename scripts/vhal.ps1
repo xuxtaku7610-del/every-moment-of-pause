@@ -1,6 +1,8 @@
-﻿# 쉼표 — 에뮬레이터 차량 상태를 시연 장면에 맞추고 런처·앱을 캡처한다 (BACKEND_FIRST 3번).
+﻿# 같이가개 — 에뮬레이터 차량 상태와 앱 시뮬레이터를 시연 장면에 함께 맞추고 런처·앱을 캡처한다 (PIVOT 3단계).
 #
-# 사용:  powershell -ExecutionPolicy Bypass -File scripts\vhal.ps1 <check|drive|pause|charge|arrive>
+# 사용:  powershell -ExecutionPolicy Bypass -File scripts\vhal.ps1 <check|depart|highway|rest_stop|wait|mountain_road|arrive> [-Vehicle] [-NoWait]
+#   기본: 앱을 시뮬레이터 pet-trip의 그 장면 시각으로 점프(`--es sim pet-trip --ei seek <초>`)하고, VHAL 값은 넣을 수 있으면 넣는다.
+#   -Vehicle: 앱을 실차 모드(`--ez vehicle true`)로 띄워 VHAL 값만으로 본다 (userdebug 이미지·사람 조작용).
 #
 # 속성 ID는 SDK android.car.jar의 VehiclePropertyIds 상수(javap)와 에뮬레이터 dumpsys로 확인한 값이다 (docs/vhal_check.md).
 # 확인된 제약 (Pleos_Connect_API34, 2026-10-29):
@@ -14,7 +16,9 @@
 # 확인하지 못했다(-h가 막힘). userdebug 이미지에서 `adb shell cmd car_service -h`로 먼저 확인할 것.
 
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('check', 'drive', 'pause', 'charge', 'arrive')][string]$Scene,
+    [Parameter(Mandatory = $true)][ValidateSet('check', 'depart', 'highway', 'rest_stop', 'wait', 'mountain_road', 'arrive')][string]$Scene,
+    # 앱을 시뮬레이터 대신 실차 신호(VHAL·Pleos SDK)로 띄운다
+    [switch]$Vehicle,
     # 사람 조작을 기다리지 않고 바로 캡처 (자동 점검용)
     [switch]$NoWait
 )
@@ -38,11 +42,18 @@ $P = @{
 
 # 장면별 목표 값. 배터리 Wh는 용량을 모르면 %로만 안내한다.
 $Scenes = @{
-    drive  = [ordered]@{ GEAR_SELECTION = 8; CURRENT_GEAR = 8; PERF_VEHICLE_SPEED = 27.8; PARKING_BRAKE_ON = 0; SEAT_BELT_BUCKLED = 1; EV_BATTERY_PCT = 62; EV_CHARGE_STATE = 3 }
-    pause  = [ordered]@{ GEAR_SELECTION = 4; CURRENT_GEAR = 4; PERF_VEHICLE_SPEED = 0; PARKING_BRAKE_ON = 1; SEAT_BELT_BUCKLED = 0; EV_BATTERY_PCT = 55; EV_CHARGE_STATE = 3 }
-    charge = [ordered]@{ GEAR_SELECTION = 4; CURRENT_GEAR = 4; PERF_VEHICLE_SPEED = 0; PARKING_BRAKE_ON = 1; SEAT_BELT_BUCKLED = 0; EV_BATTERY_PCT = 34; EV_CHARGE_STATE = 1 }
-    arrive = [ordered]@{ GEAR_SELECTION = 4; CURRENT_GEAR = 4; PERF_VEHICLE_SPEED = 0; PARKING_BRAKE_ON = 1; SEAT_BELT_BUCKLED = 0; EV_BATTERY_PCT = 21; EV_CHARGE_STATE = 3 }
+    depart        = [ordered]@{ GEAR_SELECTION = 4; CURRENT_GEAR = 4; PERF_VEHICLE_SPEED = 0;    PARKING_BRAKE_ON = 1; SEAT_BELT_BUCKLED = 1; EV_BATTERY_PCT = 82; EV_CHARGE_STATE = 3 }
+    highway       = [ordered]@{ GEAR_SELECTION = 8; CURRENT_GEAR = 8; PERF_VEHICLE_SPEED = 27.8; PARKING_BRAKE_ON = 0; SEAT_BELT_BUCKLED = 1; EV_BATTERY_PCT = 70; EV_CHARGE_STATE = 3 }
+    rest_stop     = [ordered]@{ GEAR_SELECTION = 4; CURRENT_GEAR = 4; PERF_VEHICLE_SPEED = 0;    PARKING_BRAKE_ON = 1; SEAT_BELT_BUCKLED = 0; EV_BATTERY_PCT = 57; EV_CHARGE_STATE = 3 }
+    wait          = [ordered]@{ GEAR_SELECTION = 4; CURRENT_GEAR = 4; PERF_VEHICLE_SPEED = 0;    PARKING_BRAKE_ON = 1; SEAT_BELT_BUCKLED = 0; EV_BATTERY_PCT = 57; EV_CHARGE_STATE = 3 }
+    mountain_road = [ordered]@{ GEAR_SELECTION = 8; CURRENT_GEAR = 8; PERF_VEHICLE_SPEED = 12.5; PARKING_BRAKE_ON = 0; SEAT_BELT_BUCKLED = 1; EV_BATTERY_PCT = 40; EV_CHARGE_STATE = 3 }
+    arrive        = [ordered]@{ GEAR_SELECTION = 4; CURRENT_GEAR = 4; PERF_VEHICLE_SPEED = 0;    PARKING_BRAKE_ON = 1; SEAT_BELT_BUCKLED = 0; EV_BATTERY_PCT = 33; EV_CHARGE_STATE = 3 }
 }
+
+# 앱 시뮬레이터(scenarios/pet-trip.json)의 장면 시각(초) — DemoScenes.kt와 같다 (scripts/gen_demo_data.py 출력).
+$SimSec = @{ depart = 0; highway = 210; rest_stop = 5232; wait = 5532; mountain_road = 8871; arrive = 10696 }
+# 장면에 들어가며 넣을 운전자 말 (대기 모드는 "잠깐 다녀올게"로 시작한다)
+$SimSay = @{ wait = "'잠깐 다녀올게'" }  # adb shell이 띄어쓰기로 나누지 않게 작은따옴표로 감싼다
 
 # Windows PowerShell 5.1은 네이티브 명령의 stderr를 오류 레코드로 감싸므로 이 안에서만 Continue로 두고 문자열로 모은다.
 function Invoke-Adb([string[]]$a) {
@@ -90,9 +101,20 @@ $target = $Scenes[$Scene]
 Write-Output "장면 '$Scene' 목표 값:"
 $target.GetEnumerator() | ForEach-Object { Write-Output ("  {0,-20} {1}" -f $_.Key, $_.Value) }
 
-# 앱은 실차 모드로 띄운다 (디버그 빌드: --ez vehicle true). 속성 변화는 앱 로그로 확인.
 Invoke-Adb @('logcat', '-c') | Out-Null
-Invoke-Adb @('shell', 'am', 'start', '-n', 'com.emop.pause/.MainActivity', '--ez', 'vehicle', 'true') | Out-Null
+if ($Vehicle) {
+    # 실차 모드 (디버그 빌드: --ez vehicle true). 속성 변화는 앱 로그(PauseSignals)로 확인.
+    Invoke-Adb @('shell', 'am', 'start', '-n', 'com.emop.pause/.MainActivity', '--ez', 'vehicle', 'true') | Out-Null
+} else {
+    # 앱 시뮬레이터를 같은 장면으로 점프하고 재생한다 (VHAL을 못 바꿔도 시연은 이것으로 된다).
+    $amArgs = @('shell', 'am', 'start', '-n', 'com.emop.pause/.MainActivity', '--es', 'sim', 'pet-trip', '--ei', 'seek', "$($SimSec[$Scene])", '--es', 'action', 'play')
+    Invoke-Adb $amArgs | Out-Null
+    if ($SimSay.ContainsKey($Scene)) {
+        Start-Sleep -Seconds 2
+        Invoke-Adb @('shell', 'am', 'start', '-n', 'com.emop.pause/.MainActivity', '--es', 'say', $SimSay[$Scene]) | Out-Null
+    }
+    Write-Output "앱 시뮬레이터: pet-trip $($SimSec[$Scene])초 ($Scene)"
+}
 
 if (CanInject) {
     foreach ($kv in $target.GetEnumerator()) {
@@ -103,7 +125,7 @@ if (CanInject) {
     Write-Output ''
     Write-Output 'user 빌드라 값을 넣을 수 없습니다 (car_service 명령 차단, 속성은 READ 전용).'
     Write-Output '에뮬레이터 확장 컨트롤(…)의 차량 데이터 패널 등에서 위 값으로 직접 바꾼 뒤 Enter를 누르세요.'
-    Write-Output '바꿀 수 없으면 시뮬레이터로 시연합니다: adb shell am start -n com.emop.pause/.MainActivity --es sim seoul-busan-family'
+    Write-Output '앱은 이미 시뮬레이터 장면으로 맞춰 두었습니다 (-Vehicle을 주면 실차 신호로 봅니다).'
     if (-not $NoWait) { [void](Read-Host '준비되면 Enter') }
 }
 Capture $Scene

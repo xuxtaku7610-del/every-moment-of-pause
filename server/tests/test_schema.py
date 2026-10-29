@@ -7,8 +7,8 @@ from sqlalchemy import create_engine, inspect
 from app.models import Base
 
 EXPECTED_TABLES = {
-    "devices", "rest_stops", "facility_codes", "rest_stop_facilities", "content_episodes", "missions",
-    "playlists", "playlist_items", "trips", "trip_events", "llm_call_logs",
+    "devices", "rest_stops", "facility_codes", "rest_stop_facilities",
+    "trips", "trip_events", "llm_call_logs", "pet_places", "vet_clinics", "wait_sessions",
 }
 
 
@@ -18,7 +18,7 @@ def test_models_create_on_sqlite(sqlite_engine):
 
 
 @pytest.mark.pg
-def test_alembic_upgrade_head_creates_11_tables(pg_url):
+def test_alembic_upgrade_head_creates_expected_tables(pg_url):
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", pg_url)
     command.downgrade(cfg, "base")

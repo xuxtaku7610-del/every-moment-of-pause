@@ -13,6 +13,10 @@ sealed interface Reason {
     data class HasFacility(val facility: Facility, val need: NeedKind) : Reason
     /** 피로 때문에 쉬어야 함 (편의시설과 무관). */
     data object Fatigue : Reason
+    /** 반려견 멀미가 쌓였음 (같이가개 F2). */
+    data object Motion : Reason
+    /** 배변·산책 시각이 됨 (같이가개 F2). */
+    data object PottyDue : Reason
 }
 
 sealed interface PlanDecision {

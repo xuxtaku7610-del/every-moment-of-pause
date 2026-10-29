@@ -3,6 +3,9 @@ package com.emop.pause.sim
 import com.emop.pause.core.model.DriveState
 import com.emop.pause.core.model.Gear
 import com.emop.pause.core.model.LatLng
+import com.emop.pause.core.model.MotionTendency
+import com.emop.pause.core.model.PetProfile
+import com.emop.pause.core.model.PetSize
 import com.emop.pause.core.model.Signal
 import com.emop.pause.core.model.TripPhase
 import kotlinx.serialization.Serializable
@@ -50,7 +53,20 @@ data class ScenarioSetup(
     val dog: Boolean = false,
     val ev: Boolean = false,
     val sleepHours: Float? = null,
+    /** 시연 반려견 프로필 (같이가개). 없으면 기기에 저장된 프로필. */
+    val pet: ScenarioPet? = null,
 )
+
+@Serializable
+data class ScenarioPet(
+    val name: String,
+    val size: PetSize = PetSize.MEDIUM,
+    val ageYears: Int = 3,
+    val motionTendency: MotionTendency = MotionTendency.NORMAL,
+    val pottyIntervalMin: Int = PetProfile.DEFAULT_POTTY_MIN,
+) {
+    fun toModel() = PetProfile(name, size, ageYears, motionTendency, pottyIntervalMin)
+}
 
 @Serializable
 data class ScenarioRoute(
@@ -58,6 +74,9 @@ data class ScenarioRoute(
     val destination: SLatLng,
     val totalDistanceM: Int,
     val points: List<SLatLng> = emptyList(),
+    /** 멀미 예보용 경로 형상 GPX (scenarios/ 기준 경로, 예: `geo/mountain_road.gpx`). [shapeStartM]부터 적용. */
+    val shapeGpx: String? = null,
+    val shapeStartM: Int = 0,
 )
 
 @Serializable

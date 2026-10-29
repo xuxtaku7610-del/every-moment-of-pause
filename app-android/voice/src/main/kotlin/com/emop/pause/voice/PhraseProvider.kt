@@ -20,8 +20,9 @@ class PhraseProvider(
     private val remote: (suspend (PhraseFacts) -> String)?,
     private val timeoutMs: Long = 2_500,
 ) {
-    suspend fun restSuggestion(d: PlanDecision.Suggest, level: FatigueLevel, passengers: List<Passenger>): Phrase {
-        val template = Phrase(RestPhrases.suggestion(d), PhraseSource.TEMPLATE)
+    /** [petName]이 있으면 반려견 맞춤 문장(같이가개 F2), 없으면 쉼표 때 문장. */
+    suspend fun restSuggestion(d: PlanDecision.Suggest, level: FatigueLevel, passengers: List<Passenger>, petName: String? = null): Phrase {
+        val template = Phrase(petName?.let { RestPhrases.petSuggestion(d, it) } ?: RestPhrases.suggestion(d), PhraseSource.TEMPLATE)
         // 피로 HIGH 문장은 안전 문구라 다듬지 않고 템플릿 그대로 쓴다.
         val call = remote?.takeUnless { d.fatigueFirst } ?: return template
         val text = withTimeoutOrNull(timeoutMs) { runCatching { call(facts(d, level, passengers)) }.getOrNull() }
@@ -32,13 +33,21 @@ class PhraseProvider(
         fun facts(d: PlanDecision.Suggest, level: FatigueLevel, passengers: List<Passenger>) = PhraseFacts(
             restStopName = d.stop.name,
             minutesAway = d.minutesAway,
-            reasons = d.reasons.filterIsInstance<Reason.HasFacility>().map { it.facility.code },
+            // 시설 코드 + 반려견 이유(motion·potty). 반려견 이름은 보내지 않는다 (architecture §6).
+            reasons = d.reasons.mapNotNull {
+                when (it) {
+                    is Reason.HasFacility -> it.facility.code
+                    Reason.Motion -> "motion"
+                    Reason.PottyDue -> "potty"
+                    Reason.Fatigue -> null
+                }
+            },
             fatigueLevel = level.name.lowercase(),
             // 서버에는 나이·종류 요약만 보낸다 (architecture §6).
             passengers = passengers.map { p ->
                 when (p) {
                     is Passenger.Child -> "child_${p.age}"
-                    Passenger.Dog -> "dog"
+                    is Passenger.Dog -> "dog"
                 }
             },
         )

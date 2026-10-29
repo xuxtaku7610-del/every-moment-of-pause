@@ -17,12 +17,6 @@ class SettingsStore @Inject constructor(@param:ApplicationContext context: Conte
     var voiceSuggest: Boolean
         get() = prefs.getBoolean("voice", true)
         set(v) = prefs.edit().putBoolean("voice", v).apply()
-    var kidAnswer: Boolean
-        get() = prefs.getBoolean("kidAnswer", true)
-        set(v) = prefs.edit().putBoolean("kidAnswer", v).apply()
-    var napSound: Boolean
-        get() = prefs.getBoolean("napSound", false)
-        set(v) = prefs.edit().putBoolean("napSound", v).apply()
     var reduceMotion: Boolean
         get() = prefs.getBoolean("reduceMotion", false)
         set(v) = prefs.edit().putBoolean("reduceMotion", v).apply()

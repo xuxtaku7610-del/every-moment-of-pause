@@ -1,4 +1,4 @@
-# 막힌 항목 — 쉼표
+# 막힌 항목 — 같이가개 (쉼표 때 항목 포함)
 
 사용자 확인이 필요하거나 환경 때문에 진행하지 못한 항목. 해결되면 줄을 지우지 말고 `해결:`을 붙인다.
 
@@ -13,3 +13,8 @@
 | 10/29 | 서버 Docker 이미지 빌드 확인 | `server/Dockerfile`·compose `api` 서비스 작성, `docker compose config` 통과 | Docker Desktop 데몬이 꺼져 있음(`dockerDesktopLinuxEngine` 파이프 없음). 사용자가 Docker Desktop을 켠 뒤 `docker compose up -d --build` → `curl http://127.0.0.1:8000/api/v1/health` | 서버 테스트는 pytest(SQLite)로 검증 |
 | 10/29 | Pleos Driving Restriction 가이드 대조 (D P0) | document.pleos.ai 정적 가져오기 → 200이지만 본문 0자(자바스크립트 렌더링 사이트) | 사용자가 브라우저로 해당 절을 열어 URL이나 본문을 붙여 주면 매니페스트·제한 규칙을 대조 | `distractionOptimized` meta-data는 AAOS 표준대로 선언, 플래그별 처리는 `UxPolicy` |
 | 10/29 (2차) | git commit (settings.local.json에 `Bash(git commit:*)`·`PowerShell(git commit:*)` 허용 후) | `git add server docker-compose.yml .dockerignore`는 성공(스테이징 상태), `git commit`은 Bash·PowerShell 모두 auto mode 분류기가 "Auto-Mode Bypass"로 거부 | 허용 규칙보다 auto mode 분류기가 우선함. 사용자가 직접 `! git commit ...` 실행하거나, auto mode를 끄고(기본 권한 모드) 승인 | 대기열은 PROGRESS.md 그대로. 첫 커밋(서버)은 이미 스테이징됨 |
+| 10/29 (PIVOT) | TourAPI 반려동물 동반여행 키 | 키 없음 → `sample_pet_places.json`("[샘플]") | 공공데이터포털에서 키 발급 후 `server/.env` `TOUR_API_KEY`. 실제 엔드포인트·필드 확인(`TODO(tour-api)`, 응답 형식은 TourAPI 국문 서비스와 같다고 가정) | 샘플로 시연, 화면에 "샘플" 표시 |
+| 10/29 (PIVOT) | 동물병원 인허가 파일 | 파일 없음 → `sample_vets.json`(전화번호 없음) | 파일을 `server/data/raw/`에 두고 `load_vets`. 좌표계(EPSG:5174 가정)·열 이름 확인(`TODO(vet-file)`) | 샘플로 시연 |
+| 10/29 (PIVOT) | 마이그레이션 0002·0003 PostgreSQL 검증 | SQLite 모델 테스트만 통과, PG 테스트 3개 skip | Docker Desktop을 켜고 `docker compose up -d db` → `pytest -m pg` | SQLite 단위 테스트 |
+| 10/29 (PIVOT) | NaviHelper 방위 주기·`requestRoute` | 위치는 1초마다 `getCurrentLocationInfo()` 요청, 병원 안내는 경유지 추가로 대신 | 에뮬레이터 내비에서 위치 콜백이 스스로 오는지, `requestRoute(RouteInfo…)`로 목적지를 바꿀 수 있는지 확인(`TODO(pleos-sdk)`) | 시연은 시뮬레이터(방위 대신 경로 형상) |
+| 10/29 (PIVOT) | 고갯길 형상이 합성 좌표 | 실제 도로 데이터를 쓰지 않음(지도 데이터 복사 금지) | 공개 라이선스 도로 형상(예: OSM, ODbL 표기 필요)을 쓸지 결정 | 합성 GPX + 문서에 명시 |

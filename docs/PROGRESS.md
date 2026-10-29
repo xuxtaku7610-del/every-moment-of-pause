@@ -1,12 +1,66 @@
-# 진행 기록 — 쉼표
+# 진행 기록 — 같이가개 (이전 주제: 쉼표)
 
-세션이 끊기면 이 파일 + `todo.md` + `docs/BLOCKED.md`만 보고 이어 간다. 최신이 위.
+세션이 끊기면 이 파일 + `todo.md` + `docs/BLOCKED.md` + `_private/PIVOT_PROMPT.md`만 보고 이어 간다. 최신이 위.
+규칙: git add·commit·push 하지 않는다. 작업 단위마다 아래 "커밋 대기열 (같이가개)"에 메시지와 파일만 남기고, 커밋은 사용자가 직접 한다.
 
 ## 다음 할 일 (바로 이어서)
-1. **커밋 대기열 처리** (BLOCKED: auto mode가 `git commit` 거부, 10/29 2차) — 아래 "커밋 대기열" 순서대로. 1번(서버)은 이미 `git add`로 스테이징됨.
-2. 남은 P1 로직: 마이크 거부·STT 실패 시 버튼만(로직 점검), `_short` 문구, 기상 알림 무응답 1분·3분 단계(T6-10), 반려동물 차내 경고, 정차 종료 시 "다시 출발할게요", 앱 오프라인 여행 이벤트 큐(`/trips` 업로드).
-3. `TripRecorder`(앱 리포트) 단위 테스트 보강 (qa_report T7-1).
-4. 새 디자인(docs/design/v5)이 오면: `ui/`·`PauseRoot`만 교체, qa_report 에뮬레이터 항목 다시 확인.
+1. 사용자 확인 대기: 커밋 대기열 처리, TourAPI 키·동물병원 파일, Docker Desktop 켜고 `alembic upgrade head`(0003) 확인, 실제 폰으로 대기 페이지 열기.
+2. 디자인 v5가 오면 `ui/screens/PetScreens.kt`·`ui/components/Kit.kt`·`PauseRoot`만 교체 (docs/ui_contract.md).
+3. P1 남은 것: F4-03 도착 10분 전 산책 코스 음성 제안, F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모, NaviHelper `requestRoute`·위치 콜백 주기 에뮬레이터 확인.
+
+## 커밋 대기열 (같이가개)
+메시지 그대로, 파일은 경로 기준. 삭제 파일은 `git add -A <경로>`로 함께 잡힌다.
+1. `[P0] 같이가개 전환: 재사용 지도·SDK 재확인 문서` — `docs/plan/REUSE_MAP.md docs/plan/sdk_check.md docs/plan/CONCEPT.md`
+2. `[P0] 뺀 기능 제거: 라디오·원정대·아직 멀었어·파워냅(앱)` — `app-android/settings.gradle.kts app-android/engine/content app-android/engine/pause app-android/voice app-android/core/uistate app-android/app`
+3. `[P0] 뺀 기능 제거: 콘텐츠 API·아이 답변·콘텐츠 테이블(서버, 마이그레이션 0002)` — `server/ content/`
+4. `[P0] 루트 문서 7개를 같이가개로 갱신, 앱 이름` — `README.md architecture.md flowchart.md api_spec.md database.md test_plan.md todo.md app-android/app/src/main/res/values/strings.xml docs/PROGRESS.md docs/BLOCKED.md`
+5. `[P1] 멀미 예보 엔진 MotionComfortEngine(대역 필터·누적량·예보)과 근거 문서` — `app-android/engine/motion app-android/core/model/src/main/kotlin/com/emop/pause/core/model/Pet.kt app-android/settings.gradle.kts docs/plan/motion_model.md`
+6. `[P1] 대기 모드·타고 내릴 때 체크·이동 기록 패턴(engine:pet)` — `app-android/engine/pet`
+7. `[P1] 반려견 맞춤 쉼표 PetRestPlanner(멀미 항·시설 가중치·이유)와 반려견 배변 간격` — `app-android/engine/planner app-android/engine/needs app-android/voice`
+8. `[P1] 반려견 프로필·이동 기록 Room(pet.db)` — `app-android/data`
+9. `[P1] 방위 신호·경로 형상(GPX)·TripBrain/TripCoordinator 연결(예보 음성·대기·도착 체크)` — `app-android/core app-android/sim app-android/app architecture.md flowchart.md test_plan.md docs/plan/REUSE_MAP.md`
+10. `[P2] 시연 데이터 생성기: 합성 고갯길 GPX, pet-trip 시나리오, 영동선 휴게소·동반 장소·동물병원 샘플` — `scripts/gen_demo_data.py scenarios/ server/app/data/`
+11. `[P2] 서버: 마이그레이션 0003(pet_places·vet_clinics·wait_sessions), 동반 장소 수집(TourAPI·샘플)·경로 버퍼 검색, 동물병원 적재(인허가 CSV·샘플)` — `server/app/models.py server/alembic/versions/0003_pet_tables.py server/app/jobs server/app/api/places.py server/app/api/vets.py server/app/geo.py server/app/config.py server/.env.example server/requirements.txt server/tests database.md`
+12. `[P2] 서버: 대기 공유 /wait와 보호자 폰 페이지, 기록 요약 trip_summary, 삭제·정리 잡` — `server/app/api/wait.py server/app/api/llm.py server/app/llm server/app/main.py server/app/api/devices.py server/app/jobs/cleanup.py server/tests`
+13. `[P2] 앱: 장소·병원·대기 공유 API, 대기 공유 업로더(WaitShare)` — `app-android/data/src/main/kotlin/com/emop/pause/data/net app-android/app`
+14. `[P3] 시연 장치: 고갯길 비교 실험(MotionCompare)·결과 문서, 장면 점프 pet-trip, vhal.ps1 장면, 발표 모드 비교·신호 줄` — `app-android/engine/motion app-android/app scripts/vhal.ps1 docs/plan/demo_compare.md docs/plan/demo_compare.csv docs/plan/demo_compare_normal.csv`
+15. `[P4] 화면 계약 재작성(같이가개 화면 10종)과 최소 화면, 장소·병원 저장소(내장 샘플)` — `app-android/core/uistate app-android/app app-android/data docs/ui_contract.md`
+16. `[P4] 예보 속도 상한·문구 길이, 대기 공유 주소 adb` — `app-android/engine/motion docs/plan/motion_model.md`
+17. `[P5] README 대응표·실행 방법, 시연 대본, QA 점검·노출 검사, 진행 기록` — `README.md docs/demo_script.md docs/qa_report.md docs/PROGRESS.md docs/BLOCKED.md todo.md .gitignore server/data/raw/README.md`
+
+## 2026-10-29 — PIVOT 5단계: 마무리
+- 한 일: README 심사 대응표(근거·확인 방법), 실행 방법(pet-trip 장면 명령, 폰 대기 페이지, vhal.ps1, 데이터 생성기), 공공데이터 출처. `docs/demo_script.md`(CONCEPT 7장 3분, 예비 대응·숫자 출처). `docs/qa_report.md` P0 점검표 재작성. 노출 검사: 280파일·커밋 작성자 — 실명·개인 이메일·키 없음, 전화번호 형태는 테스트용 가짜 `033-000-0000` 하나, `.env`·`local.properties` 추적 0.
+- 검증: `./gradlew test` 230 통과(debug), 서버 pytest 58 통과·3 skip(PG).
+- 다음: 사용자 확인 대기(위 "다음 할 일").
+
+## 2026-10-29 — PIVOT 4단계: 화면 (최소)
+- 한 일: `:core:uistate` 재작성 — 화면 10종(`Depart`·`Drive`(Calm·Forecast·Suggest·Heading)·`Rest`·`Wait`·`Places`·`Vets`·`Arrival`·`TripLog`·`PetProfile`·`Settings`), 이벤트, `DrivingRules`(2줄·버튼 2·이유 2), `UxPolicy`, `Fixtures`(장면 15개). `ScreenRouter`(대기 우선, 첫 실행 프로필, 위로 여는 화면), `UiMapper` 재작성, `MainViewModel` 재작성(체크·대기·장소/병원·도착 저장·요약 LLM/템플릿·증상 고르기·한계 시간). 화면 `ui/screens/PetScreens.kt` + 부품 `ui/components/Kit.kt`(애니메이션 없음), 옛 쉼표 화면·부품 삭제. `PetPlaceRepository`(서버 → 앱 내장 샘플, 경로 버퍼·주변·병원). `docs/ui_contract.md` 재작성(Mermaid 렌더 확인).
+- 검증: 에뮬레이터 `Pleos_Connect_API34`에 설치, `pet-trip` 장면별 캡처 `artifacts/pet/01-depart`~`06-arrival`: 출발 체크·쉼표 추천(횡성휴게소·반려견 놀이터, STT 없어 버튼 시트)·쉼표·대기(주인이 곧 돌아와요·실내 24℃)·고갯길 예보·도착 강한 알림(시나리오 27℃) 확인. `car_service -h`는 여전히 user 빌드 예외.
+- 고친 것: ① adb `--es say 잠깐 다녀올게`는 셸이 띄어쓰기로 잘라 "잠깐"만 들어감 → 따옴표(README·vhal.ps1). ② 고갯길 예보가 고속도로 100km/h 그대로 들어간다고 가정해 "멀미 걱정"이 과하게 나옴 → 예보 시뮬레이션에서 굽이마다 횡가속 3m/s²(가정) 이하로 감속하는 "안내 없이" 운전자, 지속 시간도 같은 방식(결정). ③ HIGH 예보 문구 52자 > 48 → 줄이고, 이름이 길면 이름을 뺀 문장.
+- 남은 리스크: 출발 체크 "오늘의 쉼표"(TripPlanPreview)는 문막을, 주행 중 플래너는 횡성을 고른다 — 미리 보기 계획이 반려견 니즈·멀미를 모름. 쉼표 화면 메타가 점프 뒤 "길가"로 나옴(점프 재생 때 휴게소 목록이 비어 있음).
+
+## 2026-10-29 — PIVOT 3단계: 시연 장치
+- 한 일: `MotionCompare`(같은 형상·프로필로 "안내 없이 45km/h" vs "안내대로: 굽이마다 1m/s² 이하, 0.5m/s²로 미리 감속") + `DemoCompareTest` → `docs/plan/demo_compare.md`·CSV 2개. `DemoScenes` pet-trip 7장면(출발 체크 0·고속도로 210·쉼표 추천 3420·휴게소 쉼표 5240·잠깐 대기 5540+"잠깐 다녀올게"·고갯길 예보 8748·도착 체크 10820), `PetTripScenarioTest`(첫 제안 3460초 횡성휴게소·놀이터, 고갯길 3km 앞 예보, 고갯길에서 지수 +15 이상). `scripts/vhal.ps1` 장면 6개 + 앱 시뮬레이터 점프(기본) / `-Vehicle`. 발표 모드 패널: 응답 버튼("여기서 쉴게요"·"잠깐 다녀올게"), 고갯길 비교, 멀미·예보·대기·도착·방위 줄. 점프 재생 중 예보는 "말함"으로 치지 않고 버림(점프 뒤 다시 말할 수 있게).
+- 검증: `./gradlew test` 통과. 비교 결과 시연 반려견 37 → 26(−30%, +3분), 보통 21 → 14.
+- 결정: 첫 비교 방식(위험 구간 전체를 최저 권장 속도 25km/h로)은 13분이나 더 걸려 "조금 일찍 감속"이 아니므로 굽이별 속도 계획으로 바꿈. CONCEPT의 "82 → 41"은 예시이고 실제 모델 결과(37 → 26)를 그대로 쓴다.
+
+## 2026-10-29 — PIVOT 2단계: 서버
+- 한 일: `scripts/gen_demo_data.py`(결정적): 합성 고갯길 `scenarios/geo/mountain_road.gpx`(12.2km, 대관령 옛길의 특징만 본뜬 생성 좌표 — 실제 도로 좌표 아님, GPX 설명에 명시), `scenarios/pet-trip.json`(서울→강릉 230km, 장면 depart 0·highway 210·rest_stop 5232·wait 5532·mountain_road 8871·arrive 10696초, 콩이 소형·9살·멀미 성향 높음·배변 90분), 영동선 휴게소 7곳(이름 실제·좌표 경로 위 근사·시설 샘플), 동반 장소 22곳·동물병원 10곳(지역명 실제, 시설 "[샘플]", 전화번호 없음). 마이그레이션 0003, 모델 `PetPlace`·`VetClinic`·`WaitSession`(위치 컬럼 없음, 토큰 해시). `jobs/ingest_pet_places`(TourAPI 형식 파서·페이지 수집 `TODO(tour-api)`, 키 없으면 샘플), `jobs/load_vets`(인허가 CSV: 영업 중만, cp949/utf-8, 위도·경도 또는 EPSG:5174→WGS84 `pyproj`, 실패 행 건너뜀), `/places/along-route`·`/places/near`·`/vets/nearby`, `/wait`(POST·PUT·DELETE·GET JSON, extra=forbid로 위치 422, 기기당 1개, 2시간 만료 410) + 루트 `/wait/{token}` HTML(큰 글자·5초 새로고침·초과 빨강·noindex·no-store), `/llm/phrases` `trip_summary`(진단·치료 금칙, 숫자 확인, 템플릿 폴백), 내 데이터 삭제·정리 잡에 대기 공유. 앱: Retrofit 새 API, `WaitShare`(시작 토큰→10초 PUT→끝 DELETE, 실패 시 "연결 안 됨").
+- 검증: 서버 pytest 58 통과·3 skip(PG). 앱 `WaitShareTest` 3 통과.
+- 결정: 고갯길 형상은 지도 데이터를 쓰지 않고 합성(정직하게 표기). 폰 주소 앞부분은 `SHARE_BASE_URL`/adb `--es shareBase`(에뮬레이터용 10.0.2.2는 폰에서 안 열림). `pyproj`를 서버 venv에 설치(requirements 추가). 휴게소 샘플이 30곳이 되어 수집 테스트의 개수를 상수로.
+- 다음: 3단계 시연 장치.
+
+## 2026-10-29 — PIVOT 1단계: 도메인·엔진
+- 한 일: `PetProfile`(core:model, 검사 포함). **`engine:motion`** `MotionComfortEngine`(a_x=Δv/Δt, a_y=v·Δψ/Δt 또는 v²κ, 축별 2차 버터워스 대역, 누설 적분 MSDV, 프로필 민감도, 지수 0~100, 앞 구간 예보·권장 속도, 예보는 상태 복사로 미리 돌림), `RouteShape`(GPX → 10m 재표본·멩거 곡률), `MotionConstants`(계수 한 곳), `MotionPhrases`(템플릿만). **`engine:pet`** `WaitMode`(P단만 시작, 경과·배터리 변화, 초과 1번, P 해제·주행 시 즉시 종료), `BoardingCheck`(출발 3항목, P단 60초+도착이면 "내렸나요?" 1번, 26℃↑ 또는 온도 모르는 여름이면 강한 알림), `PetTripLog`(최근 10번 주의 도달 분 중앙값 = 한계 시간, 병원용 요약), `Josa`. **`PetRestPlanner`**(ScoringPolicy.PET: 시각 0.3·멀미 0.2·피로 0.15·시설 0.35·간격 −0.1, 이유 Motion/PottyDue/시설, 히스테리시스·쿨다운 그대로), `RestPhrases.petSuggestion`. `Passenger.Dog(walkIntervalMin)`. Room `pet.db`(`PetDatabase`·`RoomPetStore`). 방위 신호(`Signal.HEADING`, NaviHelper `CurrentLocationInfo.heading`, 1초 위치 요청 `TODO(pleos-sdk)`), `RouteInfo.shape`(시나리오 `route.shapeGpx`), `Gpx` 읽기. `TripBrain`(멀미·예보·PetRestPlanner, 예보는 5km 안·이미 들어선 구간 제외·같은 구간 1번·10분 쿨다운), `TripCoordinator`(예보 음성·대기 모드·도착 체크·프로필 저장), `TripRecorder`(멀미 추이·주의 도달 분).
+- 검증: `./gradlew test` 208개 통과(debug 기준, 새 테스트: MotionComfortEngineTest 12·MotionPhrasesTest 1·PetEngineTest 18·PetRestPlannerTest 9·PetRowsTest 3·GpxTest 1·TripRecorderTest 1·TripBrainPetTest 2).
+- 결정: **멀미 대역 하한 0.1Hz → 0.02Hz** (CONCEPT 4장과 다름). 수직 기준 ISO Wf와 달리 수평 저주파는 0.2Hz 아래 감수성이 거의 일정(Donohew & Griffin 2004)하고, 고갯길 좌우 교대가 0.03~0.07Hz라 0.1Hz면 고갯길 지수가 11에 그침. 보정 결과 보통 프로필은 고갯길 25~30분에 주의(40). motion_model.md §3·architecture·test_plan 반영. `PetProfile`은 모든 엔진이 쓰므로 `core:model`에 둠. 개인 데이터는 캐시와 다른 `pet.db`(파괴적 마이그레이션 없음). 이유 문장은 실제 기여도 순(놀이터 0.35 > 멀미 0.10 같은 경우 놀이터가 먼저), 음성 문장은 반려견 이유를 앞 문장에.
+- 다음: 2단계 서버.
+
+## 2026-10-29 — PIVOT 0단계: 정리 (쉼표 → 같이가개)
+- 한 일: `docs/plan/REUSE_MAP.md`(모듈·클래스별 재사용/수정/삭제). Pleos aar javap 재확인 → `docs/plan/sdk_check.md`: **폴리라인 없음** 그대로, 대신 `onTBTInfo`(회전 종류·거리), `RouteStateInfo.trafficStatus`(정체 구간), `CurrentLocationInfo.heading`(방위), `SteeringWheel.registerSteeringWheelAngle`, `Seat.registerSeatOccupancy`, `HVAC.registerHvacTemperatureCurrent`, `Fuel.registerFuelPercent`를 새로 확인(권한은 `javap -v` 어노테이션). 앱에서 `engine:content`·`RadioDirector`·`ContentRepository`·`NapAlarm`(+알람 권한·리시버)·`EtaAnswer` 삭제, `VoiceIntent`는 응답 + "잠깐 다녀올게"(대기 모드)만, 음성 우선순위 `KID_ANSWER/RADIO` → `INFO/BACKGROUND`, `PauseCurator`는 산책·물/배변·스트레칭. 서버에서 `/content/*`·`/llm/kid-answer`·콘텐츠 모델 삭제, 마이그레이션 0002(콘텐츠 테이블 drop, 이벤트 `kid_question` → `motion_peak`·`wait_started`·`wait_ended`). `content/` 삭제. 루트 문서 7개 재작성(새 테스트 ID F1-01…, DS-, SV-, DM-). 앱 이름 "같이가개".
+- 검증: `./gradlew test` 통과(실패 0), 서버 pytest 39 통과·3 skip(PG, Docker 꺼짐). Mermaid(architecture·flowchart·database) `npx @mermaid-js/mermaid-cli` 렌더 13장 성공.
+- 결정: applicationId·패키지·모듈 이름 유지(PIVOT 0-5). 멀미 예보의 앞 구간 형상은 SDK에 없으므로 시연 GPX → TBT 근사 → 없음 순. 대기 공유는 위치를 받지 않는다(PUT 본문 extra=forbid). 화면(`ui/`)은 4단계에서 최소 레이아웃으로 갈아 끼우므로 0단계에서는 뺀 기능 부분만 지움(아이 동승자 타일 등은 4단계에서 정리).
+- 다음: 1단계 도메인·엔진.
 
 ## 2026-10-29 — P1 로직 + 단계 S(UI 무관)
 - 한 일: **신호 잡음 처리** `SignalSmoother`(실차 경로만: 속도 3초 평균·0은 즉시, 기어 2초·충전 5초 확정, 1초 틱으로 확정) — DriveState는 거치지 않음. **이유 문장** = 실제 점수 기여 상위 1~2개(`RestPlanner.reasonsOf`, 편의시설 니즈 몫·피로). **한국어 숫자** `KoreanNumber`("다섯 시간"·"오 시간"·"여섯 시간 반"·범위 밖 null). **여행 상태 복원** `TripResume`/`TripResumeStore`(실차만, 30초마다 피로·니즈 누적값 저장, 3시간 안·같은 목적지면 재시작 시 ACTIVE로 되돌리고 "이어서 안내할게요", 끝·삭제 시 지움, 경로는 해시만). EV 항목은 기존 "마지막 급속충전 30분 안" 규칙 + 화면 "완료 예상"으로 충족 확인. **릴리스**: 환경 변수 서명 설정, `-Ppause.minify=true` R8 + `proguard-rules.pro`, `docs/release.md`. **README** 기능 현황·실행 방법 실제 명령으로 갱신. **qa_report** P0 34개 점검표. **노출 검사** 254파일·커밋 19개 깨끗.
@@ -88,7 +142,7 @@
 - 결정: 앱 창 높이 1210dp에 맞춰 세로 고정값 대신 weight 사용(파워냅 벽난로 480×240).
 - 결정: 디버그 adb 확장 `--es scene <이름|none> --ei forceWidth <dp> --ez demo true --es onboard done|reset --ez nap true`.
 
-## 커밋 대기열 (권한 허용 후 순서대로, 메시지 그대로)
+## 커밋 대기열 (쉼표 — 처리됨: 사용자가 `3aa3a6c 쉼표 최종 상태`로 한 번에 커밋)
 1. `[M2] 서버: 휴게소 수집 잡(샘플), /reststops, /devices 토큰, /llm/phrases` — `server/`
 2. `[M2] 엔진: 피로·니즈·플래너·제안 정책 + 테스트` — `app-android/engine/fatigue app-android/engine/needs app-android/engine/planner/src/main/kotlin/com/emop/pause/engine/planner/{RestPhrases,RestPlanner,RestStop,SuggestionPolicy}.kt` 등
 3. `[M2] 앱: 휴게소 캐시·내장 데이터·서버 세션, 음성 공급자, TripBrain` — `app-android/data app-android/voice app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/debug scenarios/`

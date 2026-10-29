@@ -1,196 +1,169 @@
-# 흐름도 — 쉼표 (멈춤의 모든 순간)
+# 흐름도 — 같이가개 (반려견과 차로 가는 모든 순간)
 
-## 1. 핵심 유저 저니 (전체)
-
-페르소나: 아빠 운전자(38), 아내·5세 아이·반려견과 서울→부산 5시간, 전기차.
+## 1. 핵심 유저 저니 (CONCEPT 7장 시연 흐름)
 
 ```mermaid
 flowchart TD
-    A["출발 준비 · 정차"] --> B["동승자 프리셋 확인<br/>아이 5세 · 반려견 · 아내 교대 가능"]
-    B --> C["수면 한마디<br/>어젯밤 몇 시간 주무셨어요?"]
-    C --> D["휴식 계획 초안 표시<br/>예상 휴식 2회"]
-    D --> E["주행 시작"]
-    E --> F["1초마다 차량 신호 수집"]
-    F --> G["피로 지수 · 니즈 타이머 갱신"]
-    G --> H{"휴식이 필요한가?"}
-    H -->|"아니오"| K{"뒷좌석 질문?"}
-    K -->|"아직 멀었어?"| L["도착 맞춤 답변<br/>라디오 2편 남았어"]
-    L --> F
-    K -->|"없음"| F
-    H -->|"예"| I{"피로 위험 높음?"}
-    I -->|"예"| J1["최근접 졸음쉼터 우선"]
-    I -->|"아니오"| J2["가족 니즈 맞춤 휴게소"]
-    J1 --> M["음성 제안 · 이유 1문장"]
-    J2 --> M
-    M --> N{"운전자 응답"}
-    N -->|"나중에"| O["10분 뒤 재평가"]
-    O --> F
-    N -->|"응"| P["경유지 추가"]
-    P --> Q["휴게소 도착 · P단"]
-    Q --> R["멈춤 큐레이터<br/>충전 27분 남음"]
-    R --> S["운전자: 20분 파워냅<br/>아이: 원정대 미션<br/>반려견: 산책 타이머"]
-    S --> T["충전 2분 전 기상 알림"]
-    T --> U["출발 전 컨디션 체크"]
-    U --> V{"목적지 도착?"}
-    V -->|"아니오"| E
-    V -->|"예"| W["여행 리포트"]
+    A["출발 체크<br/>콩이 프로필 · 하네스/켄넬 · 물 · 배변봉투"] --> B{"체크 완료?"}
+    B -->|"아니오"| A
+    B -->|"예"| C["이대로 출발<br/>D단 · 속도"]
+    C --> D["주행 글랜스<br/>멀미 예보 한 줄 · 다음 쉼표"]
+    D --> E{"10초마다 판단"}
+    E -->|"앞 구간 굽은 길"| F["멀미 예보<br/>3km 뒤 굽은 길 8분, 조금 일찍 감속"]
+    E -->|"멀미 누적·배변 간격·피로"| G["반려견 맞춤 쉼표 1곳 제안"]
+    E -->|"이상 없음"| D
+    F --> D
+    G --> H{"운전자 응답"}
+    H -->|"여기서 쉴게요 / 응"| I["경유지 추가"]
+    H -->|"나중에 · 응답 없음"| J["쿨다운 후 재평가"]
+    J --> D
+    I --> K["휴게소 P단 → 쉼표 화면<br/>산책 · 물 · 배변"]
+    K --> L{"잠깐 다녀올게?"}
+    L -->|"예"| M["대기 모드<br/>차 화면 바깥 사람용 안내<br/>보호자 폰 웹페이지"]
+    L -->|"아니오"| N["다시 출발"]
+    M -->|"제한 시간 초과"| M2["폰 · 차 화면 시간 초과 알림"]
+    M -->|"D단"| N
+    M2 -->|"D단"| N
+    N --> D
+    D -->|"목적지 도착"| O["도착 체크<br/>콩이 내렸나요?"]
+    O --> P["이동 기록<br/>멀미 추이 · 한계 시간 · 병원용 요약"]
 ```
 
-## 2. 시퀀스 — 휴게소 추천과 경유지 추가
+## 2. 시퀀스 — 멀미 예보 (F1)
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant V as Vehicle SDK
-    participant N as NaviHelper
-    participant E as 엔진(피로·니즈)
-    participant P as 휴게소 플래너
-    participant DB as Room 캐시
-    participant S as 서버
-    participant VO as 음성 에이전트
-    actor D as 운전자
+    participant SIG as 차량 신호 1초
+    participant NAV as NaviHelper · 경로 형상
+    participant ME as MotionComfortEngine
+    participant TB as TripBrain
+    participant V as 음성 · 화면
 
-    Note over N,S: 출발 시 1회
-    N->>P: 경로 좌표 · 총 거리
-    P->>S: POST /reststops/along-route
-    S-->>P: 경로상 휴게소 목록
-    P->>DB: 캐시 저장
-
+    loop 1초마다
+        SIG->>ME: 속도(잡음 처리) · 방위
+        ME->>ME: a_x = Δv/Δt, a_y = v·Δψ/Δt (없으면 v²·κ)
+        ME->>ME: 0.02~0.5Hz 대역 → 제곱 적분 → 프로필 보정 → 지수 0~100
+    end
     loop 10초마다
-        V->>E: SignalSample
-        E->>P: 피로 점수 · 니즈 긴급도
+        NAV->>ME: 앞 10~20분 경로 형상(곡률) · 정체 구간
+        ME->>ME: 현재 속도로 가정해 미리 적분
+        ME-->>TB: 예보(위험 구간 시작 거리 · 지속 시간 · 예상 지수)
+        TB->>TB: 쿨다운 10분 · 같은 구간이면 다시 말하지 않음
+        TB->>V: "3km 뒤 굽은 길 8분, 콩이 멀미 주의 — 조금 일찍 감속" (템플릿)
     end
-
-    P->>DB: 앞쪽 후보 조회
-    P->>P: 후보 점수화
-    P->>S: POST /llm/phrases 추천 정보
-    alt 2.5초 이내 응답
-        S-->>P: 제안 문장
-    else 타임아웃 또는 오류
-        P->>P: 템플릿 문장 사용
-    end
-    P->>VO: 제안 문장
-    VO->>D: 18분 뒤 OO휴게소, 키즈존과 급속충전기가 있어요. 들를까요?
-    D->>VO: 응
-    VO->>N: 경유지 추가 요청
-    N-->>VO: 경유지 추가 완료
-    VO->>D: 경로에 추가했어요
-    P->>DB: 추천 수락 이벤트 기록
 ```
 
-## 3. 시퀀스 — "아직 멀었어?" 응답기
+## 3. 시퀀스 — 반려견 맞춤 쉼표와 경유지 추가 (F2)
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor K as 아이
-    participant VO as 음성 에이전트
-    participant N as NaviHelper
-    participant R as 라디오 플레이어
-    participant S as 서버
+    participant TB as TripBrain
+    participant PL as PetRestPlanner
+    participant LLM as 서버 /llm/phrases
+    participant V as 음성(STT·TTS)
+    participant NAV as NaviHelper
 
-    K->>VO: 아빠 아직 멀었어?
-    VO->>VO: 의도 분류 · 남은 시간 질문
-    VO->>N: 다음 정차지 ETA 조회
-    N-->>VO: 18분
-    VO->>R: 남은 에피소드 수 계산
-    R-->>VO: 속담 라디오 2편
-    VO->>S: POST /llm/kid-answer
-    alt 성공
-        S-->>VO: 속담 라디오 두 편만 들으면 키즈존 휴게소야!
+    TB->>PL: 멀미 누적 · 주행 시간 · 배변 간격 · 운전자 피로 · 앞쪽 휴게소
+    PL->>PL: 점수 = 니즈 시각 맞춤 + 반려견 시설 가중치, 히스테리시스 15%
+    PL-->>TB: 추천 1곳 + 이유(기여도 상위 1~2개)
+    TB->>LLM: 제안 문장 (2.5초)
+    alt 2.5초 안 · 검사 통과
+        LLM-->>TB: 문장
     else 실패
-        VO->>VO: 템플릿 · 라디오 N편 남았어
+        TB->>TB: 템플릿 문장
     end
-    VO->>K: 음성 답변
+    TB->>V: "18분 뒤 OO휴게소에 반려견 놀이터가 있어요. 콩이 쉬어 갈까요?"
+    V-->>TB: "여기서 쉴게요"
+    TB->>NAV: addWaypoint(위도, 경도, 이름)
+    NAV-->>TB: onWaypointChanged
+    TB->>V: "경로에 OO휴게소를 넣었어요"
 ```
 
-## 4. 시퀀스 — 충전 대기 멈춤 큐레이터
+## 4. 시퀀스 — 잠깐 대기 모드 (F3)
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant V as Vehicle SDK
-    participant C as 멈춤 큐레이터
-    participant UI as 멈춤 화면
-    participant VO as 음성 에이전트
-    actor D as 운전자
+    participant U as 운전자
+    participant APP as 앱 WaitMode
+    participant S as 서버 /wait
+    participant P as 보호자 폰
 
-    V->>C: 기어 P · 충전 시작 · 배터리 34%
-    C->>C: 충전 완료까지 남은 시간 계산 27분
-    C->>C: 피로 점수 · 동승자 · 남은 시간으로 활동 편성
-    C->>UI: 추천 카드 3개
-    C->>VO: 충전 끝까지 27분, 20분 파워냅 할까요?
-    D->>VO: 응
-    VO->>UI: 파워냅 모드 시작
-    UI->>UI: 벽난로 화면 · 장작 소리 · 조도 낮춤
-    loop 1분마다
-        V->>C: 충전 상태 · 배터리
-        C->>C: 남은 시간 재계산
+    U->>APP: "잠깐 다녀올게" (P단에서만)
+    APP->>S: POST /wait {limitMin}
+    S-->>APP: token (2시간 만료)
+    APP->>APP: 차 화면 → "주인이 곧 돌아와요 · 3분째 · 실내 확인 중" + QR
+    loop 10초마다
+        APP->>S: PUT /wait/{token} {state, elapsedSec, batteryPercent, cabinTempC}
     end
-    C->>VO: 기상 알림 · 충전 2분 전
-    VO->>D: 충전이 거의 끝났어요. 기분 어떠세요?
-    D->>VO: 괜찮아
-    C->>UI: 출발 준비 화면
+    loop 5초마다
+        P->>S: GET /wait/{token} (HTML)
+        S-->>P: 경과 시간 · 배터리 · 실내 온도(없으면 "정보 없음")
+    end
+    APP->>APP: 제한 시간 초과 → 초과 이벤트 1번
+    APP->>S: state = overdue
+    S-->>P: 빨간 화면 "시간 초과 — 차로 돌아가 주세요"
+    U->>APP: D단(또는 DriveState DRIVING)
+    APP->>S: DELETE /wait/{token}
+    APP->>APP: 대기 모드 종료 → 주행 화면
 ```
 
-## 5. 데이터 흐름
+## 5. 시퀀스 — 도착 체크와 이동 기록 (F6·F7)
+
+```mermaid
+sequenceDiagram
+    participant SIG as 기어 · 도착
+    participant BC as BoardingCheck
+    participant UI as 화면
+    participant LOG as PetTripLog
+
+    SIG->>BC: 기어 P 60초 이상 + 목적지 도착
+    BC->>BC: 실내 26℃ 이상 또는 6~9월(온도 모름) → 강한 알림
+    BC-->>UI: "콩이 내렸나요?"
+    UI-->>BC: "내렸어요"
+    BC->>LOG: 여행 끝
+    LOG->>LOG: 이동 시간 · 멀미 추이 · 휴식 · 주의 도달 시각
+    LOG-->>UI: "콩이는 약 1시간 10분이 한계예요" · 병원용 요약
+```
+
+## 6. 데이터 흐름
 
 ```mermaid
 flowchart LR
-    subgraph SRC["데이터 원천"]
-        S1["Vehicle SDK<br/>1초 신호"]
-        S2["NaviHelper<br/>경로 · ETA"]
-        S3["사용자 입력<br/>프리셋 · 수면 · 음성"]
-        S4["도로공사 API<br/>휴게소 · 편의시설"]
-        S5["검수된 콘텐츠<br/>라디오 · 미션"]
-    end
-    subgraph DEVICE["기기 · 저장 안 함 또는 기기 저장"]
-        M1["신호 링버퍼<br/>최근 30분 메모리"]
-        M2["Room<br/>프리셋 · 캐시 · 여행"]
-        M3["엔진 결과<br/>점수 · 추천"]
+    subgraph PUBLIC["공공 데이터"]
+        EX["도로공사 휴게소"]
+        TOUR["관광공사 TourAPI<br/>반려동물 동반여행"]
+        LIC["지방행정 인허가<br/>동물병원 파일"]
     end
     subgraph SERVER["서버"]
-        D1[("rest_stops")]
-        D2[("content")]
-        D3[("trips · trip_events")]
+        J1["ingest_reststops"]
+        J2["ingest_pet_places"]
+        J3["load_vets"]
+        DB[("PostgreSQL")]
+        API["FastAPI"]
     end
-    S1 --> M1
-    M1 --> M3
-    S2 --> M3
-    S3 --> M2
-    M2 --> M3
-    S4 --> D1
-    S5 --> D2
-    D1 -->|"출발 시 내려받기"| M2
-    D2 -->|"출발 시 내려받기"| M2
-    M3 -->|"이벤트만 업로드"| D3
-    D3 -->|"리포트 집계"| M2
+    subgraph APP["앱"]
+        CACHE[("Room 캐시")]
+        ENG["엔진"]
+        PROF[("반려견 프로필<br/>기기에만")]
+    end
+    EX --> J1 --> DB
+    TOUR --> J2 --> DB
+    LIC --> J3 --> DB
+    DB --> API -->|"경로 버퍼 · 주변 검색"| CACHE --> ENG
+    PROF --> ENG
+    ENG -->|"대기 상태 (위치 없음)"| API
 ```
 
-| 데이터 | 생성 위치 | 저장 위치 | 서버 전송 |
-| --- | --- | --- | --- |
-| 1초 차량 신호 | Vehicle SDK | 메모리 링버퍼 30분 | 안 함 |
-| 동승자 프리셋 · 수면 시간 | 사용자 | Room | 안 함 |
-| 경로 좌표 | NaviHelper | 메모리 | 휴게소 조회 시에만, 저장 안 함 |
-| 휴게소 · 편의시설 | 도로공사 API | PostgreSQL → Room 캐시 | 내려받기 |
-| 라디오 · 미션 | 검수 JSON | PostgreSQL → Room 캐시 | 내려받기 |
-| 여행 이벤트 | 엔진 | Room → PostgreSQL | 일괄 업로드 (휴게소 ID · 시각 · 종류) |
+키가 없으면 각 잡은 `server/app/data/sample_*.json`을 같은 정규화 경로로 적재하고 `source=sample`을 남긴다. 앱은 같은 샘플을 내장 데이터로 묶어 서버 없이도 동작한다.
 
-## 6. 예외 흐름 요약
+## 7. 예외 흐름 요약
 
-```mermaid
-flowchart TD
-    X["추천 시점"] --> A{"서버 연결?"}
-    A -->|"예"| B["최신 휴게소 데이터"]
-    A -->|"아니오"| C{"캐시 있음?"}
-    C -->|"예"| D["캐시로 추천"]
-    C -->|"아니오"| E["내장 기본 데이터<br/>주요 고속도로"]
-    B --> F{"후보 있음?"}
-    D --> F
-    E --> F
-    F -->|"예"| G["추천 생성"]
-    F -->|"아니오"| H["시간 기반 일반 휴식 안내"]
-    G --> I{"주행 제한 강함?"}
-    I -->|"예"| J["음성만 · 화면 카드 최소"]
-    I -->|"아니오"| K["음성 + 카드"]
-```
+| 상황 | 동작 |
+| --- | --- |
+| 서버 없음 | 휴게소·장소·병원은 내장·캐시 데이터, 문장은 템플릿, 대기 모드는 차 화면만("폰 공유 연결 안 됨") |
+| LLM 2.5초 초과·검사 실패 | 템플릿 문장 |
+| 방위·경로 형상 없음 | 종방향 가속만으로 멀미 지수, 예보는 "곡선 정보 없음" |
+| 실내 온도 신호 없음 | "실내 온도 정보 없음"으로 표시, 여름철이면 도착 체크를 강한 단계로 |
+| 음성 인식 실패 | 한 번 더 묻고, 그래도 모르면 버튼만. 응답 없음은 "나중에" |
+| 주행 시작(D단·DRIVING) | 대기 모드·쉼표 화면·설정을 즉시 닫고 주행 화면 |
+| 경유지 추가 실패 | "경로에 넣지 못했어요. 내비에서 직접 골라 주세요" |

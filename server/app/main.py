@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from sqlalchemy import Engine
 
 from app import errors
-from app.api import content, devices, health, llm, reststops, trips
+from app.api import devices, health, llm, places, reststops, trips, vets, wait
 from app.middleware import RequestContextMiddleware
 from app.api.health import LlmHealth
 from app.config import VERSION, get_settings
@@ -36,14 +36,16 @@ def create_app(
         if task and not task.done():
             task.cancel()
 
-    app = FastAPI(title="쉼표 API", version=VERSION, lifespan=lifespan)
+    app = FastAPI(title="같이가개 API", version=VERSION, lifespan=lifespan)
     app.state.engine = engine or make_engine(settings.database_url)
     app.state.llm_health = llm_health or LlmHealth(settings.ollama_base_url, settings.ollama_model)
     app.state.ollama = ollama or OllamaClient(settings)
     errors.install(app)
     app.add_middleware(RequestContextMiddleware, limit=rate_limit or settings.rate_limit_per_minute)
-    for module in (health, devices, reststops, llm, content, trips):
+    for module in (health, devices, reststops, places, vets, wait, llm, trips):
         app.include_router(module.router, prefix=API_PREFIX)
+    # 보호자 폰 대기 페이지는 짧은 주소로 (API 접두사 밖, 인증 없음 — 토큰이 곧 권한).
+    app.include_router(wait.page_router)
     return app
 
 

@@ -13,17 +13,21 @@ data class ScoreBreakdown(
     /** 직전 휴식 직후라 너무 이른 정차 (0 = 문제없음, 1 = 방금 쉼). */
     val gapPenalty: Double,
     val total: Double,
+    /** 반려견 멀미가 쌓였을수록 가까운 곳이 낫다 (같이가개 F2, [ScoringPolicy.PET]). */
+    val motion: Double = 0.0,
 )
 
 /**
  * 휴게소 점수 가중치 — 한 곳에 모은다 (COMMERCIAL_READINESS B P0, `ScoringPolicyTest`로 고정).
- * 점수 = timing·[timingWeight] + fatigue·[fatigueWeight] + facility·[facilityWeight] − gapPenalty·[gapWeight].
+ * 점수 = timing·[timingWeight] + fatigue·[fatigueWeight] + facility·[facilityWeight] + motion·[motionWeight] − gapPenalty·[gapWeight].
+ * 같이가개는 [PET](멀미 항 포함)을 쓴다.
  */
 data class ScoringPolicy(
     val timingWeight: Double = 0.35,
     val fatigueWeight: Double = 0.2,
     val facilityWeight: Double = 0.35,
     val gapWeight: Double = 0.1,
+    val motionWeight: Double = 0.0,
     /** 목표 시각에서 이만큼 벗어나면 timing 0. */
     val timingToleranceMin: Double = 45.0,
     /** 후보를 보는 범위(분). fatigue 항은 이 범위 안에서 가까울수록 1. */
@@ -39,16 +43,18 @@ data class ScoringPolicy(
      * @param fatigueScore 0~100
      * @param facilityMatch 니즈 가중 편의시설 충족률 0~1
      * @param minutesSinceRest 연속 운전 시간(분)
+     * @param motionIndex 반려견 멀미 지수 0~100 (MotionComfortEngine)
      */
-    fun score(minutesAway: Double, targetMin: Double, fatigueScore: Int, facilityMatch: Double, minutesSinceRest: Int): ScoreBreakdown {
+    fun score(minutesAway: Double, targetMin: Double, fatigueScore: Int, facilityMatch: Double, minutesSinceRest: Int, motionIndex: Int = 0): ScoreBreakdown {
         val timing = (1.0 - abs(minutesAway - targetMin) / timingToleranceMin).coerceIn(0.0, 1.0)
         val closeness = (1.0 - minutesAway / horizonMin).coerceIn(0.0, 1.0)
         val fatigue = closeness * (fatigueScore.coerceIn(0, 100) / 100.0)
         val sinceAtArrival = minutesSinceRest + minutesAway
         val gap = if (sinceAtArrival >= minRestGapMin) 0.0 else 1.0 - sinceAtArrival / minRestGapMin
         val facility = facilityMatch.coerceIn(0.0, 1.0)
-        val total = timing * timingWeight + fatigue * fatigueWeight + facility * facilityWeight - gap * gapWeight
-        return ScoreBreakdown(timing, fatigue, facility, gap, total)
+        val motion = closeness * (motionIndex.coerceIn(0, 100) / 100.0)
+        val total = timing * timingWeight + fatigue * fatigueWeight + facility * facilityWeight + motion * motionWeight - gap * gapWeight
+        return ScoreBreakdown(timing, fatigue, facility, gap, total, motion)
     }
 
     /**
@@ -64,5 +70,8 @@ data class ScoringPolicy(
 
     companion object {
         val DEFAULT = ScoringPolicy()
+
+        /** 같이가개 반려견 맞춤 쉼표 가중치 (F2). 시설(놀이터) 비중을 그대로 두고 멀미 항을 운전자 피로보다 크게. */
+        val PET = ScoringPolicy(timingWeight = 0.3, fatigueWeight = 0.15, facilityWeight = 0.35, gapWeight = 0.1, motionWeight = 0.2)
     }
 }

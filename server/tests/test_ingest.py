@@ -10,6 +10,9 @@ from app.config import Settings
 from app.jobs.ingest_reststops import ingest, load_sample
 from app.models import RestStop, RestStopFacility
 
+# 경부선 23곳 + 영동선(강릉 방향, 같이가개 시연 경로) 7곳
+SAMPLE_STOPS = 30
+
 
 def counts(engine) -> tuple[int, int]:
     with Session(engine) as s:
@@ -23,10 +26,10 @@ def test_empty_key_loads_sample_without_external_call(db_engine, caplog):
 
     caplog.set_level(logging.INFO)
     r = ingest(db_engine, Settings(ex_api_key=""), fetch=no_fetch)
-    assert (r.source, r.ok, r.inserted) == ("sample", True, 23)
+    assert (r.source, r.ok, r.inserted) == ("sample", True, SAMPLE_STOPS)
     assert "source=sample" in caplog.text
     stops, facilities = counts(db_engine)
-    assert stops == 23 and facilities > 50
+    assert stops == SAMPLE_STOPS and facilities > 50
     again = ingest(db_engine, Settings(ex_api_key=""))
     assert (again.inserted, again.updated, again.deleted) == (0, 0, 0)
     assert counts(db_engine) == (stops, facilities)
@@ -91,7 +94,7 @@ def test_sample_ingest_on_postgres(pg_url):
             s.query(RestStopFacility).delete()
             s.query(RestStop).delete()
         r = ingest(engine, Settings(ex_api_key=""))
-        assert r.inserted == 23
-        assert counts(engine)[0] == 23
+        assert r.inserted == SAMPLE_STOPS
+        assert counts(engine)[0] == SAMPLE_STOPS
     finally:
         engine.dispose()

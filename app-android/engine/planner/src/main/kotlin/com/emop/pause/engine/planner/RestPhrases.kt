@@ -18,6 +18,23 @@ object RestPhrases {
         }
     }
 
+    /**
+     * 반려견 맞춤 쉼표 제안 (F2). 2문장 이내, 숫자·장소 먼저. 반려견 이유(멀미·배변)가 있으면 앞 문장에 둔다.
+     * 예: "콩이 멀미가 쌓였어요. 18분 뒤 반려견 놀이터가 있는 안성휴게소에서 쉬어 갈까요?"
+     */
+    fun petSuggestion(d: PlanDecision.Suggest, petName: String): String {
+        if (d.fatigueFirst) return suggestion(d)
+        val pet = when {
+            Reason.Motion in d.reasons -> "$petName 멀미가 쌓였어요."
+            Reason.PottyDue in d.reasons -> "$petName 산책 시간이에요."
+            else -> null
+        }
+        val facilities = d.reasons.filterIsInstance<Reason.HasFacility>().map { it.facility.labelKo }
+        val place = if (facilities.isEmpty()) d.stop.name else "${joinWithAnd(facilities)}${subjectParticle(facilities.last())} 있는 ${d.stop.name}"
+        val ask = "${d.minutesAway}분 뒤 ${place}에서 쉬어 갈까요?"
+        return if (pet != null) "$pet $ask" else ask
+    }
+
     fun noCandidate(d: PlanDecision.NoCandidate): String =
         if (d.nextStopKm != null) {
             "다음 휴게소까지 ${km(d.nextStopKm)} km, 졸음이 오면 갓길 대신 졸음쉼터를 이용하세요."
@@ -33,7 +50,7 @@ object RestPhrases {
     fun later() = "알겠어요. 10분 뒤에 다시 알려 드릴게요."
 
     /** 인식 실패 후 한 번만 다시 묻는다 (COMMERCIAL_READINESS C P0). */
-    fun askAgain() = "\"응\" 또는 \"나중에\"로 답해 주세요."
+    fun askAgain() = "\"여기서 쉴게요\" 또는 \"나중에\"로 답해 주세요."
 
     /** "키즈존과 급속충전기": 앞말 받침에 따라 과/와. */
     fun joinWithAnd(words: List<String>): String = words.reduce { acc, w -> acc + (if (hasBatchim(acc)) "과 " else "와 ") + w }

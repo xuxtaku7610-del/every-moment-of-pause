@@ -1,56 +1,59 @@
-# 쉼표 — 멈춤의 모든 순간 (Every Moment of Pause)
+# 같이가개 — 반려견과 차로 가는 모든 순간
 
-> 달릴 때는 **언제, 어디서 멈출지** 먼저 알려주고, 멈췄을 때는 **그 시간을 무엇으로 채울지** 골라주는 Pleos Connect 차량용 앱.
+> 주행 데이터로 반려견의 멀미·피로를 미리 예측해 **쉬는 순간과 장소**를 정해 주고, 잠깐 차에 남겨 둘 때부터 내릴 때까지 반려견의 이동 하루를 차가 함께 챙기는 Pleos Connect 차량용 앱.
 
-현대자동차그룹 차량용 앱 개발 공모전 출품작 (대학(원)생 부문, 개인)
+현대자동차그룹 차량용 앱 개발 공모전 출품작 (대학(원)생 부문, 개인). 가칭이며 이전 주제 「쉼표」에서 전환했다(엔진·서버·차량 연동 재사용, [docs/plan/REUSE_MAP.md](docs/plan/REUSE_MAP.md)). 기능 범위 기준: [docs/plan/CONCEPT.md](docs/plan/CONCEPT.md).
 
 ---
 
 ## 1. 프로젝트 개요
 
 ### 문제
-- 2026년 상반기 고속도로 사망자 중 **졸음·주시태만이 71.6%** (한국도로공사). 운전자는 피로를 늦게 자각하고, 도착 시간 압박으로 휴식을 미룬다.
-- 가족 이동에서 "쉬어야 하는 이유"는 운전자 피로만이 아니다. 아이 화장실·수유, 반려동물 산책, 전기차 충전이 제각각 다른 시점에 필요하다. (국내 반려동물 양육 가구 29.2%, 2025 농식품부)
-- 막상 멈추면(휴게소·충전·졸음쉼터) 그 시간은 **기다림**이 된다. 아이는 "아직 멀었어?"를 반복하고, 운전자는 제대로 쉬지 못한 채 다시 출발한다.
+- 반려견은 아파도 말을 못 한다. 차멀미(침 흘림·헐떡임·구토)와 이동 불안이 흔한데, 운전자는 앞만 봐야 해서 알아채기 어렵다.
+- 반려견 동반 여행 수요는 크지만 차 안에서 쓰는 전용 서비스는 없다. 2026 Pleos 아이디어 공모전 우수작 16개에도 반려동물 주제는 없다.
+- 해외 참고: Tesla Dog Mode(정차 중 반려견 대기 화면), JLR의 주행 데이터 기반 멀미 예측, Apple Vehicle Motion Cues.
 
 ### 해결
-쉼표는 차량 데이터(주행 시간·속도·기어·공조·배터리·충전 상태)와 내비 경로를 함께 읽어 **이동 중 '멈춤'의 모든 순간**을 설계한다.
-
-| 단계 | 쉼표가 하는 일 |
+| 단계 | 같이가개가 하는 일 |
 | --- | --- |
-| 출발 전 (정차) | 동승자 프리셋(아이·반려동물·교대 운전자), "어젯밤 몇 시간 주무셨어요?" 한마디로 휴식 계획 초안 |
-| 달릴 때 (주행) | 피로 위험 지수 + 가족 니즈 타이머 → 경로상 최적 휴게소를 **이유 한 문장과 함께 음성 제안**, "응" 한마디로 경유지 추가 |
-| 달릴 때 (뒷좌석) | 아이가 "아직 멀었어?" → "속담 라디오 2편 들으면 도착!" 도착 시간에 맞춘 라디오 편성 |
-| 멈췄을 때 (P단) | 남은 정차·충전 시간에 맞춰 **파워냅(벽난로 모드) · 아이 원정대 미션 · 펫 산책 타이머 · 업무 집중** 중 하나를 추천 |
-| 도착 후 | 여행 리포트: 휴식 횟수, 최장 연속 주행, 피로 피크, 다음 여행 팁 |
+| 출발 전 (P단) | 콩이 프로필(체급·나이·멀미 성향), 하네스/켄넬·물·배변봉투 체크 |
+| 달릴 때 | **멀미 예보**: 속도·방위·앞 구간 경로 형상으로 반려견 멀미 누적량을 계산하고 "3km 뒤 굽은 길 8분, 조금 일찍 감속" |
+| 달릴 때 | **반려견 맞춤 쉼표**: 멀미 누적·이동 시간·배변 간격·운전자 피로를 합쳐 반려견 놀이터가 있는 휴게소 1곳, 음성 "여기서 쉴게요" → 경유지 |
+| 잠깐 내릴 때 (P단) | **잠깐 대기 모드**: 차 화면이 바깥 사람용 안내로 바뀌고, 보호자 폰 웹페이지에 경과 시간·배터리 |
+| 가는 길·목적지 | **함께 가는 장소**(한국관광공사 반려동물 동반여행), **동물병원 가는 길** |
+| 도착 | **"콩이 내렸나요?"** → **이동 기록**: "콩이는 약 1시간 10분이 한계" |
 
-### 심사 항목과의 연결
-| 심사 항목 | 쉼표의 근거 |
-| --- | --- |
-| 차량 특화성 | 연속 주행·공조·배터리·충전·기어·경로를 동시에 읽어야만 가능한 판단. 스마트폰 앱으로는 불가 |
-| 창의성 | "경고하는 차"가 아니라 "멈춤을 먼저 계획하고, 멈춘 시간을 채워주는 차". 충전 시간 = 콘텐츠 길이 |
-| 기술 활용성 | Vehicle SDK, NaviHelper SDK, CarUxRestrictions, Android 기본 STT/TTS, 로컬 LLM(Ollama), 공공데이터(한국도로공사 휴게소 API). Pleos STT/TTS가 Playground에 열리면 교체 |
+### 심사 항목과의 연결 (대응표)
+| 심사 항목 | 근거 | 확인 방법 |
+| --- | --- | --- |
+| 차량 특화성 | 속도(가속도)·방위·기어·주차 브레이크·배터리·경로 남은 거리를 동시에 읽어야 가능한 판단. 대기 모드는 P단·배터리를 아는 차 화면에서만 가능 | 설정 "이 차에서 쓰는 신호", 발표 모드 신호 줄, [docs/plan/sdk_check.md](docs/plan/sdk_check.md) |
+| 창의성 | "운전자 피로"가 아니라 **말 못 하는 동승자(반려견)의 멀미를 미리 예보**. 휴식 장소를 반려견 기준으로 고르고, 차 화면을 바깥 사람용 안내판으로 바꿈 | 시연 대본 [docs/demo_script.md](docs/demo_script.md) 장면 2~4 |
+| 기술 활용성 | Vehicle SDK, NaviHelper SDK, AAOS 차량 속성, CarUxRestrictions, Android STT/TTS, ISO 2631-1 멀미 누적량(MSDV) 단순화 모델, 로컬 LLM(Ollama), 공공데이터 3종 | [docs/plan/motion_model.md](docs/plan/motion_model.md), 고갯길 비교 [docs/plan/demo_compare.md](docs/plan/demo_compare.md), 테스트 [test_plan.md](test_plan.md) |
 
 ---
 
 ## 2. 핵심 기능
 
-### MVP (11/15 접수 전 완성 목표)
-| ID | 기능 | 지금 동작하는 것 (2026-10-29) |
+| ID | 기능 | 쓰는 차량 신호 | 쉼표에서 가져온 것 |
+| --- | --- | --- | --- |
+| F1 | 멀미 예보 주행 | 속도(가속도 추정), 방위, 경로 형상·남은 거리, 기어 | 신호 잡음 처리, AppMode/DriveState, 쿨다운 |
+| F2 | 반려견 맞춤 쉼표 + 음성 경유지 추가 | 속도·주행 시간, 배터리, NaviHelper | 휴게소 추천 엔진·ScoringPolicy·니즈 타이머·피로 지수·음성 |
+| F3 | 잠깐 대기 모드 + 보호자 폰 웹페이지 | 기어 P, 배터리, 주차 브레이크, (가능하면) 실내 온도 | 서버, 발표 모드 패널 |
+| F4 | 함께 가는 장소 (TourAPI 반려동물 동반여행) | 남은 시간·목적지 | 서버 수집·캐시 |
+| F5 | 동물병원 가는 길 | NaviHelper, 속도 | F1 엔진 |
+| F6 | 타고·내릴 때 체크 ("콩이 내렸나요?") | 기어 P, 주행 종료 판단 | 출발 준비 화면 |
+| F7 | 콩이 이동 기록 (한계 시간·병원용 요약) | 주행 기록 | 여행 리포트, TripRecorder, TripResume, Ollama 문장+템플릿 |
+
+**뺀 것(쉼표에서):** 아이 원정대, 도착 맞춤 라디오, "아직 멀었어?", 파워냅.
+
+공통: 주행 안전(CarUxRestrictions가 DRIVING/RESTRICTED면 항상 주행 화면, 텍스트 2줄·버튼 2개 + 음성 힌트, 스크롤·자동 애니메이션 없음), 오프라인 우선(서버·LLM이 없어도 내장 데이터·템플릿), 멀미 지수는 의학적 진단이 아닌 "주의 예보".
+
+### 사용 공공데이터
+| 데이터 | 출처 | 키 없을 때 |
 | --- | --- | --- |
-| F1 | 출발 준비: 동승자 프리셋 + 수면 한마디 | 프리셋 저장·재사용, 수면 시간 반영("다섯 시간"·"5시간"·"오 시간" 모두 인식) |
-| F2 | 피로 위험 지수 v1 (규칙 기반, 기여 요인 공개) | 연속 주행 + 시간대·단조로움·실내 온열·수면 부족, 미지원 신호는 빼고 재정규화 |
-| F3 | 가족 니즈 타이머 (아이·반려동물·충전) | 나이별 화장실·수유 간격, 산책, 배터리로 갈 수 있는 거리 vs 남은 거리 |
-| F4 | 휴게소 추천 + 음성 제안 + 경유지 추가 | 점수 정책(ScoringPolicy)·제안 깜빡임 방지·반대 방향 제외, 이유는 실제로 크게 기여한 요인 1~2개, "응/나중에" → 경유지 |
-| F5 | "아직 멀었어?" 응답기 + 도착 맞춤 라디오 | 아이·어른 말투 구분 템플릿 답, 남은 시간에 맞춘 편성. 아이용 콘텐츠는 검수본만(초안은 디버그에서 DRAFT 표시) |
-| F6 | 멈춤 큐레이터: 충전 대기 · 파워냅(벽난로) · 원정대 미션 · 펫 산책 | 충전 완료 "예상" 시각, 파워냅 시스템 알람, 원정대 완료 시 라디오 열림 |
-| F7 | 여행 리포트 | 최장 연속 주행·피로 최고점·제안 수락 수·다음 여행 팁 |
-| F8 | 시연용 주행 시뮬레이터 (서울→부산 5시간 → 3분 재생) | 시나리오 3개, 1·10·100배속, 발표 모드 장면 점프 |
-
-공통: 주행 안전(CarUxRestrictions가 DRIVING/RESTRICTED면 항상 주행 화면, 텍스트·버튼 제한), 오프라인 우선(서버·LLM이 없어도 내장 데이터·템플릿), 실차 신호는 Pleos SDK → AAOS 차량 속성 순으로 신호마다 고르고 잡음을 거른다(속도 3초 평균, 기어 2초·충전 5초 확정), 실차 여행 중 앱이 재시작되면 이어서 안내.
-
-### 확장 (서류 통과 후, 12/3 PT 전)
-정체 구간 호흡 코치 · 빗길 위험 가중 · 교대 운전 제안 · 하차 안심 루틴 · 피로 모델 v2(개인화) · 보호자 폰 알림
+| 휴게소·편의시설 | 한국도로공사 휴게소 API (공공데이터포털) | `server/app/data/sample_reststops.json` |
+| 반려동물 동반여행 | 한국관광공사 TourAPI (공공데이터포털) | `server/app/data/sample_pet_places.json` ("샘플" 표시) |
+| 동물병원 | 지방행정 인허가 데이터(동물병원) 파일 | `server/app/data/sample_vets.json` |
 
 ---
 
@@ -61,10 +64,10 @@
 | 차량 앱 | Kotlin 2.x, Jetpack Compose, Hilt, Coroutines/Flow, Room | Android Automotive OS (Pleos Connect), minSdk 28[^minsdk] |
 | 차량 연동 | Pleos Connect Vehicle SDK, NaviHelper SDK, `CarUxRestrictionsManager` | 둘 다 신청 없이 사용 가능 |
 | 음성 | **Android `SpeechRecognizer` / `TextToSpeech` (현재 1순위)**, Pleos STT/TTS가 열리면 교체 | 공급자 추상화 |
-| 백엔드 | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 | 휴게소 데이터, 라디오 콘텐츠, LLM 게이트웨이 |
+| 백엔드 | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 | 휴게소·동반 장소·동물병원 데이터, 대기 공유, LLM 게이트웨이 |
 | DB | PostgreSQL 16 (단위 테스트만 SQLite in-memory) | Docker Compose, 아래 DB 테스트 정책 참고 |
 | LLM | Ollama `gemma4:12b` (집 PC RTX 5060 Ti 16GB) | 네이티브 `/api/chat`, `think=false`, `keep_alive=30m`, `num_predict=60`, `temperature=0.3`, 서버 시작 시 warm-up, 최대 2문장, 템플릿 문장 폴백 |
-| 외부 데이터 | 한국도로공사 공공 API (휴게소 기준정보·편의시설) | 공공데이터포털 인증키 |
+| 외부 데이터 | 한국도로공사 휴게소 API, 한국관광공사 TourAPI, 지방행정 인허가(동물병원) | 공공데이터포털 인증키 (없으면 샘플) |
 | 테스트 | JUnit5, MockK, Turbine, Compose UI Test / pytest, httpx | |
 | 빌드·배포 | Gradle 8, GitHub Actions(APK 빌드), GitHub Releases | 1차 접수 가산점: 소스 + APK |
 
@@ -118,23 +121,27 @@ every-moment-of-pause/
 ├─ database.md · test_plan.md · todo.md
 ├─ app-android/                 # Pleos Connect 앱 (Gradle 멀티모듈)
 │  ├─ app/                      # Compose 화면, ViewModel, 내비게이션, AppModeReducer
-│  ├─ core/model/               # 도메인 모델
-│  ├─ core/vehicle/             # Vehicle SDK 어댑터 (+ capability 확인)
+│  ├─ core/model/               # 신호·상태 모델, 잡음 처리
+│  ├─ core/uistate/             # 화면 계약 (UiState·UiEvent·Fixtures)
+│  ├─ core/vehicle/             # Pleos Vehicle SDK · AAOS 차량 속성 어댑터
 │  ├─ core/navi/                # NaviHelper 어댑터
 │  ├─ core/restriction/         # CarUxRestrictions → DriveState
-│  ├─ engine/fatigue/           # 피로 위험 지수
-│  ├─ engine/needs/             # 가족 니즈 타이머
-│  ├─ engine/planner/           # 휴게소 점수화·추천
-│  ├─ engine/pause/             # 멈춤 큐레이터
-│  ├─ voice/                    # STT·TTS·LLM 공급자
-│  ├─ data/                     # Room, Retrofit, 캐시
-│  └─ sim/                      # 주행 시나리오 리플레이어
+│  ├─ engine/motion/            # F1 멀미 예보 (MotionComfortEngine)
+│  ├─ engine/pet/               # 반려견 프로필 · F3 대기 모드 · F6 체크 · F7 기록 패턴
+│  ├─ engine/fatigue/           # 운전자 피로 (F2 요인)
+│  ├─ engine/needs/             # 배변·산책 간격, 충전
+│  ├─ engine/planner/           # F2 반려견 맞춤 쉼표
+│  ├─ engine/pause/             # 쉼표에서 할 일 (산책·물·배변)
+│  ├─ voice/                    # STT·TTS·의도 인식
+│  ├─ data/                     # Room, Retrofit, 캐시, 내장 데이터
+│  └─ sim/                      # 장면 시나리오 리플레이어
 ├─ server/                      # FastAPI 백엔드
-│  ├─ app/ (api, models, services, jobs)
+│  ├─ app/ (api, models, jobs, data)
 │  ├─ alembic/
 │  └─ tests/
-├─ content/                     # 라디오 에피소드·미션 원본 (검수된 JSON)
-├─ scenarios/                   # 시뮬레이터 시나리오 JSON
+├─ scenarios/                   # 시뮬레이터 장면 JSON · 시연 GPX
+├─ scripts/                     # vhal.ps1 (에뮬레이터 차량 값), 비교 실험
+├─ docs/plan/                   # CONCEPT · REUSE_MAP · sdk_check · motion_model · demo_compare
 └─ docker-compose.yml
 ```
 
@@ -154,6 +161,7 @@ every-moment-of-pause/
 ```bash
 cp server/.env.example server/.env
 # EX_API_KEY=            # 비워 두면 샘플 휴게소 데이터 사용
+# TOUR_API_KEY=          # 비워 두면 샘플 반려동물 동반 장소 사용
 # OLLAMA_BASE_URL=http://127.0.0.1:11434
 # OLLAMA_MODEL=gemma4:12b
 # OLLAMA_KEEP_ALIVE=30m
@@ -170,7 +178,8 @@ python -m venv .venv
 pip install -r requirements.txt
 python -m alembic upgrade head
 python -m app.jobs.ingest_reststops                  # 휴게소 데이터 적재 (EX_API_KEY 없으면 샘플)
-python -m app.jobs.load_content                      # 라디오·미션 콘텐츠 적재 (reviewed=true만 서비스)
+python -m app.jobs.ingest_pet_places                # 반려동물 동반 장소 (TOUR_API_KEY 없으면 샘플)
+python -m app.jobs.load_vets                         # 동물병원 (data/raw/ 파일 없으면 샘플)
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 확인: `http://127.0.0.1:8000/api/v1/health` → `{"status":"ok", ...}`, API 문서는 `/docs`.
@@ -183,17 +192,23 @@ cd app-android
 ./gradlew -Pkotlin.compiler.execution.strategy=in-process assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
-- 서버 주소는 빌드 종류로 정해진다: 디버그 `http://10.0.2.2:8000/api/v1/`(에뮬레이터 → 호스트 PC), 릴리스는 비어 있음 = 오프라인(내장 휴게소·템플릿).
+- 서버 주소는 빌드 종류로 정해진다: 디버그 `http://10.0.2.2:8000/api/v1/`(에뮬레이터 → 호스트 PC), 릴리스는 비어 있음 = 오프라인(내장 휴게소·장소·병원 샘플·템플릿).
+- 보호자 폰 대기 페이지: 서버를 `--host 0.0.0.0`으로 띄우고, 같은 Wi-Fi의 폰이 `http://<노트북 IP>:8000/wait/<토큰>`을 연다. 차 화면에 보일 주소 앞부분은 `--es shareBase http://<노트북 IP>:8000`.
 - 에뮬레이터: Pleos Connect Emulator AVD(`Pleos_Connect_API34`).
 - 시연(디버그 빌드):
   ```bash
-  adb shell am start -n com.emop.pause/.MainActivity --es sim seoul-busan-family --ei speed 100 --es action play
-  adb shell am start -n com.emop.pause/.MainActivity --ei seek 3180          # 첫 제안 직전으로 점프
-  adb shell am start -n com.emop.pause/.MainActivity --es say 응              # 음성 응답 주입
-  adb shell am start -n com.emop.pause/.MainActivity --ez vehicle true       # 실차 신호(Pleos SDK·AAOS 속성)
+  adb shell am start -n com.emop.pause/.MainActivity --es sim pet-trip --es action play      # 서울→강릉 시연 시나리오
+  adb shell am start -n com.emop.pause/.MainActivity --ei seek 3420 --es action play         # 쉼표 추천 직전
+  adb shell "am start -n com.emop.pause/.MainActivity --es say '여기서 쉴게요'"               # 음성 응답 주입 (띄어쓰기는 따옴표로)
+  adb shell am start -n com.emop.pause/.MainActivity --ei seek 5240 --es action play         # 휴게소 쉼표
+  adb shell "am start -n com.emop.pause/.MainActivity --es say '잠깐 다녀올게'"               # 대기 모드
+  adb shell am start -n com.emop.pause/.MainActivity --ei seek 8748 --es action play         # 고갯길 3km 앞 멀미 예보
+  adb shell am start -n com.emop.pause/.MainActivity --ei seek 10820 --es action play        # 도착 → 60초 뒤 "콩이 내렸나요?"
+  adb shell am start -n com.emop.pause/.MainActivity --ez vehicle true                       # 실차 신호(Pleos SDK·AAOS 속성)
   ```
-  릴리스에서도 로고를 5번 누르면 발표 모드(장면 점프) 패널이 열린다.
-- 차량 신호 점검: `powershell -File scripts/vhal.ps1 check` (결과는 [docs/vhal_check.md](docs/vhal_check.md)).
+  릴리스에서도 로고를 5번 누르면 발표 모드(장면 점프·고갯길 비교) 패널이 열린다. 시연 대본: [docs/demo_script.md](docs/demo_script.md).
+- 장면별 차량 값 + 앱 장면 맞추기: `powershell -ExecutionPolicy Bypass -File scripts/vhal.ps1 <depart|highway|rest_stop|wait|mountain_road|arrive>` (user 빌드 에뮬레이터는 값 주입이 막혀 있어 앱 시뮬레이터로 맞춘다, [docs/vhal_check.md](docs/vhal_check.md)).
+- 시연 데이터 다시 만들기: `python scripts/gen_demo_data.py` (합성 고갯길 GPX·시나리오·샘플). 고갯길 비교: `./gradlew :app:testDebugUnitTest --tests "*DemoCompareTest*"` → [docs/plan/demo_compare.md](docs/plan/demo_compare.md).
 
 ### 4) 테스트
 ```bash
@@ -202,7 +217,7 @@ cd server
 cd ../app-android
 ./gradlew -Pkotlin.compiler.execution.strategy=in-process test
 ```
-테스트 이름에는 [test_plan.md](test_plan.md) 항목 ID(T<장>-<번호>)를 쓴다. 점검 결과는 [docs/qa_report.md](docs/qa_report.md).
+테스트 이름에는 [test_plan.md](test_plan.md) 항목 ID(F1-01, DS-02, SV-01 …)를 쓴다. 점검 결과는 [docs/qa_report.md](docs/qa_report.md).
 
 ### 5) 릴리스 APK
 [docs/release.md](docs/release.md) — 서명 키는 저장소 밖에 두고, 비밀번호는 환경 변수로만 넘긴다.
@@ -210,7 +225,7 @@ cd ../app-android
 ---
 
 ## 6. 개인정보·제출 유의사항
-- 앱은 계정 없이 **익명 기기 토큰**만 사용. 위치는 여행 중에만 쓰고 서버에는 휴게소 이벤트 단위로만 저장.
+- 앱은 계정 없이 **익명 기기 토큰**만 사용. 반려견 프로필은 기기에만 저장. 위치는 장소 조회에만 쓰고 저장하지 않으며, 대기 공유에는 위치를 보내지 않는다.
 - 공모전 규정상 **공유 링크·첨부자료에 개발자 실명·계정정보가 노출되면 안 됨** → GitHub 계정명, 커밋 작성자명, APK 서명 정보, 영상 화면을 점검.
 - 1차 접수 가산점: 시연 영상 · GitHub 저장소(소스 + APK 함께). APK만 따로 제출하지 않는다.
 

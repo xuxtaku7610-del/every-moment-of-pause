@@ -34,3 +34,7 @@ artifacts/
 
 # 로컬 에이전트 지침 (CLAUDE.md와 같은 내용)
 AGENTS.md
+
+# 공공데이터 원본 파일(크고 자주 바뀜) — server/data/raw/README.md만 커밋
+server/data/raw/*
+!server/data/raw/README.md

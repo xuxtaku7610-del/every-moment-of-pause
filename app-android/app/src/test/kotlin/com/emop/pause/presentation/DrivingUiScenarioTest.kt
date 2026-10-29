@@ -14,7 +14,10 @@ import com.emop.pause.engine.planner.TripPlanPreview
 import com.emop.pause.mode.AppModeReducer
 import com.emop.pause.mode.ModeInput
 import com.emop.pause.mode.ModeState
+import com.emop.pause.engine.motion.RouteShape
 import com.emop.pause.runtime.Snapshot
+import com.emop.pause.sim.Gpx
+import com.emop.pause.trip.PresetStore
 import com.emop.pause.sim.Scenario
 import com.emop.pause.sim.ScenarioPlayer
 import com.emop.pause.trip.BrainInput
@@ -30,7 +33,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * COMMERCIAL_READINESS D P0 "주행 중 화면: 텍스트 2줄, 버튼 ≤ 2개 — 테스트로 검증", test_plan T4-12·T10-2.
+ * test_plan DS-02·DS-03 "주행 중 화면: 텍스트 2줄, 버튼 ≤ 2개 — 테스트로 검증" (CONCEPT 5장).
  * 시나리오를 엔진에 흘려 실제로 매핑된 주행 화면 상태가 모든 시점에서 [DrivingRules]를 지키는지 본다.
  */
 class DrivingUiScenarioTest {
@@ -39,9 +42,10 @@ class DrivingUiScenarioTest {
     private fun check(name: String, setup: TripSetup) {
         val sc = Scenario.parse(File("../../scenarios/$name.json").readText())
         val route = RouteInfo(sc.route.destinationName, sc.route.destination.toModel(), sc.route.totalDistanceM, sc.route.points.map { it.toModel() })
+        val shape = sc.route.shapeGpx?.let { RouteShape.fromLatLng(Gpx.parse(File("../../scenarios/$it").readText())) }
         val stops = bundled.alongRoute(route.points, route.totalDistanceM.toDouble())
         val plan = TripPlanPreview.plan(stops, route.totalDistanceM / 1000.0, 100.0 / 60, setup.passengers, setup.ev != null, setup.sleepHours)
-        val brain = TripBrain(setup) { stops }
+        val brain = TripBrain(setup, shape, sc.route.shapeStartM) { stops }
         var mode = ModeState()
         var checked = 0
         for (t in 0..sc.durationSec step 1) {
@@ -62,7 +66,7 @@ class DrivingUiScenarioTest {
                 voice = if (asking != null && t % 60 == 0) VoicePhase.FAILED else VoicePhase.IDLE,
                 toast = if (t % 600 == 0) "경로에 죽암휴게소를 넣었어요" else null,
                 stops = stops, plan = plan, traveledKm = st.traveledKm, kmPerMin = 100.0 / 60, passengers = setup.passengers,
-                sleepHours = setup.sleepHours,
+                sleepHours = setup.sleepHours, pet = setup.pet, motion = st.motion, forecast = st.forecast,
             )
             val l = snap.uxLimits
             val ui = UxPolicy.apply(UiMapper.drive(snap, trip), UxPolicy.Flags(l.noVideo, l.limitStringLength, l.maxStringLength, l.noKeyboard, l.noSetup))
@@ -74,12 +78,18 @@ class DrivingUiScenarioTest {
     }
 
     @Test
-    fun `T4-12 T10-2 seoul-busan-family 주행 화면 전 구간이 제한을 지킨다`() =
-        check("seoul-busan-family", TripSetup(listOf(Passenger.Child(5), Passenger.Dog), EvProfile(), sleepHours = 6f))
+    fun `DS-02 pet-trip 주행 화면 전 구간(멀미 예보 포함)이 제한을 지킨다`() {
+        val sc = Scenario.parse(File("../../scenarios/pet-trip.json").readText())
+        check("pet-trip", PresetStore.fromScenario(sc.setup))
+    }
 
     @Test
-    fun `T4-12 T10-2 night-solo 주행 화면 전 구간이 제한을 지킨다`() = check("night-solo", TripSetup())
+    fun `DS-02 seoul-busan-family 주행 화면 전 구간이 제한을 지킨다`() =
+        check("seoul-busan-family", TripSetup(listOf(Passenger.Child(5), Passenger.Dog()), EvProfile(), sleepHours = 6f))
 
     @Test
-    fun `T4-12 T10-2 no-signal-car 주행 화면 전 구간이 제한을 지킨다`() = check("no-signal-car", TripSetup(listOf(Passenger.Child(2))))
+    fun `DS-02 night-solo 주행 화면 전 구간이 제한을 지킨다`() = check("night-solo", TripSetup())
+
+    @Test
+    fun `DS-02 no-signal-car 주행 화면 전 구간이 제한을 지킨다`() = check("no-signal-car", TripSetup(listOf(Passenger.Child(2))))
 }

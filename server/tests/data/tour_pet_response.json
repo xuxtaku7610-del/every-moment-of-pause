@@ -1,0 +1,21 @@
+{
+  "_comment": "테스트 고정 응답. TourAPI 국문 서비스 응답 형식을 가정해 만든 가짜 데이터다(실재 장소 아님). 키 발급 후 실제 응답으로 형식을 확인한다(TODO tour-api).",
+  "response": {
+    "header": {"resultCode": "0000", "resultMsg": "OK"},
+    "body": {
+      "numOfRows": 10,
+      "pageNo": 1,
+      "totalCount": 6,
+      "items": {
+        "item": [
+          {"contentid": "900001", "contenttypeid": "39", "title": "테스트 카페", "addr1": "강원특별자치도 강릉시", "addr2": "", "mapx": "128.90", "mapy": "37.77", "cat1": "A05", "cat3": "A05020900", "acmpyPsblCpam": "소형견"},
+          {"contentid": "900002", "contenttypeid": "39", "title": "테스트 식당", "addr1": "강원특별자치도 강릉시", "mapx": "128.88", "mapy": "37.76", "cat1": "A05", "cat3": "A05020100"},
+          {"contentid": "900003", "contenttypeid": "12", "title": "테스트 공원", "addr1": "강원특별자치도 강릉시", "mapx": "128.91", "mapy": "37.79", "cat1": "A01", "cat3": "A01010500"},
+          {"contentid": "900004", "contenttypeid": "32", "title": "테스트 숙소", "addr1": "강원특별자치도 평창군", "mapx": "128.40", "mapy": "37.57", "cat1": "B02"},
+          {"contentid": "900005", "contenttypeid": "12", "title": "좌표 없는 곳", "addr1": "어딘가", "cat1": "A02"},
+          {"contentid": "900006", "contenttypeid": "25", "title": "여행코스", "mapx": "128.5", "mapy": "37.6"}
+        ]
+      }
+    }
+  }
+}

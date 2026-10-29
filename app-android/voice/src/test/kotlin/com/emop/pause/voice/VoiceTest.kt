@@ -37,7 +37,7 @@ class VoiceTest {
         listOf(Reason.HasFacility(Facility.KIDS_ZONE, NeedKind.TOILET), Reason.HasFacility(Facility.EV_FAST, NeedKind.CHARGE)),
         1.0, fatigueFirst = false,
     )
-    private val passengers = listOf(Passenger.Child(5), Passenger.Dog)
+    private val passengers = listOf(Passenger.Child(5), Passenger.Dog())
 
     @Test
     fun `서버 문장이 오면 그 문장, 서버에는 나이·종류 요약만`() = runTest {

@@ -13,7 +13,7 @@ enum class StopType(val code: String) {
 enum class Facility(val code: String, val labelKo: String) {
     NURSING_ROOM("nursing_room", "수유실"),
     KIDS_ZONE("kids_zone", "키즈존"),
-    PET_ZONE("pet_zone", "반려동물 놀이터"),
+    PET_ZONE("pet_zone", "반려견 놀이터"),
     EV_FAST("ev_fast", "급속충전기"),
     EV_SLOW("ev_slow", "완속충전기"),
     SHOWER("shower", "샤워실"),

@@ -1,0 +1,203 @@
+{
+  "_comment": "반려동물 동반여행 샘플. 지역명은 실제, 시설 이름·정책·좌표는 시연용 샘플이다(실재 업소 아님). TOUR_API_KEY가 있으면 한국관광공사 TourAPI(반려동물 동반여행) 수집 결과로 바뀐다.",
+  "items": [
+    {
+      "sourceId": "SAMPLE-P001",
+      "name": "[샘플] 이천시 반려견 동반 카페",
+      "category": "cafe",
+      "lat": 37.25814,
+      "lng": 127.335101,
+      "address": "경기 이천시 (샘플)",
+      "petPolicy": "소형견 동반 가능, 실내 이동장 권장 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P002",
+      "name": "[샘플] 이천시 반려견 동반 식당",
+      "category": "restaurant",
+      "lat": 37.261737,
+      "lng": 127.309111,
+      "address": "경기 이천시 (샘플)",
+      "petPolicy": "테라스석 반려견 동반 가능 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P003",
+      "name": "[샘플] 이천시 반려견 동반 산책로",
+      "category": "walk",
+      "lat": 37.265334,
+      "lng": 127.35092,
+      "address": "경기 이천시 (샘플)",
+      "petPolicy": "목줄 착용, 배변봉투 지참 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P004",
+      "name": "[샘플] 여주시 반려견 동반 카페",
+      "category": "cafe",
+      "lat": 37.287179,
+      "lng": 127.5837,
+      "address": "경기 여주시 (샘플)",
+      "petPolicy": "소형견 동반 가능, 실내 이동장 권장 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P005",
+      "name": "[샘플] 여주시 반려견 동반 식당",
+      "category": "restaurant",
+      "lat": 37.290776,
+      "lng": 127.557701,
+      "address": "경기 여주시 (샘플)",
+      "petPolicy": "테라스석 반려견 동반 가능 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P006",
+      "name": "[샘플] 여주시 반려견 동반 산책로",
+      "category": "walk",
+      "lat": 37.294373,
+      "lng": 127.599526,
+      "address": "경기 여주시 (샘플)",
+      "petPolicy": "목줄 착용, 배변봉투 지참 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P007",
+      "name": "[샘플] 원주시 반려견 동반 카페",
+      "category": "cafe",
+      "lat": 37.324135,
+      "lng": 127.851659,
+      "address": "강원특별자치도 원주시 (샘플)",
+      "petPolicy": "소형견 동반 가능, 실내 이동장 권장 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P008",
+      "name": "[샘플] 원주시 반려견 동반 식당",
+      "category": "restaurant",
+      "lat": 37.327732,
+      "lng": 127.825647,
+      "address": "강원특별자치도 원주시 (샘플)",
+      "petPolicy": "테라스석 반려견 동반 가능 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P009",
+      "name": "[샘플] 원주시 반려견 동반 산책로",
+      "category": "walk",
+      "lat": 37.331329,
+      "lng": 127.867492,
+      "address": "강원특별자치도 원주시 (샘플)",
+      "petPolicy": "목줄 착용, 배변봉투 지참 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P010",
+      "name": "[샘플] 횡성군 반려견 동반 카페",
+      "category": "cafe",
+      "lat": 37.469954,
+      "lng": 128.058745,
+      "address": "강원특별자치도 횡성군 (샘플)",
+      "petPolicy": "소형견 동반 가능, 실내 이동장 권장 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P011",
+      "name": "[샘플] 횡성군 반려견 동반 식당",
+      "category": "restaurant",
+      "lat": 37.473551,
+      "lng": 128.032682,
+      "address": "강원특별자치도 횡성군 (샘플)",
+      "petPolicy": "테라스석 반려견 동반 가능 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P012",
+      "name": "[샘플] 횡성군 반려견 동반 산책로",
+      "category": "walk",
+      "lat": 37.477148,
+      "lng": 128.07461,
+      "address": "강원특별자치도 횡성군 (샘플)",
+      "petPolicy": "목줄 착용, 배변봉투 지참 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P013",
+      "name": "[샘플] 평창군 반려견 동반 카페",
+      "category": "cafe",
+      "lat": 37.55425,
+      "lng": 128.336158,
+      "address": "강원특별자치도 평창군 (샘플)",
+      "petPolicy": "소형견 동반 가능, 실내 이동장 권장 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P014",
+      "name": "[샘플] 평창군 반려견 동반 식당",
+      "category": "restaurant",
+      "lat": 37.557847,
+      "lng": 128.310065,
+      "address": "강원특별자치도 평창군 (샘플)",
+      "petPolicy": "테라스석 반려견 동반 가능 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P015",
+      "name": "[샘플] 평창군 반려견 동반 산책로",
+      "category": "walk",
+      "lat": 37.561444,
+      "lng": 128.35204,
+      "address": "강원특별자치도 평창군 (샘플)",
+      "petPolicy": "목줄 착용, 배변봉투 지참 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P016",
+      "name": "[샘플] 강릉 반려견 동반 산책로 1",
+      "category": "walk",
+      "lat": 37.768088,
+      "lng": 128.893161,
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "petPolicy": "목줄 착용, 배변봉투 지참 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P017",
+      "name": "[샘플] 강릉 반려견 동반 산책로 2",
+      "category": "walk",
+      "lat": 37.741108,
+      "lng": 128.901123,
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "petPolicy": "목줄 착용, 배변봉투 지참 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P018",
+      "name": "[샘플] 강릉 반려견 동반 카페 3",
+      "category": "cafe",
+      "lat": 37.770786,
+      "lng": 128.897711,
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "petPolicy": "소형견 동반 가능, 실내 이동장 권장 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P019",
+      "name": "[샘플] 강릉 반려견 동반 카페 4",
+      "category": "cafe",
+      "lat": 37.759994,
+      "lng": 128.889749,
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "petPolicy": "소형견 동반 가능, 실내 이동장 권장 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P020",
+      "name": "[샘플] 강릉 반려견 동반 숙소 5",
+      "category": "lodging",
+      "lat": 37.775282,
+      "lng": 128.903398,
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "petPolicy": "반려견 동반 객실 운영, 사전 문의 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P021",
+      "name": "[샘플] 강릉 반려견 동반 식당 6",
+      "category": "restaurant",
+      "lat": 37.746504,
+      "lng": 128.886337,
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "petPolicy": "테라스석 반려견 동반 가능 (샘플)"
+    },
+    {
+      "sourceId": "SAMPLE-P022",
+      "name": "[샘플] 강릉 반려견 동반 관광지 7",
+      "category": "tour",
+      "lat": 37.768088,
+      "lng": 128.859039,
+      "address": "강원특별자치도 강릉시 (샘플)",
+      "petPolicy": "야외 구역 반려견 동반 가능 (샘플)"
+    }
+  ]
+}

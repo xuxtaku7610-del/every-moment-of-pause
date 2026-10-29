@@ -1,7 +1,7 @@
 package com.emop.pause.uistate
 
 /**
- * CarUxRestrictions 플래그별 화면 정책 (COMMERCIAL_READINESS D P0, docs/ui_contract.md "주행 중 제한").
+ * CarUxRestrictions 플래그별 화면 정책 (test_plan DS-02·DS-04, docs/ui_contract.md "주행 중 제한").
  * 화면 계약 모듈은 Android를 모르므로 플래그를 [Flags]로 받는다 (앱이 `UxLimits`에서 옮겨 담는다).
  */
 object UxPolicy {
@@ -13,10 +13,10 @@ object UxPolicy {
         val noSetup: Boolean = false,
     )
 
-    /** NO_VIDEO: 벽난로 등 움직이는 화면 정지. [baseAllowed] = PAUSE && PARKED && 움직임 줄이기 꺼짐. */
+    /** NO_VIDEO: 움직이는 화면 정지. [baseAllowed] = PAUSE && PARKED && 움직임 줄이기 꺼짐. */
     fun motionAllowed(baseAllowed: Boolean, f: Flags) = baseAllowed && !f.noVideo
 
-    /** NO_SETUP·NO_KEYBOARD: 설정·온보딩(입력·설정 화면) 차단. */
+    /** NO_SETUP·NO_KEYBOARD: 프로필 편집·설정(입력·설정 화면) 차단. */
     fun setupAllowed(f: Flags) = !f.noSetup && !f.noKeyboard
 
     /** LIMIT_STRING_LENGTH: 첫 문장만 남기고, 그래도 길면 [max]-1자 + "…". */
@@ -32,12 +32,12 @@ object UxPolicy {
         if (!f.limitStringLength) return ui
         val m = f.maxStringLength
         return ui.copy(
-            fatigue = ui.fatigue?.let { it.copy(detail = shorten(it.detail, m)!!) },
-            family = ui.family.map { it.copy(text = shorten(it.text, m)!!) },
             toast = shorten(ui.toast, m),
             content = when (val c = ui.content) {
                 is DriveContent.Calm -> c.copy(line = shorten(c.line, m)!!)
-                else -> c
+                is DriveContent.Forecast -> c.copy(line = shorten(c.line, m)!!)
+                is DriveContent.Suggest -> c.copy(reasons = c.reasons.take(1))
+                is DriveContent.Heading -> c
             },
         )
     }

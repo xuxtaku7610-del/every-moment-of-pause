@@ -39,6 +39,11 @@ def _dist(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(bx - ax, by - ay)
 
 
+def distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
+    """두 점 사이 거리(m, 등장방형 근사)."""
+    return _dist(a, b)
+
+
 def length(points: list[tuple[float, float]]) -> float:
     """경로 좌표열 길이(m)."""
     return sum(_dist(a, b) for a, b in zip(points, points[1:]))

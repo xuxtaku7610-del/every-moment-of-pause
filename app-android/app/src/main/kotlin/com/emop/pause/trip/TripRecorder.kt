@@ -12,8 +12,6 @@ data class StopVisit(
     val arrivedMinute: Int,
     var stayedMin: Int = 0,
     var chargedMin: Int = 0,
-    var napMin: Int = 0,
-    var expedition: Boolean = false,
     var petWalk: Boolean = false,
 )
 
@@ -26,15 +24,28 @@ data class TripLog(
     val longestDriveMin: Int,
     val distanceKm: Double,
     val startMinute: Int?,
+    /** 멀미 지수 흐름(0~100, 5분 간격, F7-01). 피로 흐름과 같은 시각에 찍는다. */
+    val motionSeries: List<Int> = emptyList(),
+    val motionPeak: Int = 0,
+    /** 멀미 지수가 주의(40)에 처음 닿은 주행 분 (F7-02 한계 시간 추정). */
+    val firstCautionMin: Int? = null,
+    /** 주행 시간(분, 정차 제외). */
+    val drivingMin: Int = 0,
 )
 
 /**
- * 여행 리포트용 기록기 (test_plan 7장 F7). 1초마다 [tick]하고, 5분마다 피로 점수를 한 점 남긴다.
+ * 이동 기록기 (test_plan F7-01). 1초마다 [tick]하고, 5분마다 피로·멀미 지수를 한 점씩 남긴다.
+ * 멀미 지수·주의 도달 시간은 [onMotion]으로 따로 받는다(엔진이 계산).
  * 기기 안에서만 계산하므로 오프라인으로 끝난 여행도 리포트가 나온다.
  */
 class TripRecorder {
     private val visits = mutableListOf<StopVisit>()
     private val series = mutableListOf<Int>()
+    private val motionSeries = mutableListOf<Int>()
+    private var motionNow = 0
+    private var motionPeak = 0
+    private var firstCautionMin: Int? = null
+    private var drivingMin = 0
     private val marks = mutableListOf<Int>()
     private var lastSampleMin: Int? = null
     private var current: StopVisit? = null
@@ -46,6 +57,15 @@ class TripRecorder {
     fun reset() {
         visits.clear(); series.clear(); marks.clear()
         lastSampleMin = null; current = null; peak = 0; longest = 0; distance = 0.0; start = null
+        motionSeries.clear(); motionNow = 0; motionPeak = 0; firstCautionMin = null; drivingMin = 0
+    }
+
+    /** 멀미 엔진 상태 (MotionComfortEngine). [firstCautionSec]은 주의에 처음 닿은 주행 초. */
+    fun onMotion(index: Int, drivingSec: Long, firstCautionSec: Long?) {
+        motionNow = index
+        motionPeak = max(motionPeak, index)
+        drivingMin = (drivingSec / 60).toInt()
+        if (firstCautionMin == null && firstCautionSec != null) firstCautionMin = (firstCautionSec / 60).toInt()
     }
 
     fun tick(minute: Int, mode: AppMode, cause: PauseCause?, fatigueScore: Int?, continuousMin: Int?, traveledKm: Double, stops: List<RestStop>) {
@@ -56,6 +76,7 @@ class TripRecorder {
         continuousMin?.let { longest = max(longest, it) }
         if (fatigueScore != null && (lastSampleMin == null || minute - lastSampleMin!! >= SAMPLE_MIN)) {
             series += fatigueScore
+            motionSeries += motionNow
             lastSampleMin = minute
         }
         if (mode == AppMode.PAUSE) {
@@ -71,8 +92,6 @@ class TripRecorder {
         }
     }
 
-    fun onNap(minutes: Int) { current?.let { it.napMin += minutes } }
-    fun onExpedition() { current?.expedition = true }
     fun onPetWalk() { current?.petWalk = true }
 
     /** 지금 머무는 곳 이름 (멈춤 화면 앱바). */
@@ -81,7 +100,7 @@ class TripRecorder {
 
     fun log(): TripLog {
         val n = max(1, series.size - 1)
-        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start)
+        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin)
     }
 
     private fun nearestName(km: Double, stops: List<RestStop>): String =

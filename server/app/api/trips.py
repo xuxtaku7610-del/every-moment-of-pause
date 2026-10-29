@@ -131,6 +131,7 @@ def build_report(trip: Trip, evs: list[TripEvent]) -> dict:
         nxt = min((t for t in stops_at if t >= s), default=end)
         longest = max(longest, int((nxt - s).total_seconds() // 60))
     peak = max(of("fatigue_peak"), key=lambda e: e.payload.get("value", 0), default=None)
+    motion = max(of("motion_peak"), key=lambda e: e.payload.get("value", 0), default=None)
     shown, accepted = len(of("recommendation_shown")), len(of("recommendation_accepted"))
     tips = []
     if longest > 120:
@@ -147,6 +148,7 @@ def build_report(trip: Trip, evs: list[TripEvent]) -> dict:
         "fatiguePeak": {"value": peak.payload.get("value"), "at": aware(peak.occurred_at).isoformat()} if peak else None,
         "suggestionsShown": shown,
         "suggestionsAccepted": accepted,
-        "kidQuestions": len(of("kid_question")),
+        "motionPeak": {"value": motion.payload.get("value"), "at": aware(motion.occurred_at).isoformat()} if motion else None,
+        "waits": len(of("wait_started")),
         "tips": tips[:2],
     }

@@ -2,7 +2,7 @@
 
 - trips·trip_events: 출발 90일 뒤 삭제
 - llm_call_logs: 30일 뒤 삭제
-- playlists·playlist_items: 30일 뒤 삭제 (편성 결과는 다시 만들 수 있다)
+- wait_sessions: 만료 1일 뒤 삭제 (대기 공유, F3)
 - devices: 마지막 접속 180일 뒤 삭제 (그 기기의 모든 기록과 함께)
 일 1회 실행: cd server → .venv\\Scripts\\python -m app.jobs.cleanup
 """
@@ -13,13 +13,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import Engine, delete, select
 from sqlalchemy.orm import Session
 
-from app.models import Device, LlmCallLog, Playlist, PlaylistItem, Trip, TripEvent
+from app.models import Device, LlmCallLog, Trip, TripEvent, WaitSession
 
 log = logging.getLogger(__name__)
 TRIP_DAYS = 90
 LOG_DAYS = 30
-PLAYLIST_DAYS = 30
 DEVICE_DAYS = 180
+WAIT_KEEP_DAYS = 1
 
 
 @dataclass(frozen=True)
@@ -27,8 +27,8 @@ class CleanupResult:
     trips: int
     events: int
     llm_logs: int
-    playlists: int
     devices: int = 0
+    waits: int = 0
 
 
 def cleanup(engine: Engine, now: datetime | None = None) -> CleanupResult:
@@ -38,17 +38,14 @@ def cleanup(engine: Engine, now: datetime | None = None) -> CleanupResult:
         events = s.execute(delete(TripEvent).where(TripEvent.trip_id.in_(old_trips))).rowcount if old_trips else 0
         trips = s.execute(delete(Trip).where(Trip.id.in_(old_trips))).rowcount if old_trips else 0
         logs = s.execute(delete(LlmCallLog).where(LlmCallLog.created_at < now - timedelta(days=LOG_DAYS))).rowcount
-        old_pl = list(s.scalars(select(Playlist.id).where(Playlist.created_at < now - timedelta(days=PLAYLIST_DAYS))))
-        if old_pl:
-            s.execute(delete(PlaylistItem).where(PlaylistItem.playlist_id.in_(old_pl)))
-        playlists = s.execute(delete(Playlist).where(Playlist.id.in_(old_pl))).rowcount if old_pl else 0
+        waits = s.execute(delete(WaitSession).where(WaitSession.expires_at < now - timedelta(days=WAIT_KEEP_DAYS))).rowcount
         from app.api.devices import delete_device
 
         idle = list(s.scalars(select(Device.id).where(Device.last_seen_at < now - timedelta(days=DEVICE_DAYS))))
         for d in idle:
             delete_device(s, d)
-    r = CleanupResult(trips or 0, events or 0, logs or 0, playlists or 0, len(idle))
-    log.info("cleanup trips=%d events=%d llm_logs=%d playlists=%d devices=%d", r.trips, r.events, r.llm_logs, r.playlists, r.devices)
+    r = CleanupResult(trips or 0, events or 0, logs or 0, len(idle), waits or 0)
+    log.info("cleanup trips=%d events=%d llm_logs=%d devices=%d waits=%d", r.trips, r.events, r.llm_logs, r.devices, r.waits)
     return r
 
 

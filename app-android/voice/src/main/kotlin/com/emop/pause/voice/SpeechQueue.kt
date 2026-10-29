@@ -9,10 +9,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** 말하기 우선순위 (작을수록 먼저). COMMERCIAL_READINESS C P0: 안전 경고 > 제안 > 아이 답변 > 라디오. */
-enum class SpeechPriority { SAFETY, SUGGESTION, KID_ANSWER, RADIO }
+/** 말하기 우선순위 (작을수록 먼저). COMMERCIAL_READINESS C P0: 안전 경고 > 제안 > 안내 > 배경음. */
+enum class SpeechPriority { SAFETY, SUGGESTION, INFO, BACKGROUND }
 
-/** 오디오 포커스 종류. 제안·답변은 잠깐 다른 소리를 줄이고, 라디오는 미디어처럼 오래 잡는다. */
+/** 오디오 포커스 종류. 제안·안내는 잠깐 다른 소리를 줄이고, 배경음은 미디어처럼 오래 잡는다. */
 enum class FocusKind { TRANSIENT_DUCK, MEDIA }
 
 /** 오디오 포커스. Android 구현은 [AndroidAudioFocus]. */
@@ -35,7 +35,7 @@ object NoAudioFocus : AudioFocus {
 /**
  * TTS 우선순위 큐.
  * - 한 번에 한 문장. 기다리는 문장 중 우선순위가 가장 높은 것부터(같으면 먼저 온 것).
- * - 더 높은 우선순위가 들어오면 지금 문장(낮은 우선순위)을 끊는다. 끊긴 문장은 버린다(라디오는 플레이어가 다시 이어 간다).
+ * - 더 높은 우선순위가 들어오면 지금 문장(낮은 우선순위)을 끊는다. 끊긴 문장은 버린다.
  * - 말하기 전에 포커스를 요청하고, 거절되면(내비 안내 중) [focusRetryMs]마다 다시 시도한다. [maxWaitMs]가 지나면 버린다.
  *   안전 경고는 버리지 않고 그냥 말한다(포커스 없이 덕킹 없이라도).
  * - 말하는 중 포커스를 잃으면 그 문장을 멈추고 맨 앞에 다시 넣는다(한 번만).
@@ -123,7 +123,7 @@ class SpeechQueue(
     }
 
     private suspend fun speak(item: Item) {
-        val kind = if (item.priority == SpeechPriority.RADIO) FocusKind.MEDIA else FocusKind.TRANSIENT_DUCK
+        val kind = if (item.priority == SpeechPriority.BACKGROUND) FocusKind.MEDIA else FocusKind.TRANSIENT_DUCK
         val got = withTimeoutOrNull((maxWaitMs - (clock() - item.enqueuedMs)).coerceAtLeast(0)) {
             while (!focus.request(kind)) delay(focusRetryMs)
             true

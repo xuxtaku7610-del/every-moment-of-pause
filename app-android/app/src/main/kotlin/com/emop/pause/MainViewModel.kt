@@ -2,69 +2,84 @@ package com.emop.pause
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.emop.pause.core.model.AppMode
+import com.emop.pause.core.model.LatLng
+import com.emop.pause.core.model.MotionTendency
+import com.emop.pause.core.model.PetProfile
+import com.emop.pause.core.model.PetSize
 import com.emop.pause.core.model.Signal
 import com.emop.pause.core.model.SignalSource
 import com.emop.pause.core.model.TripPhase
+import com.emop.pause.data.Found
+import com.emop.pause.data.PetPlace
+import com.emop.pause.data.PetPlaceRepository
+import com.emop.pause.data.Vet
+import com.emop.pause.data.net.SummaryFacts
+import com.emop.pause.data.net.SummaryReq
+import com.emop.pause.data.pet.PetStore
+import com.emop.pause.di.Server
+import com.emop.pause.engine.motion.CompareResult
+import com.emop.pause.engine.motion.MotionCompare
+import com.emop.pause.engine.motion.RouteShape
+import com.emop.pause.engine.pet.LimitEstimate
+import com.emop.pause.engine.pet.PetTripLog
+import com.emop.pause.engine.pet.PetTripRecord
+import com.emop.pause.presentation.Overlay
+import com.emop.pause.presentation.Route
+import com.emop.pause.presentation.ScreenRouter
+import com.emop.pause.presentation.UiMapper
 import com.emop.pause.runtime.SignalRuntime
 import com.emop.pause.runtime.Snapshot
 import com.emop.pause.runtime.SourceMode
 import com.emop.pause.trip.PresetStore
 import com.emop.pause.trip.SettingsStore
-import com.emop.pause.di.Server
-import com.emop.pause.trip.NapAlarm
-import com.emop.pause.trip.NapAlarmPlan
 import com.emop.pause.trip.TripCoordinator
 import com.emop.pause.trip.TripRecorder
 import com.emop.pause.trip.TripUi
-import com.emop.pause.uistate.AvatarKind
 import com.emop.pause.uistate.ActivityKind
-import com.emop.pause.uistate.MemberUi
-import com.emop.pause.presentation.Names
-import com.emop.pause.uistate.NapUi
-import com.emop.pause.uistate.OnboardStep
-import com.emop.pause.uistate.ReportStopUi
-import com.emop.pause.uistate.ReportUi
-import com.emop.pause.uistate.SettingsSection
-import com.emop.pause.uistate.SettingsUi
-import com.emop.pause.uistate.SignalRowUi
-import com.emop.pause.presentation.UiMapper
-import dagger.hilt.android.lifecycle.HiltViewModel
-import com.emop.pause.presentation.Route
-import com.emop.pause.presentation.ScreenRouter
 import com.emop.pause.uistate.AppUiState
 import com.emop.pause.uistate.Fixtures
-import com.emop.pause.uistate.OnboardUi
-import com.emop.pause.uistate.PrepareScreenUi
 import com.emop.pause.uistate.Scene
 import com.emop.pause.uistate.Screen
+import com.emop.pause.uistate.SettingsUi
+import com.emop.pause.uistate.SignalRowUi
+import com.emop.pause.uistate.SymptomUi
+import com.emop.pause.uistate.TripLogUi
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.UxPolicy
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
+import java.util.UUID
 import javax.inject.Inject
 
-enum class Overlay { NONE, SETTINGS }
-
-/** 파워냅 타이머. 시뮬레이션 시계(Snapshot.nowMs)로 흐르므로 배속에서도 맞다. */
-data class NapState(val startMs: Long, val totalSec: Int, val soundOn: Boolean)
+/** 저장한 이번 여행 기록 (이동 기록 화면). */
+data class SavedTrip(val id: String, val record: PetTripRecord, val series: List<Int>, val summary: String)
 
 data class AppState(
     val overlay: Overlay = Overlay.NONE,
-    val settingsSection: SettingsSection = SettingsSection.SUGGEST,
-    val onboard: OnboardStep? = null,
     val demoOpen: Boolean = false,
     val scene: Scene? = null,
-    val nap: NapState? = null,
     val restChoice: Int = 15,
-    val prefsVersion: Int = 0,
+    /** 프로필 편집 중인 값 (저장 전). */
+    val petDraft: PetProfile? = null,
+    /** 첫 실행 프로필 화면을 이번 실행에서 "나중에"로 넘겼다. */
+    val profileSkipped: Boolean = false,
+    val along: Found<PetPlace>? = null,
+    val near: Found<PetPlace>? = null,
+    val vets: Found<Vet>? = null,
+    val loading: Boolean = false,
+    val limit: LimitEstimate? = null,
+    val saved: SavedTrip? = null,
+    val symptoms: Set<String> = emptySet(),
 )
 
 @HiltViewModel
@@ -73,17 +88,18 @@ class MainViewModel @Inject constructor(
     private val trip: TripCoordinator,
     private val presets: PresetStore,
     private val settings: SettingsStore,
-    private val napAlarm: NapAlarm,
     private val server: Server,
+    private val petStore: PetStore,
+    private val places: PetPlaceRepository,
 ) : ViewModel() {
     val snapshot: StateFlow<Snapshot> = runtime.snapshot
     val tripUi: StateFlow<TripUi> = trip.ui
-    private val _app = MutableStateFlow(AppState(onboard = OnboardStep.entries.getOrNull(settings.onboardDone)))
+    private val _app = MutableStateFlow(AppState())
     val app: StateFlow<AppState> = _app.asStateFlow()
 
     private val recorder = TripRecorder()
     private var lastRecordedSec = -1L
-    private var logoTaps = mutableListOf<Long>()
+    private val logoTaps = mutableListOf<Long>()
 
     /** 화면 계약 (docs/ui_contract.md): 화면은 이 값만 그린다. */
     val ui: StateFlow<AppUiState> = combine(runtime.snapshot, trip.ui, _app) { s, t, a -> uiState(s, t, a) }
@@ -91,9 +107,9 @@ class MainViewModel @Inject constructor(
 
     init {
         trip.voiceEnabled = settings.voiceSuggest
-        trip.kidAnswerEnabled = settings.kidAnswer
-        trip.eager = settings.timing == 0 || settings.proactive
-        // 발표 모드 점프: 건너뛴 구간의 정차 기록을 다시 쌓는다 (피로 곡선은 점프 이후부터).
+        trip.eager = settings.timing == 0
+        viewModelScope.launch { refreshLimit() }
+        // 발표 모드 점프: 건너뛴 구간의 정차 기록을 다시 쌓는다.
         viewModelScope.launch {
             runtime.replays.collect { frames ->
                 recorder.reset()
@@ -103,56 +119,59 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             runtime.snapshot.collect { s ->
                 if (s.trip == TripPhase.NOT_STARTED) recorder.reset()
+                if (_app.value.demoOpen) computeCompare(s, trip.ui.value.pet)
                 val sec = s.nowMs / 1000
                 if (sec != lastRecordedSec) {
                     lastRecordedSec = sec
                     val t = trip.ui.value
+                    recorder.onMotion(t.motion.index, t.motion.drivingSec, t.motion.firstCautionDrivingSec)
                     recorder.tick(s.clockMinute, s.mode, s.pauseCause, t.fatigue?.score, t.fatigue?.continuousDriveMinutes, t.traveledKm, t.stops)
                 }
-                // 안전: 주행이 시작되거나 멈춤이 끝나면 파워냅을 즉시 끝낸다 (test_plan 6장 [E][P0]).
-                val nap = _app.value.nap
-                if (nap != null && (s.driveState.forcesDrivingUi || s.mode != AppMode.PAUSE)) _app.update { it.copy(nap = null) }
-                syncNapAlarm(s)
-                if (s.driveState.forcesDrivingUi && _app.value.overlay != Overlay.NONE) _app.update { it.copy(overlay = Overlay.NONE) }
+                // 주행이 시작되면 위로 연 화면을 닫는다 (DS-01).
+                if (s.driveState.forcesDrivingUi && _app.value.overlay != Overlay.NONE) _app.update { it.copy(overlay = Overlay.NONE, petDraft = null) }
             }
         }
     }
 
     // ───────────── 화면 상태 ─────────────
+
     private fun uiState(s: Snapshot, t: TripUi, a: AppState): AppUiState {
         val simulation = s.source == SourceMode.SIMULATION
         val ux = s.uxLimits.let { UxPolicy.Flags(it.noVideo, it.limitStringLength, it.maxStringLength, it.noKeyboard, it.noSetup) }
+        // 시뮬레이션 시나리오가 반려견을 정해 주면 첫 실행 프로필을 묻지 않는다.
+        val needsProfile = t.profileSaved == false && !a.profileSkipped && s.simSetup?.pet == null
         val route = ScreenRouter.route(
             ScreenRouter.Input(
                 s.driveState, s.mode, simulation,
                 sceneLocked = a.scene != null,
-                settingsOpen = a.overlay == Overlay.SETTINGS,
-                onboarding = a.onboard != null,
-                napping = a.nap != null,
+                overlay = a.overlay,
+                needsProfile = needsProfile,
+                waiting = t.wait.active,
+                leftConfirmed = t.leftConfirmed,
                 setupAllowed = UxPolicy.setupAllowed(ux),
             ),
         )
         val screen = when (route) {
             Route.SCENE -> Fixtures.screen(a.scene!!)
-            Route.DRIVE -> Screen.Drive(UxPolicy.apply(UiMapper.drive(s, t, names()), ux))
-            Route.SETTINGS -> Screen.Settings(settingsUi(s, a))
-            Route.ONBOARD -> Screen.Onboard(OnboardUi(a.onboard!!, onboardMembers()))
-            Route.PREPARE -> Screen.Prepare(prepareUi(s, t))
-            Route.PAUSE -> Screen.Pause(UiMapper.pause(s, t, pauseExtra(a), names()))
-            Route.NAP -> Screen.Nap(napUi(s, a.nap!!))
-            Route.REPORT -> Screen.Report(report(s, t))
+            Route.DRIVE -> Screen.Drive(UxPolicy.apply(UiMapper.drive(s, t), ux))
+            Route.DEPART -> Screen.Depart(UiMapper.depart(s, t, a.limit?.let { PetTripLog.limitPhrase(t.pet.name, it) }, t.profileSaved == true || s.simSetup?.pet != null))
+            Route.REST -> Screen.Rest(UiMapper.rest(s, t, a.restChoice, recorder.currentStop, t.wait.limitSec / 60))
+            Route.WAIT -> Screen.Wait(UiMapper.wait(t.wait, t))
+            Route.PLACES -> Screen.Places(UiMapper.places(a.along, a.near, a.loading))
+            Route.VETS -> Screen.Vets(UiMapper.vets(a.vets, a.loading))
+            Route.ARRIVAL -> Screen.Arrival(UiMapper.arrival(t))
+            Route.TRIPLOG -> Screen.TripLog(tripLog(s, t, a))
+            Route.PET -> Screen.PetProfile(UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = a.overlay != Overlay.PET))
+            Route.SETTINGS -> Screen.Settings(settingsUi(s))
         }
         val motion = when {
             route != Route.SCENE -> UxPolicy.motionAllowed(ScreenRouter.motionAllowed(s.mode, s.driveState, settings.reduceMotion), ux)
-            a.scene == Scene.PAUSE -> true
-            a.scene == Scene.NAP -> !settings.reduceMotion
             else -> false
         }
         return AppUiState(
             screen = screen,
             drivingLocked = s.driveState.forcesDrivingUi,
             motionAllowed = motion,
-            dimmed = route == Route.NAP,
             demoOpen = ScreenRouter.demoVisible(a.demoOpen, simulation, s.driveState),
             scene = a.scene,
         )
@@ -164,30 +183,38 @@ class MainViewModel @Inject constructor(
             UiEvent.LogoTap -> onLogoTap()
             UiEvent.AcceptSuggestion -> reply("응")
             UiEvent.DeclineSuggestion -> reply("나중에")
-            is UiEvent.ToggleMember -> toggleMember(e.id)
-            is UiEvent.SetSleep -> setSleep(e.hours)
-            UiEvent.ToggleProactive -> toggleProactive()
+            is UiEvent.ToggleCheck -> trip.toggleCheck(UiMapper.checkItem(e.kind))
             UiEvent.StartTrip -> startTrip()
-            UiEvent.OpenSettings -> openSettings()
-            is UiEvent.StartActivity -> onActivity(e.kind)
-            is UiEvent.SetRestMinutes -> setRestChoice(e.minutes)
-            is UiEvent.CompleteMission -> trip.completeMission(e.id)
-            is UiEvent.SetRadio -> trip.reply(if (e.on) "라디오 틀어 줘" else "라디오 꺼")
-            UiEvent.Wake -> wake()
-            UiEvent.NapMore -> napMore()
-            UiEvent.ToggleNapSound -> if (_app.value.nap != null) napSound() else toggleNapSound()
-            UiEvent.FinishReport -> finishReport()
-            UiEvent.OnboardNext -> onboardNext()
-            UiEvent.AllowMic, UiEvent.ButtonsOnly -> onboardFinish()
-            is UiEvent.SelectSettingsSection -> settingsSection(e.section)
-            is UiEvent.SetTiming -> setTiming(e.value)
-            UiEvent.ToggleVoice -> toggleVoice()
-            UiEvent.ToggleKidAnswer -> toggleKidAnswer()
-            UiEvent.ToggleReduceMotion -> toggleReduceMotion()
+            UiEvent.OpenPet -> _app.update { it.copy(overlay = Overlay.PET, petDraft = trip.ui.value.pet) }
+            UiEvent.OpenSettings -> _app.update { it.copy(overlay = Overlay.SETTINGS) }
+            UiEvent.OpenPlaces -> openPlaces()
+            UiEvent.OpenVets -> openVets()
+            UiEvent.Close -> _app.update { it.copy(overlay = Overlay.NONE, petDraft = null, profileSkipped = true) }
+            is UiEvent.StartActivity -> if (e.kind == ActivityKind.PET_WALK) recorder.onPetWalk()
+            is UiEvent.SetRestMinutes -> _app.update { it.copy(restChoice = e.minutes) }
+            UiEvent.StartWait -> trip.startWait()
+            UiEvent.StopWait -> trip.stopWait()
+            is UiEvent.SetWaitLimit -> trip.setWaitLimit(e.minutes)
+            is UiEvent.GoPlace -> goPlace(e.id)
+            is UiEvent.GoVet -> goVet(e.id)
+            UiEvent.ConfirmLeft -> confirmLeft()
+            is UiEvent.ToggleSymptom -> _app.update { a -> a.copy(symptoms = if (e.label in a.symptoms) a.symptoms - e.label else a.symptoms + e.label) }
+            UiEvent.FinishTrip -> finishTrip()
+            is UiEvent.SetPetName -> editPet { it.copy(name = e.name.take(PetProfile.NAME_MAX)) }
+            is UiEvent.SetPetSize -> editPet { it.copy(size = PetSize.valueOf(e.size.name)) }
+            is UiEvent.SetPetAge -> editPet { it.copy(ageYears = e.years.coerceIn(0, PetProfile.AGE_MAX)) }
+            is UiEvent.SetPetTendency -> editPet { it.copy(motionTendency = MotionTendency.valueOf(e.tendency.name)) }
+            is UiEvent.SetPotty -> editPet { it.copy(pottyIntervalMin = e.minutes) }
+            UiEvent.TogglePetZone -> editPet { p -> p.copy(facilityPrefs = if ("pet_zone" in p.facilityPrefs) p.facilityPrefs - "pet_zone" else p.facilityPrefs + "pet_zone") }
+            UiEvent.SavePet -> savePet()
+            is UiEvent.SetTiming -> { settings.timing = e.value; trip.eager = e.value == 0; trip.refreshPreview() }
+            UiEvent.ToggleVoice -> { settings.voiceSuggest = !settings.voiceSuggest; trip.voiceEnabled = settings.voiceSuggest; bump() }
+            UiEvent.ToggleReduceMotion -> { settings.reduceMotion = !settings.reduceMotion; bump() }
             UiEvent.DeleteData -> deleteData()
-            UiEvent.CloseSettings -> closeSettings()
         }
     }
+
+    private fun bump() = _app.update { it.copy() }
 
     // ───────────── 공급원 ─────────────
     fun scenarioNames() = runtime.scenarioNames()
@@ -201,7 +228,7 @@ class MainViewModel @Inject constructor(
     fun reply(text: String) = trip.reply(text)
 
     // ───────────── 발표 모드 ─────────────
-    /** 로고 5번 탭(3초 안) → 숨은 데모 패널 (COMMERCIAL_READINESS I P0). 릴리스에도 있다. */
+    /** 로고 5번 탭(3초 안) → 숨은 발표 모드 패널. 릴리스에도 있다. */
     fun onLogoTap(nowMs: Long = System.currentTimeMillis()) {
         logoTaps.add(nowMs)
         logoTaps.removeAll { nowMs - it > 3_000 }
@@ -212,251 +239,215 @@ class MainViewModel @Inject constructor(
     }
     fun setDemoOpen(open: Boolean) = _app.update { it.copy(demoOpen = open) }
     fun setScene(scene: Scene?) = _app.update { it.copy(scene = scene) }
+    fun setShareBase(base: String) { trip.share.shareBase = base }
 
     /** 시연 장면으로 점프: 시나리오 시각으로 이동하고 재생한다. */
-    fun jump(tSec: Int, nap: Boolean = false) {
-        _app.update { it.copy(scene = null, nap = null) }
+    fun jump(tSec: Int) {
+        _app.update { it.copy(scene = null, overlay = Overlay.NONE) }
         seek(tSec.toDouble())
         play()
-        if (nap) startNap()
     }
 
-    // ───────────── 출발 준비 ─────────────
-    /** 시뮬레이션은 시나리오의 동승자 설정을, 실차는 프리셋을 보여 준다. */
-    fun members(): List<MemberUi> {
-        val sim = snapshot.value.simSetup
-        val kids = sim?.childAges ?: presets.childAges
-        val dog = sim?.dog ?: presets.dog
-        return listOf(
-            MemberUi("driver", "운전자", AvatarKind.ADULT, true),
-            MemberUi("relief", "교대 1명", AvatarKind.ADULT, presets.relief),
-            MemberUi("kid", "${presets.childName} ${kids.firstOrNull() ?: 5}살", AvatarKind.KID, kids.isNotEmpty()),
-            MemberUi("dog", presets.dogName, AvatarKind.PET, dog),
-        )
-    }
+    /** 발표 모드 "고갯길 비교" (F1-07). 경로 형상이 있는 시나리오에서 한 번만 계산한다. */
+    private val _compare = MutableStateFlow<CompareResult?>(null)
+    val compare: StateFlow<CompareResult?> = _compare.asStateFlow()
+    private var compareFor: String? = null
 
-    fun names() = Names(presets.childName, presets.dogName)
-
-    /** 온보딩 2단계 타일: 운전자는 빼고, 교대 운전자는 "어른 1명/2명" 한 타일로. */
-    private fun onboardMembers() = members().filter { it.id != "driver" }.map {
-        if (it.id == "relief") it.copy(label = if (it.selected) "어른 2명" else "어른 1명", selected = true) else it
-    }
-
-    private fun prepareUi(s: Snapshot, t: TripUi): PrepareScreenUi {
-        val (rows, _) = UiMapper.preparePlan(t)
-        val plan = t.plan
-        val journey = UiMapper.journey(s, t)?.let { j -> j.copy(progress = 0f, start = null, stops = j.stops.map { st -> st.copy(label = st.label.substringBefore(" 뒤")) }) }
-        val sleep = sleepHours()
-        val rationale = when {
-            plan == null -> "경로를 받으면 쉴 곳을 잡아 드려요."
-            plan.firstAdvancedMin > 0 -> "평소보다 ${plan.firstAdvancedMin}분 일찍 첫 휴식을 잡았어요."
-            sleep == null -> "수면 시간을 고르지 않아 7시간으로 계산했어요."
-            else -> "${UiMapper.duration(plan.intervalMin)}마다 쉬도록 잡았어요."
+    private fun computeCompare(s: Snapshot, pet: PetProfile) {
+        val pts = s.route?.shape?.takeIf { it.size >= 2 } ?: return
+        val key = "${s.scenarioName}|$pet"
+        if (key == compareFor) return
+        compareFor = key
+        viewModelScope.launch(Dispatchers.Default) {
+            _compare.value = RouteShape.fromLatLng(pts)?.let { MotionCompare.run(it, pet) }
         }
-        return PrepareScreenUi(
-            meta = UiMapper.meta(s)?.replace("까지 ", "까지 예상 "),
-            members = members(),
-            sleepHours = sleep,
-            proactive = proactive(),
-            plan = rows,
-            journey = journey,
-            rationale = rationale,
-        )
     }
 
-    fun toggleMember(id: String) {
-        when (id) {
-            "relief" -> presets.relief = !presets.relief
-            "kid" -> presets.childAges = if (presets.childAges.isEmpty()) listOf(5) else emptyList()
-            "dog" -> presets.dog = !presets.dog
-        }
-        prefsChanged()
-    }
+    /** 디버그 adb `--es onboard done`: 첫 실행 프로필 화면을 넘긴다. */
+    fun skipProfile() = _app.update { it.copy(profileSkipped = true) }
 
-    fun setSleep(hours: Int?) {
-        presets.sleepHours = hours?.toFloat()
-        prefsChanged()
-    }
+    // ───────────── 출발 체크·프로필 ─────────────
 
-    fun sleepHours(): Int? = presets.sleepHours?.toInt()
-    fun proactive() = settings.proactive
-    fun toggleProactive() {
-        settings.proactive = !settings.proactive
-        trip.eager = settings.timing == 0 || settings.proactive
-        prefsChanged()
-    }
-
-    /** 실차 모드의 출발 버튼. 시뮬레이터에서는 시나리오가 여행 단계를 정하므로 재생을 시작한다. */
+    /** 실차 모드의 출발 버튼. 시뮬레이터에서는 시나리오가 여행 단계를 정하므로 재생을 시작한다. 체크를 다 해야 출발 (F6-01). */
     fun startTrip() {
+        val t = trip.ui.value
+        if (snapshot.value.source != SourceMode.SIMULATION && !UiMapper.depart(snapshot.value, t, null, true).ready) return
         if (snapshot.value.source == SourceMode.SIMULATION) play() else runtime.setVehicleTrip(TripPhase.ACTIVE)
     }
 
-    private fun prefsChanged() {
-        trip.refreshPreview()
-        _app.update { it.copy(prefsVersion = it.prefsVersion + 1) }
+    private fun editPet(f: (PetProfile) -> PetProfile) = _app.update { a -> a.copy(petDraft = f(a.petDraft ?: trip.ui.value.pet)) }
+
+    private fun savePet() {
+        val draft = _app.value.petDraft ?: trip.ui.value.pet
+        if (draft.problems().isNotEmpty()) return
+        trip.savePet(draft.copy(name = draft.name.trim()))
+        _app.update { it.copy(overlay = Overlay.NONE, petDraft = null, profileSkipped = true) }
+        viewModelScope.launch { refreshLimit() }
     }
 
-    // ───────────── 멈춤 ─────────────
-    fun setRestChoice(min: Int) = _app.update { it.copy(restChoice = min) }
-
-    fun onActivity(kind: ActivityKind) {
-        when (kind) {
-            ActivityKind.NAP -> startNap()
-            ActivityKind.EXPEDITION -> recorder.onExpedition()
-            ActivityKind.PET_WALK -> recorder.onPetWalk()
-            else -> Unit
-        }
+    private suspend fun refreshLimit() {
+        val trips = runCatching { petStore.recentTrips() }.getOrDefault(emptyList())
+        _app.update { it.copy(limit = PetTripLog.limit(trips)) }
     }
 
-    private fun pauseExtra(a: AppState = _app.value) = UiMapper.PauseExtra(recorder.currentArrived ?: snapshot.value.clockMinute, a.restChoice, recorder.currentStop)
+    // ───────────── 장소·병원 (F4·F5) ─────────────
 
-    private fun startNap() {
+    /** 지금 위치: 실차는 NaviHelper 현재 위치(경로 첫 점), 시뮬레이터는 진행 비율로 경로 위 지점을 근사한다. */
+    private fun here(s: Snapshot): LatLng? {
+        val r = s.route ?: return null
+        if (s.source == SourceMode.VEHICLE) return r.points.firstOrNull()
+        val frac = s.eta?.let { 1.0 - it.remainDistanceM.toDouble() / r.totalDistanceM.coerceAtLeast(1) } ?: 0.0
+        return PetPlaceRepository.pointAlong(r.points, frac)
+    }
+
+    private fun openPlaces() {
         val s = snapshot.value
-        val t = trip.ui.value
-        val extra = pauseExtra()
-        val plan = UiMapper.pause(s, t, extra, names())
-        val napMin = plan.activities.firstOrNull { it.kind == ActivityKind.NAP }?.title?.substringBefore("분")?.toIntOrNull() ?: 20
-        recorder.onNap(napMin)
-        _app.update { it.copy(nap = NapState(s.nowMs, napMin * 60, settings.napSound)) }
-    }
-
-    private fun napUi(s: Snapshot, nap: NapState): NapUi {
-        val remaining = (nap.totalSec - ((s.nowMs - nap.startMs) / 1000).toInt()).coerceAtLeast(0)
-        val wakeMinute = s.clockMinute + (remaining + 59) / 60
-        val charging = s.pauseCause == com.emop.pause.core.model.PauseCause.CHARGING
-        val line = if (charging) "충전이 끝나기 2분 전, ${UiMapper.clock(wakeMinute)}에 깨워 드릴게요" else "${UiMapper.clock(wakeMinute)}에 깨워 드릴게요"
-        return NapUi(remaining, nap.totalSec, line, nap.soundOn, waking = remaining <= 120)
-    }
-
-    fun wake() = _app.update { it.copy(nap = null) }
-
-    private var alarmAt: Long? = null
-
-    /** 파워냅 중이면 시스템 알람을 남은 시간에 맞춰 둔다(배속·일시정지·10분 더 반영). 끝나면 취소. */
-    private fun syncNapAlarm(s: Snapshot) {
-        val nap = _app.value.nap
-        val wanted = nap?.let {
-            val remaining = it.totalSec - ((s.nowMs - it.startMs) / 1000).toInt()
-            val simulation = s.source == SourceMode.SIMULATION
-            NapAlarmPlan.triggerAt(System.currentTimeMillis(), remaining, if (simulation) s.simSpeed else 1, !simulation || s.simPlaying)
+        _app.update { it.copy(overlay = Overlay.PLACES, loading = true) }
+        viewModelScope.launch {
+            val r = s.route
+            val along = r?.let { places.alongRoute(it.points, it.totalDistanceM.toDouble()) }
+            val near = r?.let { places.near(it.destination) }
+            _app.update { it.copy(along = along, near = near, loading = false) }
         }
-        if (!NapAlarmPlan.needsReschedule(alarmAt, wanted)) return
-        if (wanted == null) napAlarm.cancel() else napAlarm.schedule(wanted)
-        alarmAt = wanted
     }
-    fun napMore() = _app.update { a -> a.copy(nap = a.nap?.let { it.copy(totalSec = it.totalSec + 600) }) }
-    fun napSound() = _app.update { a -> a.copy(nap = a.nap?.let { it.copy(soundOn = !it.soundOn) }) }
 
-    // ───────────── 리포트 ─────────────
-    private fun report(s: Snapshot, t: TripUi): ReportUi {
+    private fun openVets() {
+        val at = here(snapshot.value) ?: snapshot.value.route?.destination
+        _app.update { it.copy(overlay = Overlay.VETS, loading = true) }
+        viewModelScope.launch {
+            val found = at?.let { places.vetsNear(it) }
+            _app.update { it.copy(vets = found, loading = false) }
+        }
+    }
+
+    /** 장소를 경유지로 (NaviHelper addWaypoint, sdk_check.md). */
+    private fun goPlace(id: String) {
+        val a = _app.value
+        val p = (a.near?.items.orEmpty() + a.along?.items.orEmpty()).firstOrNull { it.id == id } ?: return
+        addWaypoint(p.lat, p.lng, p.name)
+    }
+
+    /**
+     * 동물병원 안내 (F5). 목적지 바꾸기(`requestRoute`)는 에뮬레이터에서 확인 전이라 경유지로 넣는다 — TODO(pleos-sdk).
+     * 가는 동안 흔들림 안내는 멀미 엔진이 그대로 한다.
+     */
+    private fun goVet(id: String) {
+        val v = _app.value.vets?.items?.firstOrNull { it.id == id } ?: return
+        addWaypoint(v.lat, v.lng, v.name)
+    }
+
+    private fun addWaypoint(lat: Double, lng: Double, name: String) {
+        viewModelScope.launch {
+            val ok = runtime.naviSource?.addWaypoint(lat, lng, name)?.isSuccess == true
+            trip.notify(if (ok) "${name}, 경로에 추가했어요." else "경로에 넣지 못했어요. 내비에서 직접 골라 주세요.")
+            _app.update { it.copy(overlay = Overlay.NONE) }
+        }
+    }
+
+    // ───────────── 도착·이동 기록 (F6·F7) ─────────────
+
+    /** "내렸어요": 이번 여행을 기기에 저장하고(서버로 보내지 않음) 요약 문장을 만든다. */
+    private fun confirmLeft() {
+        trip.confirmLeft()
         val log = recorder.log()
-        val dest = s.route?.destinationName ?: "목적지"
-        val parts = mutableListOf("출발해")
-        log.visits.forEach { v ->
-            val short = UiMapper.shortName(v.name)
-            parts += when {
-                v.chargedMin > 0 && v.napMin > 0 -> " ${short}에서 충전하며 ${v.napMin}분 자고"
-                v.chargedMin > 0 -> " ${short}에서 충전하며 쉬고"
-                v.expedition -> " ${short}에서 ${presets.childName}와 원정대를 마치고"
-                else -> " ${short}에서 ${v.stayedMin}분 쉬고"
-            }
+        val record = PetTripRecord(System.currentTimeMillis(), log.drivingMin, log.firstCautionMin, log.motionPeak, log.visits.size)
+        val id = UUID.randomUUID().toString()
+        viewModelScope.launch {
+            runCatching { petStore.saveTrip(id, record, System.currentTimeMillis(), log.motionSeries.mapIndexed { i, v -> i * TripRecorder.SAMPLE_MIN to v }) }
+            refreshLimit()
+            val summary = summarize(record, _app.value.limit)
+            _app.update { it.copy(saved = SavedTrip(id, record, log.motionSeries, summary), symptoms = emptySet()) }
         }
-        parts[parts.lastIndex] = parts.last() + " ${dest}에 도착했어요."
+    }
+
+    /** 기록 요약 (F7-04): 서버 LLM 2.5초, 실패하면 템플릿. 반려견 이름·증상은 보내지 않는다. */
+    private suspend fun summarize(r: PetTripRecord, limit: LimitEstimate?): String {
+        val template = "이번 이동은 ${UiMapper.duration(r.drivingMin)}, 휴식 ${r.stops}번, 멀미 주의 예보 최고 ${r.motionPeak}였어요." +
+            (limit?.let { " 평소 한계는 약 ${UiMapper.duration(it.minutes)}이에요." } ?: "")
+        val session = server.session ?: return template
+        val text = withTimeoutOrNull(2_500) {
+            runCatching { session.call { summary(SummaryReq(SummaryFacts(r.drivingMin, r.stops, r.motionPeak, limit?.minutes))) }.text }.getOrNull()
+        }
+        return text?.takeIf { it.isNotBlank() } ?: template
+    }
+
+    private fun tripLog(s: Snapshot, t: TripUi, a: AppState): TripLogUi {
+        val saved = a.saved
+        val log = recorder.log()
+        val record = saved?.record ?: PetTripRecord(0, log.drivingMin, log.firstCautionMin, log.motionPeak, log.visits.size)
+        val note = a.symptoms.joinToString(", ").ifEmpty { null }
         val today = LocalDate.now()
-        return ReportUi(
-            meta = "${today.monthValue}월 ${today.dayOfMonth}일, ${dest}까지",
-            sentence = parts,
-            distanceKm = log.distanceKm.toInt(),
-            stops = log.visits.size,
-            longestMin = log.longestDriveMin,
-            log = log.visits.map { v ->
-                ReportStopUi(
-                    v.name,
-                    listOfNotNull(
-                        "충전 ${v.chargedMin}분".takeIf { v.chargedMin > 0 },
-                        "파워냅 ${v.napMin}분".takeIf { v.napMin > 0 },
-                        "원정대 완료".takeIf { v.expedition },
-                        "${presets.dogName} 산책".takeIf { v.petWalk },
-                    ).ifEmpty { listOf("휴식") },
-                    UiMapper.clock(v.arrivedMinute),
-                    "${v.stayedMin}분",
-                )
-            },
-            fatigueSeries = log.fatigueSeries.ifEmpty { listOf(0, 0) },
-            restMarks = log.restMarks,
-            tip = TripRecorder.tip(log),
+        return TripLogUi(
+            meta = "${today.monthValue}월 ${today.dayOfMonth}일, ${s.route?.destinationName ?: "목적지"}까지",
+            summary = saved?.summary ?: "기록을 정리하는 중이에요.",
+            durationMin = record.drivingMin,
+            stops = record.stops,
+            motionPeak = record.motionPeak,
+            motionSeries = (saved?.series ?: log.motionSeries).ifEmpty { listOf(0, 0) },
+            limitLine = PetTripLog.limitPhrase(t.pet.name, a.limit),
+            vetSummary = PetTripLog.vetSummary(t.pet.name, record.copy(symptomNote = note), a.limit),
+            symptoms = SYMPTOMS.map { SymptomUi(it, it in a.symptoms) },
         )
     }
 
-    /** 리포트 확인 → 새 여행 준비. 시뮬레이션은 처음으로 되감는다. */
-    fun finishReport() {
+    /** 기록 확인 → 증상 메모를 함께 저장하고 새 여행 준비. 시뮬레이션은 처음으로 되감는다. */
+    private fun finishTrip() {
+        val a = _app.value
+        a.saved?.let { sv ->
+            val note = a.symptoms.joinToString(", ").ifEmpty { null }
+            viewModelScope.launch { runCatching { petStore.saveTrip(sv.id, sv.record.copy(symptomNote = note), System.currentTimeMillis(), sv.series.mapIndexed { i, v -> i * TripRecorder.SAMPLE_MIN to v }) } }
+        }
         recorder.reset()
         trip.clearResume()
+        _app.update { it.copy(saved = null, symptoms = emptySet()) }
         if (snapshot.value.source == SourceMode.SIMULATION) seek(0.0) else runtime.setVehicleTrip(TripPhase.NOT_STARTED)
     }
 
-    // ───────────── 온보딩·설정 ─────────────
-    fun onboardNext() = _app.update { a ->
-        val next = a.onboard?.ordinal?.plus(1) ?: 3
-        settings.onboardDone = next
-        a.copy(onboard = OnboardStep.entries.getOrNull(next))
-    }
-    fun onboardFinish() {
-        settings.onboardDone = 3
-        _app.update { it.copy(onboard = null) }
-    }
+    // ───────────── 설정 ─────────────
 
-    fun openSettings() = _app.update { it.copy(overlay = Overlay.SETTINGS) }
-    fun closeSettings() = _app.update { it.copy(overlay = Overlay.NONE) }
-    fun settingsSection(s: SettingsSection) = _app.update { it.copy(settingsSection = s) }
-
-    private fun settingsUi(s: Snapshot, a: AppState): SettingsUi = SettingsUi(
-        section = a.settingsSection,
+    private fun settingsUi(s: Snapshot): SettingsUi = SettingsUi(
         timing = settings.timing,
         voiceSuggest = settings.voiceSuggest,
-        kidAnswer = settings.kidAnswer,
-        napSound = settings.napSound,
         reduceMotion = settings.reduceMotion,
         signals = signalRows(s),
-        members = members(),
         version = BuildConfig.VERSION_NAME,
     )
 
     private fun signalRows(s: Snapshot): List<SignalRowUi> {
         fun label(src: SignalSource) = when (src) {
-            SignalSource.PLEOS_SDK -> "Pleos Vehicle SDK"
+            SignalSource.PLEOS_SDK -> "Pleos SDK"
             SignalSource.AAOS_PROPERTY -> "AAOS 차량 속성"
             SignalSource.SIM -> "시뮬레이터"
             SignalSource.NONE -> null
         }
-        /** 여러 신호를 한 줄로: 쓰는 출처를 모아 보여 준다 (COMMERCIAL_READINESS A P0). */
         fun row(name: String, vararg sig: Signal): SignalRowUi {
             val used = sig.map { s.sources[it] ?: SignalSource.NONE }.filter { it != SignalSource.NONE }.distinct()
             return SignalRowUi(name, used.isNotEmpty(), used.mapNotNull(::label).joinToString(" · ").ifEmpty { null })
         }
         return listOf(
             SignalRowUi("주행 제한 상태", true, "CarUxRestrictions"),
-            row("속도와 기어", Signal.SPEED, Signal.GEAR, Signal.PARKING_BRAKE),
-            row("배터리와 충전", Signal.BATTERY_SOC, Signal.CHARGING),
-            row("공조와 실내 순환", Signal.HVAC_TEMP, Signal.HVAC_RECIRCULATION),
+            row("속도·기어·주차 브레이크", Signal.SPEED, Signal.GEAR, Signal.PARKING_BRAKE),
+            row("방위 (멀미 예보 횡가속)", Signal.HEADING),
+            row("배터리·충전", Signal.BATTERY_SOC, Signal.CHARGING),
+            row("실내 온도 (대기 모드)", Signal.HVAC_TEMP),
         )
     }
 
-    fun setTiming(v: Int) { settings.timing = v; trip.eager = v == 0 || settings.proactive; prefsChanged() }
-    fun toggleVoice() { settings.voiceSuggest = !settings.voiceSuggest; trip.voiceEnabled = settings.voiceSuggest; prefsChanged() }
-    fun toggleKidAnswer() { settings.kidAnswer = !settings.kidAnswer; trip.kidAnswerEnabled = settings.kidAnswer; prefsChanged() }
-    fun toggleNapSound() { settings.napSound = !settings.napSound; prefsChanged() }
-    fun toggleReduceMotion() { settings.reduceMotion = !settings.reduceMotion; prefsChanged() }
-    fun reduceMotion() = settings.reduceMotion
-
-    /** 내 데이터 삭제 (G P1): 기기 설정·프리셋·기록 초기화 + 서버 기기 삭제(`DELETE /devices/me`, 오프라인이면 다음에). */
+    /** 내 데이터 삭제: 기기 설정·프로필·기록 초기화 + 서버 기기 삭제(`DELETE /devices/me`, 오프라인이면 다음에). */
     fun deleteData() {
-        viewModelScope.launch { server.session?.forget() }
+        viewModelScope.launch {
+            server.session?.forget()
+            runCatching { petStore.clear() }
+        }
         presets.clear()
         settings.clear()
         trip.clearResume()
+        trip.forgetPet()
         recorder.reset()
-        _app.update { AppState(onboard = OnboardStep.CONCEPT) }
-        prefsChanged()
+        _app.update { AppState() }
+    }
+
+    private companion object {
+        val SYMPTOMS = listOf("침 흘림", "헐떡임", "구토", "낑낑거림", "괜찮았어요")
     }
 }

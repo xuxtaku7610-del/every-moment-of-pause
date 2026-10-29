@@ -15,53 +15,19 @@ class VoiceQueueTest {
     // ───────── 의도 ─────────
 
     @Test
-    fun `T5-1 아직 멀었어 계열은 남은 시간 질문, 반말이면 아이 말투`() {
-        for (t in listOf("아직 멀었어?", "얼마나 남았어", "언제 도착해?", "엄마 다 왔어?")) {
-            assertEquals(Utterance.AskEta(Tone.KID), VoiceIntent.parse(t), t)
+    fun `F3-01 잠깐 다녀올게 계열은 대기 모드 시작`() {
+        for (t in listOf("잠깐 다녀올게", "콩이야 금방 올게", "화장실 갔다 올게", "대기 모드 켜 줘")) {
+            assertEquals(Utterance.StartWait, VoiceIntent.parse(t), t)
         }
     }
 
     @Test
-    fun `T5-6 존댓말·시간 명사면 어른 말투`() {
-        for (t in listOf("얼마나 남았어요?", "도착 시간 알려 줘", "남은 거리 몇 km야", "언제 도착합니까")) {
-            assertEquals(Utterance.AskEta(Tone.ADULT), VoiceIntent.parse(t), t)
-        }
-    }
-
-    @Test
-    fun `T4-3 응답 단어는 그대로 응·나중에`() {
+    fun `F2-05 응답 단어는 그대로 응·나중에, 여기서 쉴게요는 응`() {
         assertEquals(Utterance.Answer(Reply.YES), VoiceIntent.parse("응 들를게"))
+        assertEquals(Utterance.Answer(Reply.YES), VoiceIntent.parse("여기서 쉴게요"))
         assertEquals(Utterance.Answer(Reply.LATER), VoiceIntent.parse("아니 다음에"))
         assertEquals(Utterance.Answer(Reply.UNKNOWN), VoiceIntent.parse(""))
         assertEquals(Utterance.Answer(Reply.UNKNOWN), VoiceIntent.parse(null))
-    }
-
-    // ───────── 답변 ─────────
-
-    private val facts = EtaFacts("부산", remainMin = 130, remainKm = 182.4, nextStopName = "죽암휴게소", nextStopMin = 40)
-
-    @Test
-    fun `T5-1 아이 답 - 라디오 편수가 있으면 편수로`() {
-        assertEquals("라디오 2편만 들으면 부산 도착!", EtaAnswer.answer(facts.copy(episodesLeft = 2), Tone.KID))
-    }
-
-    @Test
-    fun `T5-1 아이 답 - 앞에 쉼표가 있으면 쉬는 곳, 없으면 남은 시간`() {
-        assertEquals("40분 뒤에 죽암휴게소에서 한 번 쉬고 가자. 조금만 기다려 줘!", EtaAnswer.answer(facts, Tone.KID))
-        assertEquals("부산까지 2시간 10분 남았어. 조금만 더 힘내자!", EtaAnswer.answer(facts.copy(nextStopName = null, nextStopMin = null), Tone.KID))
-        assertEquals("거의 다 왔어! 8분만 기다리면 부산이야.", EtaAnswer.answer(facts.copy(remainMin = 8), Tone.KID))
-        assertEquals("거의 다 왔어! 5분만 기다리면 서울이야.", EtaAnswer.answer(facts.copy(destination = "서울", remainMin = 5), Tone.KID))
-    }
-
-    @Test
-    fun `T5-6 어른 답 - 시간·거리 중심, 다음 쉼표`() {
-        assertEquals("부산까지 2시간 10분, 182km 남았어요. 다음 쉼표는 40분 뒤 죽암휴게소예요.", EtaAnswer.answer(facts, Tone.ADULT))
-        assertEquals(
-            "부산까지 2시간 10분, 182km 남았어요. 다음 쉼표는 40분 뒤 오산 부근 졸음쉼터예요.",
-            EtaAnswer.answer(facts.copy(nextStopName = "오산 부근 졸음쉼터"), Tone.ADULT),
-        )
-        // 쉼표가 도착보다 뒤면 말하지 않는다
-        assertEquals("부산까지 30분, 42km 남았어요.", EtaAnswer.answer(facts.copy(remainMin = 30, remainKm = 42.0), Tone.ADULT))
     }
 
     // ───────── 큐 ─────────
@@ -95,19 +61,19 @@ class VoiceQueueTest {
     }
 
     @Test
-    fun `T5-9 우선순위 - 기다리는 문장은 안전 경고, 제안, 아이 답변, 라디오 순`() = runTest {
+    fun `T5-9 우선순위 - 기다리는 문장은 안전 경고, 제안, 안내, 배경음 순`() = runTest {
         val out = FakeOut()
         val q = SpeechQueue(out, FakeFocus(), this, clock = { testScheduler.currentTime })
-        val first = async { q.say("라디오 1", SpeechPriority.RADIO) }
+        val first = async { q.say("배경 1", SpeechPriority.BACKGROUND) }
         runCurrent()
-        // 라디오가 말하는 동안 세 문장이 들어온다 (낮은 것부터)
-        val kid = async { q.say("아이 답", SpeechPriority.KID_ANSWER) }
+        // 배경음이 말하는 동안 세 문장이 들어온다 (낮은 것부터)
+        val kid = async { q.say("안내", SpeechPriority.INFO) }
         val sug = async { q.say("제안", SpeechPriority.SUGGESTION) }
         val safe = async { q.say("안전", SpeechPriority.SAFETY) }
         advanceUntilIdle()
-        assertFalse(first.await(), "라디오는 더 급한 말에 끊긴다")
-        assertEquals(listOf("라디오 1"), out.stopped)
-        assertEquals(listOf("안전", "제안", "아이 답"), out.spoken)
+        assertFalse(first.await(), "배경음은 더 급한 말에 끊긴다")
+        assertEquals(listOf("배경 1"), out.stopped)
+        assertEquals(listOf("안전", "제안", "안내"), out.spoken)
         assertTrue(kid.await() && sug.await() && safe.await())
     }
 
@@ -118,19 +84,19 @@ class VoiceQueueTest {
         val a = async { q.say("제안 A", SpeechPriority.SUGGESTION) }
         runCurrent()
         val b = async { q.say("제안 B", SpeechPriority.SUGGESTION) }
-        val c = async { q.say("아이 답", SpeechPriority.KID_ANSWER) }
+        val c = async { q.say("안내", SpeechPriority.INFO) }
         advanceUntilIdle()
-        assertEquals(listOf("제안 A", "제안 B", "아이 답"), out.spoken)
+        assertEquals(listOf("제안 A", "제안 B", "안내"), out.spoken)
         assertTrue(a.await() && b.await() && c.await())
         assertTrue(out.stopped.isEmpty())
     }
 
     @Test
-    fun `C P0 제안·답변은 잠깐 덕킹 포커스, 라디오는 미디어 포커스`() = runTest {
+    fun `C P0 제안·안내는 잠깐 덕킹 포커스, 배경음은 미디어 포커스`() = runTest {
         val focus = FakeFocus()
         val q = SpeechQueue(FakeOut(), focus, this, clock = { testScheduler.currentTime })
         q.say("제안", SpeechPriority.SUGGESTION)
-        q.say("라디오", SpeechPriority.RADIO)
+        q.say("배경", SpeechPriority.BACKGROUND)
         assertEquals(listOf(FocusKind.TRANSIENT_DUCK, FocusKind.MEDIA), focus.requests)
     }
 

@@ -1,156 +1,131 @@
 package com.emop.pause.uistate
 
 /**
- * 시안(docs/design/mockups 폴더의 PNG)과 같은 상태. @Preview, UI 검증 캡처, 발표 모드 "장면 고정"에 쓴다.
- * 이름(지우·콩이)은 시안의 예시이고, 실제 화면은 사용자가 입력한 이름을 쓴다 (UI_SPEC §6).
+ * 미리보기·발표 모드 "장면 고정"용 상태. 이름(콩이)과 장소는 시연 시나리오(pet-trip)의 예시이고,
+ * 실제 화면은 사용자가 입력한 이름과 엔진 값을 쓴다.
  */
 object Fixtures {
-    private val journeyDrive = JourneyUi(
-        0.38f,
-        listOf(JourneyStop(0.47f, "18분 뒤 안성", StopMark.NEXT), JourneyStop(0.76f, "1시간 50분 뒤 칠곡", StopMark.UPCOMING)),
-        "서울",
-        "부산",
-    )
-
-    val fatigueCaution = FatigueUi(61, FatigueTone.CAUTION, "1시간 40분째 쉬지 않고 운전 중이에요. 어젯밤 5시간 주무셨어요.")
-
-    val family = listOf(
-        FamilyLine(AvatarKind.KID, "지우", "화장실 25분 안에"),
-        FamilyLine(AvatarKind.PET, "콩이", "산책 40분 지남"),
-        FamilyLine(AvatarKind.CHARGE, "배터리", "34%, 여기서 충전"),
-    )
+    private val motionCaution = MotionUi(45, MotionTone.CAUTION, "콩이 멀미 주의 45")
+    private val motionCalm = MotionUi(12, MotionTone.CALM, "콩이 컨디션 편안 12")
 
     val drive = DriveUi(
-        meta = "부산 해운대까지 3시간 10분",
-        content = DriveContent.Next(
-            18,
-            "안성휴게소",
-            "경부선 부산방향",
-            listOf(ChipUi("키즈존", ChipIcon.KID), ChipUi("급속충전 4대", ChipIcon.BOLT), ChipUi("반려견 놀이터", ChipIcon.PAW)),
-            asking = true,
+        meta = "강릉까지 2시간 10분",
+        motion = motionCalm,
+        content = DriveContent.Calm("다음 쉼표는 32분 뒤 횡성휴게소예요."),
+    )
+
+    val forecast = drive.copy(
+        meta = "강릉까지 25분",
+        motion = motionCaution,
+        content = DriveContent.Forecast("3km 뒤 굽은 길 8분, 콩이 멀미 주의 — 조금 일찍 감속해 주세요."),
+    )
+
+    val suggest = drive.copy(
+        motion = motionCaution,
+        content = DriveContent.Suggest(18, "횡성휴게소", listOf("콩이 멀미가 쌓였어요", "반려견 놀이터")),
+    )
+
+    val urgent = drive.copy(content = DriveContent.Suggest(6, "둔내 졸음쉼터", listOf("졸음 위험"), urgent = true))
+
+    val restricted = suggest.copy(restricted = true)
+
+    val voiceFail = suggest.copy(voice = VoiceSheetState.FAILED)
+
+    val depart = DepartUi(
+        meta = "강릉까지 예상 3시간",
+        pet = PetSummaryUi("콩이", "소형 · 9살 · 멀미 성향 높음 · 배변 90분"),
+        checks = listOf(
+            CheckUi(CheckKind.HARNESS, "하네스·켄넬", true),
+            CheckUi(CheckKind.WATER, "물", true),
+            CheckUi(CheckKind.POTTY_BAGS, "배변봉투", false),
         ),
-        fatigue = fatigueCaution,
-        family = family,
-        journey = journeyDrive,
+        ready = false,
+        plan = listOf(PlanStopUi("횡성휴게소", "반려견 놀이터, 급속충전", "1시간 25분 뒤")),
+        rationale = "콩이 배변 간격(90분)에 맞춰 쉬어 가요.",
+        limitLine = "콩이는 약 1시간 10분이 한계예요. (기록 2번 기준)",
     )
 
-    val half = drive.copy(
-        content = (drive.content as DriveContent.Next).copy(chips = listOf(ChipUi("키즈존", ChipIcon.KID), ChipUi("급속충전", ChipIcon.BOLT))),
-    )
-
-    val calm = DriveUi(
-        meta = "부산 해운대까지 4시간 20분",
-        content = DriveContent.Calm("다음 쉼표는 50분 뒤 안성휴게소로 잡아 뒀어요.", listOf(ChipUi("50분 뒤 안성", ChipIcon.COMMA), ChipUi("피로 편안 22"))),
-        fatigue = FatigueUi(22, FatigueTone.CALM, "45분째 운전 중이에요."),
-        family = emptyList(),
-        journey = JourneyUi(
-            0.12f,
-            listOf(JourneyStop(0.47f, "50분 뒤 안성", StopMark.NEXT), JourneyStop(0.76f, "2시간 40분 뒤 칠곡", StopMark.UPCOMING)),
-            "서울",
-            "부산",
-        ),
-    )
-
-    val urgent = DriveUi(
-        meta = "부산 해운대까지 2시간 05분",
-        content = DriveContent.Urgent(86, "옥천 졸음쉼터", "경부선 부산방향, 화장실 있음", "3"),
-        fatigue = FatigueUi(86, FatigueTone.ALERT, "2시간 10분째 쉬지 않고 운전 중이에요."),
-        family = emptyList(),
-        journey = null,
-    )
-
-    val listening = drive.copy(voice = VoiceSheetState.LISTENING)
-    val voiceFail = drive.copy(voice = VoiceSheetState.FAILED)
-
-    val offline = drive.copy(
-        content = (drive.content as DriveContent.Next).copy(chips = listOf(ChipUi("키즈존", ChipIcon.KID), ChipUi("급속충전", ChipIcon.BOLT))),
-        fatigue = fatigueCaution.copy(detail = "피로 계산은 인터넷 없이도 계속돼요."),
-        family = emptyList(),
-        journey = JourneyUi(0.38f, listOf(JourneyStop(0.47f, "18분 뒤 안성", StopMark.NEXT)), "서울", "부산"),
-        offline = true,
-    )
-
-    val prepare = PrepareScreenUi(
-        meta = "부산 해운대까지 예상 4시간 50분",
-        members = listOf(
-            MemberUi("driver", "운전자", AvatarKind.ADULT, true),
-            MemberUi("relief", "교대 1명", AvatarKind.ADULT, true),
-            MemberUi("kid", "지우 5살", AvatarKind.KID, true),
-            MemberUi("dog", "콩이", AvatarKind.PET, true),
-        ),
-        sleepHours = 5,
-        proactive = true,
-        plan = listOf(PlanStopUi("안성휴게소", "키즈존, 급속충전, 반려견 놀이터", "1시간 20분 뒤"), PlanStopUi("칠곡휴게소", "수유실, 급속충전", "3시간 10분 뒤")),
-        journey = JourneyUi(0f, listOf(JourneyStop(0.28f, "1시간 20분", StopMark.NEXT), JourneyStop(0.66f, "3시간 10분", StopMark.UPCOMING)), null, "부산"),
-        rationale = "평소보다 20분 일찍 첫 휴식을 잡았어요.",
-    )
-
-    val onboardMembers = listOf(
-        MemberUi("relief", "어른 2명", AvatarKind.ADULT, true),
-        MemberUi("kid", "아이 1명 · 5살", AvatarKind.KID, true),
-        MemberUi("dog", "반려견 1마리", AvatarKind.PET, true),
-    )
-
-    val pause = PauseScreenUi(
-        meta = "안성휴게소에서 쉬는 중",
-        lead = "충전이 끝날 때까지",
-        number = "27",
-        unit = "분",
-        battery = BatteryUi(46, 80, "급속충전 중 182kW", "13:12 완료 예상"),
-        restChoice = null,
+    val rest = RestUi(
+        meta = "횡성휴게소에서 쉬는 중",
+        lead = "15분 쉬어 가요",
+        minutes = 15,
+        restChoice = 15,
         activities = listOf(
-            ActivityUi(ActivityKind.NAP, "운전자", "20분 파워냅", "충전이 끝나기 2분 전에 조명과 소리로 깨워 드릴게요.", "눈 붙이기", true),
-            ActivityUi(ActivityKind.EXPEDITION, "지우", "휴게소 원정대 15분", "화장실, 물 한 컵, 기지개 3번. 다 하면 다음 라디오가 열려요.", "시작", false),
-            ActivityUi(ActivityKind.PET_WALK, "콩이", "산책 10분", "반려견 놀이터는 주차장 B 옆에 있어요.", "타이머", false),
+            ActivityUi(ActivityKind.PET_WALK, "콩이", "산책 10분", "반려견 놀이터 표지판을 따라가 보세요.", true),
+            ActivityUi(ActivityKind.PET_CARE, "콩이", "물·배변 5분", "물은 조금씩, 배변봉투를 챙겨 주세요.", false),
+            ActivityUi(ActivityKind.STRETCH, "운전자", "스트레칭 5분", "목, 어깨, 허리 순서로 천천히 풀어요.", false),
         ),
-        timeline = listOf(
-            TimelinePoint(0f, "12:18", "도착", TimelineDot.PAST),
-            TimelinePoint(0.24f, "12:45", "지금", TimelineDot.NOW),
-            TimelinePoint(0.88f, "13:10", "기상 알림", TimelineDot.ALARM),
-            TimelinePoint(1f, "13:12", "충전 완료", TimelineDot.END),
-        ),
-        nowFraction = 0.24f,
+        motion = MotionUi(22, MotionTone.CALM, "콩이 컨디션 편안 22"),
+        waitLimitMin = 10,
+        battery = "배터리 57%",
     )
 
-    val nap = NapUi(13 * 60, 20 * 60, "충전이 끝나기 2분 전, 13:10에 깨워 드릴게요", soundOn = true)
-
-    val report = ReportUi(
-        meta = "10월 31일, 서울에서 부산까지",
-        sentence = listOf("서울에서 출발해", " 안성에서 충전하며 20분 자고", " 칠곡에서 지우와 원정대를 마친 뒤 부산에 도착했어요."),
-        distanceKm = 398,
-        stops = 2,
-        longestMin = 100,
-        log = listOf(
-            ReportStopUi("안성휴게소", listOf("충전 27분", "파워냅 20분", "콩이 산책"), "12:18", "40분"),
-            ReportStopUi("칠곡휴게소", listOf("원정대 완료", "운전 교대"), "14:58", "25분"),
-        ),
-        fatigueSeries = listOf(6, 14, 24, 36, 48, 58, 64, 11, 18, 26, 36, 46, 56, 9, 14, 20, 24),
-        restMarks = listOf(0.375f, 0.75f),
-        tip = "첫 휴식을 20분 앞당기면 피로가 주의 단계에 닿지 않았을 거예요.",
+    val wait = WaitUi(
+        headline = "주인이 곧 돌아와요",
+        elapsed = "3분째",
+        cabin = "실내 24℃",
+        battery = "배터리 57%",
+        limitMin = 10,
+        overdue = false,
+        share = ShareUi("http://192.168.0.10:8000/wait/k3J9x2", true),
     )
+
+    val waitOverdue = wait.copy(elapsed = "11분째", overdue = true, cabin = "실내 온도 정보 없음")
+
+    val places = PlacesUi(
+        title = "함께 가는 장소",
+        items = listOf(
+            PlaceUi("ps_1", "[샘플] 횡성군 반려견 동반 카페", "카페", "경로에서 0.9km · 140km 지점", "소형견 동반 가능, 실내 이동장 권장 (샘플)", true),
+            PlaceUi("ps_2", "[샘플] 강릉 반려견 동반 산책로 1", "산책로", "목적지에서 2.3km", "목줄 착용, 배변봉투 지참 (샘플)", true),
+        ),
+        note = "샘플 데이터예요. 관광공사 반려동물 동반여행 키를 넣으면 실제 장소로 바뀌어요.",
+    )
+
+    val vets = VetsUi(
+        items = listOf(VetUi("vs_1", "[샘플] 강릉시 동물병원 A", "1.4km", "강원특별자치도 강릉시 (샘플)", null, true)),
+        note = "샘플 데이터예요. 전화번호는 실제 데이터에서만 보여요.",
+    )
+
+    val arrival = ArrivalUi("콩이 내렸나요?", strong = false, detail = "내린 뒤 확인을 눌러 주세요.")
+
+    val tripLog = TripLogUi(
+        meta = "10월 31일, 서울에서 강릉까지",
+        summary = "이번 이동은 3시간, 휴식 1번, 멀미 주의 예보 최고 46이었어요.",
+        durationMin = 180,
+        stops = 1,
+        motionPeak = 46,
+        motionSeries = listOf(0, 3, 6, 9, 12, 14, 15, 9, 7, 10, 13, 15, 17, 30, 41, 46, 44),
+        limitLine = "콩이는 약 1시간 10분이 한계예요. (기록 2번 기준)",
+        vetSummary = listOf("콩이 이동 기록", "이동 시간 3시간 · 휴식 1번", "멀미 주의 예보 최고 46 (0~100, 진단 아님)"),
+        symptoms = listOf(SymptomUi("침 흘림", true), SymptomUi("헐떡임", false), SymptomUi("구토", false), SymptomUi("괜찮았어요", false)),
+    )
+
+    val pet = PetEditUi("콩이", SizeUi.SMALL, 9, TendencyUi.HIGH, 90, true, emptyList(), firstRun = false)
 
     val settings = SettingsUi(
-        signals = listOf(SignalRowUi("속도와 기어", true), SignalRowUi("배터리와 충전", true), SignalRowUi("공조와 실내 순환", false)),
-        members = prepare.members,
-        version = "0.1.0",
+        signals = listOf(
+            SignalRowUi("주행 제한 상태", true, "CarUxRestrictions"),
+            SignalRowUi("속도와 기어", true, "AAOS 차량 속성 · Pleos Vehicle SDK"),
+            SignalRowUi("방위(멀미 예보)", false),
+        ),
+        version = "1.0.0",
     )
 
-    /** 발표 모드 "시안 장면 고정"의 화면 상태. 1/2·1/3 창은 상태가 같고 폭만 다르다. */
     fun screen(scene: Scene): Screen = when (scene) {
+        Scene.DEPART -> Screen.Depart(depart)
         Scene.DRIVE -> Screen.Drive(drive)
-        Scene.HALF, Scene.THIRD -> Screen.Drive(half)
-        Scene.CALM -> Screen.Drive(calm)
+        Scene.FORECAST -> Screen.Drive(forecast)
+        Scene.SUGGEST -> Screen.Drive(suggest)
         Scene.URGENT -> Screen.Drive(urgent)
-        Scene.LISTENING -> Screen.Drive(listening)
-        Scene.VOICE_FAIL -> Screen.Drive(voiceFail)
-        Scene.OFFLINE -> Screen.Drive(offline)
-        Scene.PREPARE -> Screen.Prepare(prepare)
-        Scene.PAUSE -> Screen.Pause(pause)
-        Scene.NAP -> Screen.Nap(nap)
-        Scene.REPORT -> Screen.Report(report)
-        Scene.ONBOARD1 -> Screen.Onboard(OnboardUi(OnboardStep.CONCEPT, onboardMembers))
-        Scene.ONBOARD2 -> Screen.Onboard(OnboardUi(OnboardStep.MEMBERS, onboardMembers))
-        Scene.ONBOARD3 -> Screen.Onboard(OnboardUi(OnboardStep.MIC, onboardMembers))
+        Scene.RESTRICTED -> Screen.Drive(restricted)
+        Scene.REST -> Screen.Rest(rest)
+        Scene.WAIT -> Screen.Wait(wait)
+        Scene.WAIT_OVERDUE -> Screen.Wait(waitOverdue)
+        Scene.PLACES -> Screen.Places(places)
+        Scene.VETS -> Screen.Vets(vets)
+        Scene.ARRIVAL -> Screen.Arrival(arrival)
+        Scene.TRIPLOG -> Screen.TripLog(tripLog)
+        Scene.PET -> Screen.PetProfile(pet)
         Scene.SETTINGS -> Screen.Settings(settings)
     }
 }

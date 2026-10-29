@@ -132,3 +132,33 @@ def test_server_starts_even_if_warm_up_fails(db_engine, caplog):
             time.sleep(0.02)
         assert c.get("/api/v1/health").status_code == 200
     assert "warm-up failed" in caplog.text
+
+
+# ───────── 이동 기록 요약 (F7-04) ─────────
+
+TRIP = {"durationMin": 190, "stops": 2, "motionPeak": 62, "limitMin": 70}
+
+
+def summary(db_engine, ollama: OllamaClient, facts: dict = TRIP) -> httpx.Response:
+    with make_client(db_engine, ollama=ollama) as c:
+        return c.post(URL, json={"kind": "trip_summary", "facts": facts}, headers=register(c))
+
+
+def test_f7_04_trip_summary_ok(db_engine):
+    seen: list = []
+    r = summary(db_engine, ollama_replying("3시간 10분 동안 두 번 쉬었고 멀미 주의 예보 최고값은 62였어요.", seen))
+    assert r.status_code == 200 and r.json()["source"] == "ollama"
+    assert "멀미 주의 예보 최고값(0~100): 62" in seen[0]["messages"][1]["content"]
+    assert "3시간 10분" in seen[0]["messages"][1]["content"]
+
+
+@pytest.mark.parametrize("text", ["멀미 62로 진단됩니다.", "두 번 쉬었어요.", ""])
+def test_f7_04_trip_summary_falls_back_to_template(db_engine, text):
+    r = summary(db_engine, ollama_replying(text))
+    assert r.status_code == 503
+    assert r.json()["fallback"] == "이번 이동은 3시간 10분, 휴식 2번, 멀미 주의 예보 최고 62였어요. 평소 한계는 약 1시간 10분이에요."
+
+
+def test_f7_04_trip_summary_rejects_names_and_bad_facts(db_engine):
+    assert summary(db_engine, ollama_replying("x"), {**TRIP, "petName": "콩이"}).status_code == 422
+    assert summary(db_engine, ollama_replying("x"), {**TRIP, "motionPeak": 101}).status_code == 422

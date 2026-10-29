@@ -43,6 +43,8 @@ android {
         debug {
             // 에뮬레이터 → 호스트 PC 서버 (architecture §4). 실기기 시연은 local.properties 대신 이 값을 바꾼다.
             buildConfigField("String", "SERVER_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
+            // 보호자 폰이 여는 대기 페이지 주소의 앞부분(같은 Wi-Fi 노트북 IP). 비우면 경로만 보인다. adb `--es shareBase http://IP:8000`으로 바꾼다.
+            buildConfigField("String", "SHARE_BASE_URL", "\"\"")
         }
         release {
             signingConfig = release
@@ -52,6 +54,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // 오프라인 우선: 서버 주소가 없으면 캐시·내장 데이터·템플릿으로만 동작한다.
             buildConfigField("String", "SERVER_BASE_URL", "\"\"")
+            buildConfigField("String", "SHARE_BASE_URL", "\"\"")
         }
     }
 
@@ -60,21 +63,6 @@ android {
         buildConfig = true
     }
 }
-
-// 콘텐츠 (content/): 검수본(content/*.json, reviewed=true)은 모든 빌드에, 초안(content/drafts/)은 디버그 빌드에만 묶는다.
-// 릴리스 APK에는 초안 파일이 아예 들어가지 않고, 들어가더라도 ContentLibrary가 reviewed=false를 거른다 (CLAUDE.md 규칙 4).
-android.sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/contentAssets"))
-android.sourceSets["debug"].assets.srcDir(layout.buildDirectory.dir("generated/draftAssets"))
-
-val copyContent by tasks.registering(Copy::class) {
-    from(rootProject.file("../content")) { include("*.json") }
-    into(layout.buildDirectory.dir("generated/contentAssets/content"))
-}
-val copyDrafts by tasks.registering(Copy::class) {
-    from(rootProject.file("../content/drafts")) { include("*.json") }
-    into(layout.buildDirectory.dir("generated/draftAssets/content/drafts"))
-}
-tasks.named("preBuild") { dependsOn(copyContent, copyDrafts) }
 
 composeCompiler {
     stabilityConfigurationFiles.add(layout.projectDirectory.file("compose_stability.conf"))
@@ -87,10 +75,11 @@ dependencies {
     implementation(project(":core:navi"))
     implementation(project(":core:restriction"))
     implementation(project(":engine:fatigue"))
+    implementation(project(":engine:motion"))
+    implementation(project(":engine:pet"))
     implementation(project(":engine:needs"))
     implementation(project(":engine:planner"))
     implementation(project(":engine:pause"))
-    implementation(project(":engine:content"))
     implementation(project(":voice"))
     implementation(project(":data"))
     implementation(project(":sim"))
@@ -111,5 +100,6 @@ dependencies {
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

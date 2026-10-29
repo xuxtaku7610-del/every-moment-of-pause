@@ -32,6 +32,7 @@ class PleosNaviSource(context: Context) : NaviSource {
     private val navi = NaviHelper(context)
     private val routeState = MutableStateFlow<RouteInfo?>(null)
     private val etaState = MutableStateFlow<EtaInfo?>(null)
+    private val headingState = MutableStateFlow<Double?>(null)
     private var currentLocation: LatLng? = null
     private var routeDistanceM: Int = 0
     private var pendingWaypoint: CompletableDeferred<Result<Unit>>? = null
@@ -53,6 +54,8 @@ class PleosNaviSource(context: Context) : NaviSource {
 
         override fun onCurrentLocationInfo(currentLocationInfo: CurrentLocationInfo) {
             currentLocation = LatLng(currentLocationInfo.latitude, currentLocationInfo.longitude)
+            // 방위: CurrentLocationInfo.getHeading(): Double (javap, docs/plan/sdk_check.md). 멀미 예보의 횡가속에 쓴다.
+            headingState.value = currentLocationInfo.heading
         }
 
         override fun onDestinationInfo(destinationInfo: DestinationInfo) {
@@ -116,8 +119,18 @@ class PleosNaviSource(context: Context) : NaviSource {
         }
     }
 
+    /** 방위용 현재 위치만 요청 (1초). */
+    fun refreshLocation() {
+        try {
+            navi.getCurrentLocationInfo()
+        } catch (e: Exception) {
+            Log.w(TAG, "NaviHelper 위치 조회 실패: ${e.javaClass.simpleName} ${e.message}")
+        }
+    }
+
     override fun route(): Flow<RouteInfo?> = routeState
     override fun eta(): Flow<EtaInfo?> = etaState
+    override fun heading(): Flow<Double?> = headingState
 
     override suspend fun addWaypoint(lat: Double, lng: Double, name: String): Result<Unit> {
         val done = CompletableDeferred<Result<Unit>>()

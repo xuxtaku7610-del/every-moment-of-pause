@@ -10,3 +10,4 @@ httpx>=0.27
 # 테스트
 pytest>=8
 pytest-asyncio>=0.23
+pyproj>=3.6            # 동물병원 인허가 파일 좌표 변환 (load_vets)

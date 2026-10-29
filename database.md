@@ -1,6 +1,6 @@
-# DB 스키마 — 쉼표 (멈춤의 모든 순간)
+# DB 스키마 — 같이가개 (반려견과 차로 가는 모든 순간)
 
-데이터는 두 곳에 나뉜다. **서버 PostgreSQL**은 공용 데이터(휴게소·콘텐츠)와 익명 여행 이벤트를, **기기 Room DB**는 개인 데이터(동승자 프리셋·수면 시간)와 오프라인 캐시를 맡는다. 개인 데이터는 서버로 보내지 않는다.
+데이터는 두 곳에 나뉜다. **서버 PostgreSQL**은 공용 데이터(휴게소·반려동물 동반 장소·동물병원), 익명 여행 이벤트, 대기 공유 상태를, **기기 Room DB**는 개인 데이터(반려견 프로필·이동 기록)와 오프라인 캐시를 맡는다. 개인 데이터는 서버로 보내지 않는다.
 
 **테스트 정책.** 서버 DB 테스트는 두 층으로 나눈다. 마이그레이션 검증과 통합 테스트는 PostgreSQL 16에서 돌린다(로컬은 `docker compose`, CI는 GitHub Actions service container). 아래 DDL의 `JSONB`·`BIGSERIAL`·`TIMESTAMPTZ`·`'{}'::jsonb`는 PostgreSQL 전용이므로, Alembic 마이그레이션은 PostgreSQL에서만 검증한다. 단위 테스트는 SQLite in-memory에서 돌리며, SQLAlchemy 모델은 `JSON().with_variant(JSONB(), "postgresql")`, `BigInteger().with_variant(Integer, "sqlite")`처럼 방언별 타입을 쓴다. PostgreSQL 전용 테스트는 `@pytest.mark.pg` 마커로 구분하고, DB에 연결할 수 없으면 skip한다.
 
@@ -13,9 +13,7 @@ erDiagram
     REST_STOPS ||--o{ REST_STOP_FACILITIES : "offers"
     FACILITY_CODES ||--o{ REST_STOP_FACILITIES : "describes"
     REST_STOPS ||--o{ TRIP_EVENTS : "referenced by"
-    CONTENT_EPISODES ||--o{ PLAYLIST_ITEMS : "included in"
-    PLAYLISTS ||--o{ PLAYLIST_ITEMS : "contains"
-    DEVICES ||--o{ PLAYLISTS : "requests"
+    DEVICES ||--o{ WAIT_SESSIONS : "shares"
     DEVICES ||--o{ LLM_CALL_LOGS : "triggers"
 
     DEVICES {
@@ -47,39 +45,6 @@ erDiagram
         varchar rest_stop_id PK, FK
         varchar facility_code PK, FK
         int quantity
-    }
-    CONTENT_EPISODES {
-        varchar id PK
-        varchar topic
-        varchar title
-        text script
-        jsonb quiz
-        int duration_sec
-        int min_age
-        int max_age
-        boolean reviewed
-        timestamptz created_at
-    }
-    MISSIONS {
-        varchar id PK
-        varchar context
-        varchar title
-        text instructions
-        int duration_sec
-        int min_age
-        boolean reviewed
-    }
-    PLAYLISTS {
-        varchar id PK
-        varchar device_id FK
-        int target_sec
-        int total_sec
-        timestamptz created_at
-    }
-    PLAYLIST_ITEMS {
-        varchar playlist_id PK, FK
-        int position PK
-        varchar episode_id FK
     }
     TRIPS {
         varchar id PK
@@ -113,9 +78,45 @@ erDiagram
         boolean fallback_used
         timestamptz created_at
     }
+    PET_PLACES {
+        string id PK
+        string source_id UK
+        string source
+        string name
+        string category
+        double lat
+        double lng
+        string address
+        string pet_policy
+        timestamptz updated_at
+    }
+    VET_CLINICS {
+        string id PK
+        string license_no UK
+        string source
+        string name
+        string address
+        string phone
+        double lat
+        double lng
+        boolean open
+        timestamptz updated_at
+    }
+    WAIT_SESSIONS {
+        string token_hash PK
+        string device_id FK
+        string state
+        int limit_min
+        int elapsed_sec
+        int battery_percent
+        float cabin_temp_c
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz expires_at
+    }
 ```
 
-`MISSIONS`는 다른 테이블과 관계가 없는 독립 콘텐츠 테이블이다.
+`PET_PLACES`·`VET_CLINICS`는 다른 테이블과 관계가 없는 공용 데이터 테이블이다. 쉼표 때의 `content_episodes`·`missions`·`playlists`·`playlist_items`는 마이그레이션 0002에서 삭제했다.
 
 ### 테이블 설명
 
@@ -123,12 +124,12 @@ erDiagram
 | --- | --- | --- |
 | `devices` | 익명 기기 | 토큰 원문은 저장하지 않음 |
 | `rest_stops` | 휴게소·졸음쉼터 | `stop_type`: `service_area` · `drowsy_shelter`, 도로공사 코드 `ex_code` 고유 |
-| `facility_codes` | 편의시설 코드표 | `nursing_room`, `kids_zone`, `pet_zone`, `ev_fast`, `ev_slow`, `shower`, `accessible_toilet` 등 |
+| `facility_codes` | 편의시설 코드표 | `pet_zone`(반려견 놀이터), `ev_fast`, `ev_slow`, `nursing_room`, `kids_zone`, `shower`, `accessible_toilet`, `sleep_room` |
 | `rest_stop_facilities` | 휴게소별 편의시설 | 충전기는 `quantity`에 대수 |
-| `content_episodes` | 아이 라디오 | `reviewed = true`만 서비스 |
-| `missions` | 원정대 미션 | `context`: `rest_stop` · `charging` |
-| `playlists`, `playlist_items` | 편성 결과 | 리포트·재생 기록용 |
-| `trips` | 여행 단위 | 동승자는 인원 수만(`{"adults","children","pets"}` 정수). 나이·이름·반려동물 종류는 받지 않는다 (2026-10-29) |
+| `pet_places` | 반려동물 동반 장소 (F4) | `source`: `tourapi` · `sample`. `category`: `restaurant` · `cafe` · `lodging` · `tour` · `walk` |
+| `vet_clinics` | 동물병원 (F5) | `source`: `licensing` · `sample`. 영업 중(`open`)만 서비스. 샘플은 전화번호 없음 |
+| `wait_sessions` | 대기 공유 (F3) | 토큰 원문 대신 SHA-256 해시를 키로. **위치 컬럼 없음**. 2시간 만료 |
+| `trips` | 여행 단위 | 동승자는 인원 수만(`{"adults","children","pets"}` 정수). 반려견 이름·체급·나이는 받지 않는다 |
 | `trip_events` | 여행 중 이벤트 | `(trip_id, client_event_id)` 고유로 중복 방지 |
 | `llm_call_logs` | LLM 품질 모니터링 | 프롬프트·응답 원문 저장 안 함 |
 
@@ -174,46 +175,50 @@ CREATE TABLE rest_stop_facilities (
     PRIMARY KEY (rest_stop_id, facility_code)
 );
 
--- 콘텐츠
-CREATE TABLE content_episodes (
-    id            VARCHAR(32)  PRIMARY KEY,
-    topic         VARCHAR(32)  NOT NULL CHECK (topic IN ('proverb', 'common_sense', 'safety', 'manners')),
-    title         VARCHAR(128) NOT NULL,
-    script        TEXT         NOT NULL,
-    quiz          JSONB,
-    duration_sec  INTEGER      NOT NULL CHECK (duration_sec BETWEEN 30 AND 900),
-    min_age       INTEGER      NOT NULL DEFAULT 4,
-    max_age       INTEGER      NOT NULL DEFAULT 12,
-    reviewed      BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CHECK (min_age <= max_age)
+-- 반려동물 동반 장소 (F4, 마이그레이션 0003)
+CREATE TABLE pet_places (
+    id          VARCHAR(32)  PRIMARY KEY,
+    source_id   VARCHAR(64)  NOT NULL UNIQUE,
+    source      VARCHAR(16)  NOT NULL CHECK (source IN ('tourapi', 'sample')),
+    name        VARCHAR(128) NOT NULL,
+    category    VARCHAR(16)  NOT NULL CHECK (category IN ('restaurant', 'cafe', 'lodging', 'tour', 'walk')),
+    lat         DOUBLE PRECISION NOT NULL,
+    lng         DOUBLE PRECISION NOT NULL,
+    address     VARCHAR(256),
+    pet_policy  TEXT,
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_episodes_lookup ON content_episodes (topic, reviewed, min_age, max_age);
+CREATE INDEX idx_pet_places_latlng ON pet_places (lat, lng);
 
-CREATE TABLE missions (
-    id            VARCHAR(32)  PRIMARY KEY,
-    context       VARCHAR(16)  NOT NULL CHECK (context IN ('rest_stop', 'charging')),
-    title         VARCHAR(64)  NOT NULL,
-    instructions  TEXT         NOT NULL,
-    duration_sec  INTEGER      NOT NULL,
-    min_age       INTEGER      NOT NULL DEFAULT 4,
-    reviewed      BOOLEAN      NOT NULL DEFAULT FALSE
+-- 동물병원 (F5, 마이그레이션 0003)
+CREATE TABLE vet_clinics (
+    id          VARCHAR(32)  PRIMARY KEY,
+    license_no  VARCHAR(64)  NOT NULL UNIQUE,
+    source      VARCHAR(16)  NOT NULL CHECK (source IN ('licensing', 'sample')),
+    name        VARCHAR(128) NOT NULL,
+    address     VARCHAR(256),
+    phone       VARCHAR(32),
+    lat         DOUBLE PRECISION NOT NULL,
+    lng         DOUBLE PRECISION NOT NULL,
+    open        BOOLEAN      NOT NULL DEFAULT true,
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_vet_clinics_latlng ON vet_clinics (lat, lng);
 
-CREATE TABLE playlists (
-    id          VARCHAR(32) PRIMARY KEY,
-    device_id   VARCHAR(32) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-    target_sec  INTEGER     NOT NULL,
-    total_sec   INTEGER     NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+-- 대기 공유 (F3, 마이그레이션 0003). 위치 컬럼을 두지 않는다.
+CREATE TABLE wait_sessions (
+    token_hash       VARCHAR(64) PRIMARY KEY,
+    device_id        VARCHAR(32) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    state            VARCHAR(16) NOT NULL DEFAULT 'waiting' CHECK (state IN ('waiting', 'overdue', 'ended')),
+    limit_min        INT         NOT NULL CHECK (limit_min BETWEEN 1 AND 120),
+    elapsed_sec      INT         NOT NULL DEFAULT 0,
+    battery_percent  INT,
+    cabin_temp_c     DOUBLE PRECISION,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at       TIMESTAMPTZ NOT NULL
 );
-
-CREATE TABLE playlist_items (
-    playlist_id  VARCHAR(32) NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
-    position     INTEGER     NOT NULL,
-    episode_id   VARCHAR(32) NOT NULL REFERENCES content_episodes(id),
-    PRIMARY KEY (playlist_id, position)
-);
+CREATE INDEX idx_wait_sessions_device ON wait_sessions (device_id);
 
 -- 여행
 CREATE TABLE trips (
@@ -237,8 +242,8 @@ CREATE TABLE trip_events (
     client_event_id  VARCHAR(64) NOT NULL,
     event_type       VARCHAR(32) NOT NULL CHECK (event_type IN (
                         'recommendation_shown', 'recommendation_accepted', 'recommendation_declined',
-                        'stop_started', 'stop_ended', 'fatigue_peak', 'kid_question',
-                        'pause_activity_started', 'pause_activity_ended')),
+                        'stop_started', 'stop_ended', 'fatigue_peak', 'motion_peak',
+                        'pause_activity_started', 'pause_activity_ended', 'wait_started', 'wait_ended')),
     rest_stop_id     VARCHAR(32) REFERENCES rest_stops(id),
     payload          JSONB       NOT NULL DEFAULT '{}'::jsonb,
     occurred_at      TIMESTAMPTZ NOT NULL,
@@ -275,35 +280,45 @@ INSERT INTO facility_codes (code, label_ko) VALUES
 | `trips`, `trip_events` | 90일 후 삭제 (일 1회 정리 잡) |
 | `llm_call_logs` | 30일 |
 | `devices` | 마지막 접속 후 180일 |
+| `wait_sessions` | 만료(2시간) 후 1일 |
+| `pet_places`, `vet_clinics` | 수집 잡이 덮어씀(공용 데이터) |
 
 ## 3. 기기 Room DB
 
 ```mermaid
 erDiagram
-    PASSENGER_PRESETS ||--o{ PASSENGERS : "contains"
+    PET_PROFILES ||--o{ LOCAL_TRIPS : "travels"
     LOCAL_TRIPS ||--o{ PENDING_EVENTS : "queues"
+    LOCAL_TRIPS ||--o{ MOTION_SAMPLES : "records"
     CACHED_REST_STOPS ||--o{ CACHED_FACILITIES : "offers"
 
-    PASSENGER_PRESETS {
+    PET_PROFILES {
         long id PK
         string name
+        string size
+        int age_years
+        string motion_tendency
+        int potty_interval_min
+        string facility_prefs
         boolean is_default
         long updated_at
     }
-    PASSENGERS {
-        long id PK
-        long preset_id FK
-        string kind
-        int age
-        boolean can_drive
-        boolean needs_nursing
-    }
     LOCAL_TRIPS {
         string id PK
+        long pet_id FK
         string server_trip_id
-        int sleep_hours
         long started_at
         long ended_at
+        int first_caution_min
+        int motion_peak
+        int stops
+        string symptom_note
+    }
+    MOTION_SAMPLES {
+        string local_trip_id PK, FK
+        int minute PK
+        int motion_index
+        boolean resting
     }
     PENDING_EVENTS {
         string client_event_id PK
@@ -330,9 +345,10 @@ erDiagram
 
 | 테이블 | 메모 |
 | --- | --- |
-| `passenger_presets`, `passengers` | `kind`: `adult` · `child` · `dog` · `cat` · `other_pet`. 서버 전송 안 함 |
-| `local_trips` | 수면 시간은 기기에만 저장 |
+| `pet_profiles` | `size`: `SMALL` · `MEDIUM` · `LARGE`, `motion_tendency`: `LOW` · `NORMAL` · `HIGH`, `facility_prefs`: 쉼표로 구분한 시설 코드(`pet_zone` 등). **서버 전송 안 함** |
+| `local_trips` | 이동 기록(F7). `first_caution_min` = 멀미 지수가 주의(40)에 처음 닿은 주행 분 → 여러 여행의 중앙값으로 "한계 시간" 추정. `symptom_note`는 기기에만 |
+| `motion_samples` | 5분 간격 멀미 지수 (기록 그래프) |
 | `pending_events` | 오프라인 이벤트 큐. 업로드 성공 시 삭제 |
-| `cached_rest_stops`, `cached_facilities` | 출발 시 경로 기준으로 교체. 앱에 주요 고속도로 기본 데이터 번들 포함 |
+| `cached_rest_stops`, `cached_facilities` | 출발 시 경로 기준으로 교체. 앱에 기본 데이터 번들 포함 |
 
-1초 차량 신호는 DB에 저장하지 않고 메모리 링버퍼(최근 30분)에만 둔다.
+1초 차량 신호는 DB에 저장하지 않고 메모리에만 둔다. 장소·병원 캐시는 마지막 응답 JSON을 그대로 보관한다(오프라인 표시용).

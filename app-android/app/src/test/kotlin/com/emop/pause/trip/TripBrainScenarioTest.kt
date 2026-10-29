@@ -52,7 +52,7 @@ class TripBrainScenarioTest {
         return shown to brain
     }
 
-    private val family = TripSetup(listOf(Passenger.Child(5), Passenger.Dog), EvProfile())
+    private val family = TripSetup(listOf(Passenger.Child(5), Passenger.Dog()), EvProfile())
 
     @Test
     fun `P0 seoul-busan-family - 충전 정차 전에 아이·충전 니즈 맞춤 휴게소를 제안하고 응하면 그곳으로 간다`() {

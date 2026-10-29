@@ -1,17 +1,29 @@
-"""POST /llm/phrases — api_spec §2.8. 2.5초 안에 Ollama 문장, 아니면 503 + fallback."""
+"""POST /llm/phrases — api_spec §2.9. 2.5초 안에 Ollama 문장, 아니면 503 + fallback.
+
+kind: rest_suggestion(F2 휴게소 제안), trip_summary(F7 이동 기록 요약). 멀미 예보·안전·"내렸나요?"는 앱 템플릿만 쓴다.
+"""
 import asyncio
 import logging
 import time
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_device
 from app.config import get_settings
 from app.errors import ApiError
-from app.llm.phrases import SYSTEM_REST, check, rest_fallback, rest_user_prompt
+from app.llm.phrases import (
+    SYSTEM_REST,
+    SYSTEM_SUMMARY,
+    check,
+    check_summary,
+    rest_fallback,
+    rest_user_prompt,
+    summary_fallback,
+    summary_user_prompt,
+)
 from app.models import LlmCallLog
 
 log = logging.getLogger(__name__)
@@ -26,10 +38,29 @@ class RestFacts(BaseModel):
     passengers: list[str] = Field(default_factory=list, max_length=8)
 
 
+class TripFacts(BaseModel):
+    """이동 기록 요약 사실. 반려견 이름·증상 메모는 보내지 않는다 (architecture §6)."""
+    model_config = {"extra": "forbid"}
+
+    durationMin: int = Field(ge=0, le=24 * 60)
+    stops: int = Field(ge=0, le=50)
+    motionPeak: int = Field(ge=0, le=100)
+    limitMin: int | None = Field(default=None, ge=1, le=24 * 60)
+
+
 class PhraseIn(BaseModel):
-    kind: Literal["rest_suggestion"]
-    facts: RestFacts
+    kind: Literal["rest_suggestion", "trip_summary"]
+    facts: dict
     maxSentences: int = Field(default=2, ge=1, le=2)
+
+
+def _facts(body: PhraseIn) -> dict:
+    model = RestFacts if body.kind == "rest_suggestion" else TripFacts
+    try:
+        return model.model_validate(body.facts).model_dump()
+    except ValidationError as e:
+        fields = ["facts." + ".".join(str(p) for p in err["loc"]) for err in e.errors()]
+        raise ApiError(422, "VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", {"fields": fields}) from None
 
 
 def _log_call(request: Request, device_id: str, kind: str, source: str, latency_ms: int, fallback: bool) -> None:
@@ -43,16 +74,15 @@ def _log_call(request: Request, device_id: str, kind: str, source: str, latency_
 
 @router.post("/llm/phrases")
 async def phrases(body: PhraseIn, request: Request, device_id: str = Depends(require_device)) -> dict:
-    facts = body.facts.model_dump()
-    fallback = rest_fallback(facts)
+    facts = _facts(body)
+    rest = body.kind == "rest_suggestion"
+    fallback = rest_fallback(facts) if rest else summary_fallback(facts)
+    system, prompt = (SYSTEM_REST, rest_user_prompt(facts)) if rest else (SYSTEM_SUMMARY, summary_user_prompt(facts))
     started = time.monotonic()
     reason: str
     try:
-        text = await asyncio.wait_for(
-            request.app.state.ollama.chat(SYSTEM_REST, rest_user_prompt(facts)),
-            get_settings().llm_timeout_seconds,
-        )
-        reason = check(text, facts, body.maxSentences) or ""
+        text = await asyncio.wait_for(request.app.state.ollama.chat(system, prompt), get_settings().llm_timeout_seconds)
+        reason = (check(text, facts, body.maxSentences) if rest else check_summary(text, facts, body.maxSentences)) or ""
     except Exception as e:  # noqa: BLE001 - 타임아웃·연결 실패 모두 폴백
         text, reason = "", type(e).__name__
     latency_ms = int((time.monotonic() - started) * 1000)
@@ -62,20 +92,3 @@ async def phrases(body: PhraseIn, request: Request, device_id: str = Depends(req
         raise ApiError(503, "LLM_UNAVAILABLE", "LLM 응답 실패", extra={"fallback": fallback})
     _log_call(request, device_id, body.kind, "ollama", latency_ms, False)
     return {"text": text, "source": "ollama", "latencyMs": latency_ms}
-
-
-class KidAnswerIn(BaseModel):
-    question: str = Field(min_length=1, max_length=100)
-    minutesToNextStop: int | None = Field(default=None, ge=0, le=600)
-    remainingEpisodes: int | None = Field(default=None, ge=0, le=50)
-    nextStopHighlights: list[str] = Field(default_factory=list, max_length=8)
-    childAge: int | None = Field(default=None, ge=0, le=18)
-
-
-@router.post("/llm/kid-answer", dependencies=[Depends(require_device)])
-def kid_answer(body: KidAnswerIn) -> dict:
-    """'아직 멀었어?' — api_spec §2.9. 아이용 문장은 LLM 없이 템플릿만 쓴다 (CLAUDE.md 규칙 4, 결정 2026-10-29).
-    질문 원문은 저장하지 않는다."""
-    from app.content import kid_answer as template
-
-    return {"text": template(body.minutesToNextStop, body.remainingEpisodes, body.nextStopHighlights), "source": "template"}

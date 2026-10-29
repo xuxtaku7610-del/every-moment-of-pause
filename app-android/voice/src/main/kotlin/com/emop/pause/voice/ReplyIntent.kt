@@ -9,7 +9,7 @@ enum class Reply { YES, LATER, UNKNOWN }
  */
 object ReplyIntent {
     private val later = listOf("나중", "이따", "다음에", "아니", "안 ", "안갈", "싫", "괜찮아", "됐어", "그냥 가", "패스", " 노 ")
-    private val yes = listOf("응", "어 ", "네", "예", "그래", "좋아", "가자", "갈래", "들르", "들를", "들러", "오케이", "콜", "ok", "yes")
+    private val yes = listOf("응", "어 ", "네", "예", "그래", "좋아", "가자", "갈래", "들르", "들를", "들러", "쉴게", "쉴래", "쉬자", "쉬어 가", "오케이", "콜", "ok", "yes")
 
     fun parse(text: String?): Reply {
         val t = " " + (text ?: return Reply.UNKNOWN).trim().lowercase() + " "

@@ -1,0 +1,230 @@
+{
+  "name": "pet-trip",
+  "description": "같이가개 시연: 서울→강릉, 콩이(소형·9살·멀미 성향 높음). depart·highway·rest_stop(횡성)·wait·mountain_road(합성 고갯길)·arrive.",
+  "startClock": "09:00",
+  "capabilities": [
+    "SPEED",
+    "GEAR",
+    "BATTERY_SOC",
+    "CHARGING",
+    "HVAC_TEMP"
+  ],
+  "setup": {
+    "ev": true,
+    "sleepHours": 7,
+    "pet": {
+      "name": "콩이",
+      "size": "SMALL",
+      "ageYears": 9,
+      "motionTendency": "HIGH",
+      "pottyIntervalMin": 90
+    }
+  },
+  "route": {
+    "destinationName": "강릉",
+    "destination": {
+      "lat": 37.7519,
+      "lng": 128.8761
+    },
+    "totalDistanceM": 230000,
+    "points": [
+      {
+        "lat": 37.5665,
+        "lng": 126.978
+      },
+      {
+        "lat": 37.48,
+        "lng": 127.07
+      },
+      {
+        "lat": 37.29,
+        "lng": 127.11
+      },
+      {
+        "lat": 37.26,
+        "lng": 127.3
+      },
+      {
+        "lat": 37.27,
+        "lng": 127.45
+      },
+      {
+        "lat": 37.3,
+        "lng": 127.63
+      },
+      {
+        "lat": 37.33,
+        "lng": 127.86
+      },
+      {
+        "lat": 37.4,
+        "lng": 127.98
+      },
+      {
+        "lat": 37.495,
+        "lng": 128.07
+      },
+      {
+        "lat": 37.55,
+        "lng": 128.28
+      },
+      {
+        "lat": 37.57,
+        "lng": 128.4
+      },
+      {
+        "lat": 37.62,
+        "lng": 128.6
+      },
+      {
+        "lat": 37.688,
+        "lng": 128.757
+      },
+      {
+        "lat": 37.7519,
+        "lng": 128.8761
+      }
+    ],
+    "shapeGpx": "geo/mountain_road.gpx",
+    "shapeStartM": 205000
+  },
+  "timeline": [
+    {
+      "t": 0,
+      "label": "depart",
+      "trip": "NOT_STARTED",
+      "driveState": "PARKED",
+      "gear": "PARK",
+      "speedKph": 0,
+      "socPercent": 82,
+      "charging": false,
+      "hvacTempC": 23,
+      "remainDistanceM": 230000,
+      "remainTimeSec": 9200
+    },
+    {
+      "t": 60,
+      "label": "출발 체크 완료",
+      "trip": "ACTIVE",
+      "remainDistanceM": 230000,
+      "remainTimeSec": 9200
+    },
+    {
+      "t": 90,
+      "label": "출발",
+      "driveState": "DRIVING",
+      "gear": "DRIVE",
+      "speedKph": 30,
+      "remainDistanceM": 230000,
+      "remainTimeSec": 9200
+    },
+    {
+      "t": 210,
+      "label": "highway",
+      "speedKph": 100,
+      "remainDistanceM": 228500,
+      "remainTimeSec": 9140
+    },
+    {
+      "t": 5160,
+      "speedKph": 100,
+      "socPercent": 58,
+      "remainDistanceM": 91000,
+      "remainTimeSec": 3640
+    },
+    {
+      "t": 5208,
+      "label": "휴게소 진입",
+      "speedKph": 30,
+      "remainDistanceM": 90200,
+      "remainTimeSec": 3608
+    },
+    {
+      "t": 5232,
+      "label": "rest_stop",
+      "driveState": "PARKED",
+      "gear": "PARK",
+      "speedKph": 0,
+      "socPercent": 57,
+      "remainDistanceM": 90000,
+      "remainTimeSec": 3600
+    },
+    {
+      "t": 5532,
+      "label": "wait",
+      "hvacTempC": 24,
+      "remainDistanceM": 90000,
+      "remainTimeSec": 3600
+    },
+    {
+      "t": 6432,
+      "label": "대기 끝",
+      "hvacTempC": 25,
+      "remainDistanceM": 90000,
+      "remainTimeSec": 3600
+    },
+    {
+      "t": 6492,
+      "label": "다시 출발",
+      "driveState": "DRIVING",
+      "gear": "DRIVE",
+      "speedKph": 40,
+      "remainDistanceM": 90000,
+      "remainTimeSec": 3600
+    },
+    {
+      "t": 6552,
+      "speedKph": 100,
+      "remainDistanceM": 89000,
+      "remainTimeSec": 3560
+    },
+    {
+      "t": 8820,
+      "label": "대관령 진입",
+      "speedKph": 100,
+      "socPercent": 40,
+      "remainDistanceM": 26000,
+      "remainTimeSec": 1040
+    },
+    {
+      "t": 8871,
+      "label": "mountain_road",
+      "speedKph": 45,
+      "remainDistanceM": 25000,
+      "remainTimeSec": 1000
+    },
+    {
+      "t": 9844,
+      "label": "고개 아래",
+      "speedKph": 45,
+      "socPercent": 34,
+      "remainDistanceM": 12837,
+      "remainTimeSec": 513
+    },
+    {
+      "t": 10696,
+      "label": "arrive",
+      "speedKph": 30,
+      "remainDistanceM": 1000,
+      "remainTimeSec": 40
+    },
+    {
+      "t": 10816,
+      "label": "도착",
+      "trip": "ENDED",
+      "driveState": "PARKED",
+      "gear": "PARK",
+      "speedKph": 0,
+      "socPercent": 33,
+      "remainDistanceM": 0,
+      "remainTimeSec": 0,
+      "hvacTempC": 27
+    },
+    {
+      "t": 10936,
+      "label": "도착 체크",
+      "remainDistanceM": 0,
+      "remainTimeSec": 0
+    }
+  ]
+}

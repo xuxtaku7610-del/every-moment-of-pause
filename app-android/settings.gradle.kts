@@ -23,6 +23,6 @@ rootProject.name = "every-moment-of-pause"
 include(
     ":app",
     ":core:model", ":core:uistate", ":core:vehicle", ":core:navi", ":core:restriction",
-    ":engine:fatigue", ":engine:needs", ":engine:planner", ":engine:pause", ":engine:content",
+    ":engine:fatigue", ":engine:motion", ":engine:needs", ":engine:planner", ":engine:pause", ":engine:pet",
     ":voice", ":data", ":sim",
 )

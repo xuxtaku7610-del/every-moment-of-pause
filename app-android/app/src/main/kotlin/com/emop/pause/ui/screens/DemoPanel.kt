@@ -37,6 +37,7 @@ import com.emop.pause.trip.TripUi
 import com.emop.pause.ui.components.ButtonKind
 import com.emop.pause.ui.components.PauseButton
 import com.emop.pause.ui.theme.Pause
+import com.emop.pause.engine.motion.CompareResult
 import java.util.Locale
 
 class DemoActions(
@@ -45,7 +46,7 @@ class DemoActions(
     val play: () -> Unit = {},
     val pause: () -> Unit = {},
     val speed: (Int) -> Unit = {},
-    val jump: (Int, Boolean) -> Unit = { _, _ -> },
+    val jump: (Int) -> Unit = {},
     val say: (String) -> Unit = {},
     val scene: (Scene?) -> Unit = {},
     val close: () -> Unit = {},
@@ -57,7 +58,7 @@ class DemoActions(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene?, a: DemoActions) {
+fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene?, a: DemoActions, compare: CompareResult? = null) {
     val c = Pause.colors
     Box(Modifier.fillMaxSize().background(c.scrim).clickable(remember { MutableInteractionSource() }, null, onClick = a.close)) {
         Column(
@@ -88,14 +89,25 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                 }
                 Section("장면으로 이동")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DemoScenes.JUMPS.forEach { j -> Choice(j.label, false) { a.jump(j.tSec, j.nap); j.say?.let(a.say) } }
+                    DemoScenes.JUMPS.forEach { j -> Choice(j.label, false) { a.jump(j.tSec); j.say?.let(a.say) } }
                 }
             }
             Section("운전자 응답 넣기")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Choice("\"응\"", false) { a.say("응") }
+                Choice("\"여기서 쉴게요\"", false) { a.say("여기서 쉴게요") }
                 Choice("\"나중에\"", false) { a.say("나중에") }
-                Choice("\"아직 멀었어?\"", false) { a.say("아직 멀었어?") }
+                Choice("\"잠깐 다녀올게\"", false) { a.say("잠깐 다녀올게") }
+            }
+            Section("고갯길 비교 (안내 없이 vs 안내대로, docs/plan/demo_compare.md)")
+            if (compare == null) {
+                Text("경로 형상이 있는 시나리오(pet-trip)에서 계산해요.", style = Pause.type.caption, color = c.ink2)
+            } else {
+                Text(
+                    "멀미 지수 ${compare.unguidedFinal} → ${compare.guidedFinal}  ·  " +
+                        "${compare.unguidedSec / 60}분 → ${compare.guidedSec / 60}분 (굽이 최저 ${compare.guidedMinKph}km/h)",
+                    style = Pause.type.label, color = c.ink,
+                )
+                Text("주의 예보 지수(진단 아님), 합성 고갯길, 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.ink2)
             }
             Section("시안 장면 고정 (화면 검증용)")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -148,13 +160,16 @@ private fun signalRows(s: Snapshot, trip: TripUi): List<Pair<String, String>> = 
     add("hvac temp" to sig(s, Signal.HVAC_TEMP, s.sample.hvacTempC?.let { "%.1f ℃".format(Locale.US, it) }))
     add("recirc" to sig(s, Signal.HVAC_RECIRCULATION, s.sample.recirculationOn?.toString()))
     add("ETA" to (s.eta?.let { "${it.remainDistanceM / 1000} km · ${it.remainTimeSec / 60} 분" } ?: "-"))
+    add("motion" to "${trip.motion.index} ${trip.motion.level} · 최고 ${trip.motion.peak} · 횡가속 ${trip.motion.lateralSource}")
+    add("forecast" to (trip.forecast?.let { "${it.startInM.toInt()}m 뒤 ${it.durationSec}s · 예상 ${it.predictedIndex} · 권장 ${it.recommendedKph}km/h" } ?: "-"))
+    add("wait" to (if (trip.wait.active) "${trip.wait.elapsedSec}s / ${trip.wait.limitSec}s${if (trip.wait.overdue) " 초과" else ""} · 폰 ${trip.share.pageUrl ?: "연결 안 됨"}" else "-"))
+    add("arrival" to (trip.arrival?.let { if (it.strong) "내렸나요? (강하게)" else "내렸나요?" } ?: if (trip.leftConfirmed) "내렸어요" else "-"))
+    add("heading" to sig(s, Signal.HEADING, s.sample.headingDeg?.let { "%.0f°".format(Locale.US, it) }))
     add("fatigue" to (trip.fatigue?.let { "${it.score} ${it.level} · 연속 ${it.continuousDriveMinutes}분" } ?: "-"))
     add("rest stops" to (trip.stopSource?.let { "${trip.stopCount}곳 ($it)" } ?: "-"))
     add("plan" to (trip.plan?.stops?.joinToString { it.stop.name } ?: "-"))
     add("suggestion" to (trip.suggestion ?: "-"))
     add("spoken" to (trip.lastSpoken ?: "-"))
-    add("radio" to (trip.radio.title?.let { "${trip.radio.index + 1}/${trip.radio.count} $it${if (trip.radio.draft) "  [DRAFT]" else ""}" } ?: if (trip.radioUnlocked) "열림 (다음 구간)" else "-"))
-    add("missions" to (trip.missions.joinToString { (if (it.id in trip.missionsDone) "✓" else "·") + it.title }.ifEmpty { "-" }))
     add("waypoints" to s.waypoints.joinToString().ifEmpty { "-" })
 }
 

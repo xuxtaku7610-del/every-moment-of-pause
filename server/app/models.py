@@ -31,8 +31,8 @@ Tz = DateTime(timezone=True)
 
 EVENT_TYPES = (
     "recommendation_shown", "recommendation_accepted", "recommendation_declined",
-    "stop_started", "stop_ended", "fatigue_peak", "kid_question",
-    "pause_activity_started", "pause_activity_ended",
+    "stop_started", "stop_ended", "fatigue_peak", "motion_peak",
+    "pause_activity_started", "pause_activity_ended", "wait_started", "wait_ended",
 )
 
 
@@ -94,60 +94,6 @@ class RestStopFacility(Base):
     quantity: Mapped[int] = mapped_column(Integer, server_default=text("1"))
 
 
-class ContentEpisode(Base):
-    __tablename__ = "content_episodes"
-    __table_args__ = (
-        CheckConstraint(_in("topic", ("proverb", "common_sense", "safety", "manners")), name="ck_content_episodes_topic"),
-        CheckConstraint("duration_sec BETWEEN 30 AND 900", name="ck_content_episodes_duration"),
-        CheckConstraint("min_age <= max_age", name="ck_content_episodes_age"),
-        Index("idx_episodes_lookup", "topic", "reviewed", "min_age", "max_age"),
-    )
-
-    id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    topic: Mapped[str] = mapped_column(String(32))
-    title: Mapped[str] = mapped_column(String(128))
-    script: Mapped[str] = mapped_column(Text)
-    quiz: Mapped[dict | None] = mapped_column(JsonType)
-    duration_sec: Mapped[int] = mapped_column(Integer)
-    min_age: Mapped[int] = mapped_column(Integer, server_default=text("4"))
-    max_age: Mapped[int] = mapped_column(Integer, server_default=text("12"))
-    reviewed: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
-    created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
-
-
-class Mission(Base):
-    __tablename__ = "missions"
-    __table_args__ = (CheckConstraint(_in("context", ("rest_stop", "charging")), name="ck_missions_context"),)
-
-    id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    context: Mapped[str] = mapped_column(String(16))
-    title: Mapped[str] = mapped_column(String(64))
-    instructions: Mapped[str] = mapped_column(Text)
-    duration_sec: Mapped[int] = mapped_column(Integer)
-    min_age: Mapped[int] = mapped_column(Integer, server_default=text("4"))
-    reviewed: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
-
-
-class Playlist(Base):
-    __tablename__ = "playlists"
-
-    id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    device_id: Mapped[str] = mapped_column(String(32), ForeignKey("devices.id", ondelete="CASCADE"))
-    target_sec: Mapped[int] = mapped_column(Integer)
-    total_sec: Mapped[int] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
-
-
-class PlaylistItem(Base):
-    __tablename__ = "playlist_items"
-
-    playlist_id: Mapped[str] = mapped_column(
-        String(32), ForeignKey("playlists.id", ondelete="CASCADE"), primary_key=True
-    )
-    position: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
-    episode_id: Mapped[str] = mapped_column(String(32), ForeignKey("content_episodes.id"))
-
-
 class Trip(Base):
     __tablename__ = "trips"
     __table_args__ = (
@@ -198,3 +144,71 @@ class LlmCallLog(Base):
     latency_ms: Mapped[int] = mapped_column(Integer)
     fallback_used: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+
+
+PLACE_CATEGORIES = ("restaurant", "cafe", "lodging", "tour", "walk")
+
+
+class PetPlace(Base):
+    """반려동물 동반 장소 (F4, 마이그레이션 0003). source: tourapi | sample."""
+    __tablename__ = "pet_places"
+    __table_args__ = (
+        CheckConstraint(_in("source", ("tourapi", "sample")), name="ck_pet_places_source"),
+        CheckConstraint(_in("category", PLACE_CATEGORIES), name="ck_pet_places_category"),
+        Index("idx_pet_places_latlng", "lat", "lng"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(64), unique=True)
+    source: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(128))
+    category: Mapped[str] = mapped_column(String(16))
+    lat: Mapped[float] = mapped_column(Float)
+    lng: Mapped[float] = mapped_column(Float)
+    address: Mapped[str | None] = mapped_column(String(256))
+    pet_policy: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+
+
+class VetClinic(Base):
+    """동물병원 (F5, 마이그레이션 0003). source: licensing | sample. 샘플은 전화번호를 지어내지 않는다."""
+    __tablename__ = "vet_clinics"
+    __table_args__ = (
+        CheckConstraint(_in("source", ("licensing", "sample")), name="ck_vet_clinics_source"),
+        Index("idx_vet_clinics_latlng", "lat", "lng"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    license_no: Mapped[str] = mapped_column(String(64), unique=True)
+    source: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(128))
+    address: Mapped[str | None] = mapped_column(String(256))
+    phone: Mapped[str | None] = mapped_column(String(32))
+    lat: Mapped[float] = mapped_column(Float)
+    lng: Mapped[float] = mapped_column(Float)
+    open: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+
+
+WAIT_STATES = ("waiting", "overdue", "ended")
+
+
+class WaitSession(Base):
+    """대기 공유 (F3, 마이그레이션 0003). 토큰 원문 대신 SHA-256 해시가 키. **위치 컬럼을 두지 않는다.**"""
+    __tablename__ = "wait_sessions"
+    __table_args__ = (
+        CheckConstraint(_in("state", WAIT_STATES), name="ck_wait_sessions_state"),
+        CheckConstraint("limit_min BETWEEN 1 AND 120", name="ck_wait_sessions_limit"),
+        Index("idx_wait_sessions_device", "device_id"),
+    )
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(32), ForeignKey("devices.id", ondelete="CASCADE"))
+    state: Mapped[str] = mapped_column(String(16), server_default=text("'waiting'"))
+    limit_min: Mapped[int] = mapped_column(Integer)
+    elapsed_sec: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    battery_percent: Mapped[int | None] = mapped_column(Integer)
+    cabin_temp_c: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(Tz)
