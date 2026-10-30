@@ -71,6 +71,13 @@ class MotionComfortEngine private constructor(
     constructor(profile: PetProfile = PetProfile.DEFAULT, shape: RouteShapeProvider? = null, sampleHz: Double = 1.0) :
         this(MotionConstants.sensitivity(profile), shape, sampleHz)
 
+    /**
+     * 잠시 민감도를 올린다 (UPGRADE 7 "콩이가 이상해요" — 불안·멀미 초기 신호 뒤 부드러운 주행 안내). 1.0 = 그대로.
+     * 지수·예보 모두에 곱해진다. TripBrain이 시간이 지나면 1.0으로 되돌린다.
+     */
+    var boost: Double = 1.0
+        set(v) { field = v.coerceIn(1.0, 2.0) }
+
     private var bandX = BandPass(sampleHz)
     private var bandY = BandPass(sampleHz)
     private var dose = 0.0
@@ -117,7 +124,7 @@ class MotionComfortEngine private constructor(
         val tau = if (moving) MotionConstants.TAU_DRIVE_SEC else MotionConstants.TAU_REST_SEC
         dose = dose * exp(-dt / tau) + (fx * fx + fy * fy) * dt
         val msdv = sqrt(dose)
-        val index = (100 * (1 - exp(-sensitivity * msdv / MotionConstants.INDEX_SCALE_MSDV))).roundToInt().coerceIn(0, 100)
+        val index = (100 * (1 - exp(-sensitivity * boost * msdv / MotionConstants.INDEX_SCALE_MSDV))).roundToInt().coerceIn(0, 100)
         val driving = state.drivingSec + if (moving) dt.roundToInt() else 0
         val firstCaution = state.firstCautionDrivingSec ?: driving.takeIf { index >= MotionConstants.CAUTION }
         state = MotionState(index, motionLevelOf(index), msdv, max(state.peak, index), driving, firstCaution, src)
@@ -200,6 +207,7 @@ class MotionComfortEngine private constructor(
 
     /** 예보용 복사본: 방위 대신 경로 형상으로 이어서 계산한다. */
     private fun fork(): MotionComfortEngine = MotionComfortEngine(sensitivity, shape, sampleHz).also {
+        it.boost = boost
         it.bandX = bandX.copy()
         it.bandY = bandY.copy()
         it.dose = dose

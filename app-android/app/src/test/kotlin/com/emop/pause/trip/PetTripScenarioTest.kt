@@ -6,6 +6,8 @@ import com.emop.pause.data.BundledRestStops
 import com.emop.pause.data.alongRoute
 import com.emop.pause.engine.motion.MotionForecast
 import com.emop.pause.engine.motion.RouteShape
+import com.emop.pause.engine.motion.TbtRouteShape
+import com.emop.pause.engine.motion.GuidanceFromShape
 import com.emop.pause.engine.planner.Facility
 import com.emop.pause.engine.planner.PetTripPreview
 import com.emop.pause.engine.planner.PlanDecision
@@ -28,11 +30,13 @@ class PetTripScenarioTest {
 
     private data class Run(val suggestions: List<Pair<Int, PlanDecision.Suggest>>, val forecasts: List<Pair<Int, MotionForecast>>, val motionAt: Map<Int, Int>)
 
-    private fun replay(): Run {
+    private fun replay(guidanceOnly: Boolean = false): Run {
         val route = scenario.route
         val stops = bundled.alongRoute(route.points.map { it.toModel() }, route.totalDistanceM.toDouble())
         val shape = RouteShape.fromLatLng(Gpx.parse(File("../../scenarios/${route.shapeGpx}").readText()))
-        val brain = TripBrain(PresetStore.fromScenario(scenario.setup), shape, route.shapeStartM) { stops }
+        // guidanceOnly: GPX 대신 GPX에서 만든 가짜 내비 안내 + 진행 방위만 (UPGRADE 5, 발표 모드 "회전 안내")
+        val brain = if (guidanceOnly) TripBrain(PresetStore.fromScenario(scenario.setup), TbtRouteShape(), route.shapeStartM, GuidanceFromShape(shape!!)) { stops }
+        else TripBrain(PresetStore.fromScenario(scenario.setup), shape, route.shapeStartM) { stops }
         var mode = ModeState()
         val sug = mutableListOf<Pair<Int, PlanDecision.Suggest>>()
         val fc = mutableListOf<Pair<Int, MotionForecast>>()
@@ -64,6 +68,28 @@ class PetTripScenarioTest {
         assertTrue(t in jump - 120..jump + 300, "첫 제안 t=$t, 장면 $jump, ${d.stop.name} ${d.reasons} ${d.minutesAway}분")
         assertTrue(Facility.PET_ZONE in d.stop.facilities, d.stop.name)
         assertEquals("횡성휴게소", d.stop.name, "시나리오가 서는 곳과 같아야 시연 흐름이 맞는다")
+    }
+
+    @Test
+    fun `F1-15 회전 안내만 켠 모드에서도 pet-trip 고갯길 예보가 나온다 (GPX 없이)`() {
+        val gpx = replay()
+        val guided = replay(guidanceOnly = true)
+        val mountainAt = DemoScenes.JUMPS.first { it.label == "고갯길 예보" }.tSec
+        val (tg, fg) = guided.forecasts.first { it.first >= mountainAt - 300 }
+        val (tx, _) = gpx.forecasts.first { it.first >= mountainAt - 300 }
+        // 안내는 앞 3km만 보므로 GPX보다 늦게 말한다(2026-10-30: GPX t=8692, 회전 안내 t=8872 — shape_compare.md).
+        // 지켜야 할 것: 굽이에 들어서기 전에(남은 거리 ≥ 알림 최소 300m) 말한다.
+        assertTrue(tg > tx, "회전 안내 t=$tg, GPX t=$tx")
+        assertTrue(fg.startInM in TripBrain.ANNOUNCE_MIN_AHEAD_M..GuidanceFromShape.HORIZON_M, "시작 ${fg.startInM}m (t=$tg) — 굽이 앞에서, 앞 3km 안")
+        println("F1-15 예보 시각: GPX t=$tx, 회전 안내 t=$tg (차이 ${tg - tx}초), 회전 안내 시작 ${fg.startInM.toInt()}m")
+        // 고갯길에서 지수가 오르는 것은 같다. 다만 pet-trip 시나리오에는 방위 신호가 없어 "지금" 횡가속도 형상에서 구하므로,
+        // 회전 안내 모드의 가정 원호(R10~15m)가 실제 굽이보다 급해 지수가 더 높게 나온다(2026-10-30: GPX 54, 회전 안내 77).
+        // 실차는 방위로 지금 값을 재므로 이 차이가 없다 — shape_compare.md.
+        val g = guided.motionAt.getValue(9_840)
+        val x = gpx.motionAt.getValue(9_840)
+        assertTrue(g >= guided.motionAt.getValue(8_820) + 15, "회전 안내 모드에서도 고갯길에서 지수가 오른다")
+        assertTrue(g >= x, "가정 원호가 더 급하므로 같거나 높다: GPX $x, 회전 안내 $g")
+        println("F1-15 고갯길 뒤 지수: GPX $x, 회전 안내 $g")
     }
 
     @Test

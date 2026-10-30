@@ -113,3 +113,25 @@ def test_f3_10_phone_returning_reaches_car(client):
     assert client.put(f"{V1}/wait/{token}", json=body, headers=h).json()["returning"] is True
     assert "차 화면에" in client.get(f"/wait/{token}").text
     assert client.post("/wait/nope/returning").status_code == 404
+
+
+def test_f3_12_phone_page_heat_banner_and_no_made_up_temperature(client, monkeypatch):
+    # UPGRADE 2: 대기 중 실내 온도가 오르면 폰 페이지에 배너. 온도를 모르면 숫자 없이(여름이면) 일반 문구만.
+    from app.api import wait as wait_api
+
+    h = register(client)
+    token = _start(client, h)["token"]
+    put = lambda temp, sec: client.put(f"{V1}/wait/{token}", json={"state": "waiting", "elapsedSec": sec, "limitMin": 10, "cabinTempC": temp}, headers=h)
+    put(23.4, 30)
+    assert "오르고 있어요" not in client.get(f"/wait/{token}").text
+    put(25.6, 90)
+    page = client.get(f"/wait/{token}").text
+    assert "실내 온도가 오르고 있어요" in page and "23℃ → 26℃" in page
+    # 온도 신호가 없는 대기: 온도 칸 없음, 여름(7월)엔 일반 문구, 겨울엔 아무것도
+    token2 = _start(client, h)["token"]
+    client.put(f"{V1}/wait/{token2}", json={"state": "waiting", "elapsedSec": 30, "limitMin": 10}, headers=h)
+    monkeypatch.setattr(wait_api, "_month", lambda: 7)
+    summer = client.get(f"/wait/{token2}").text
+    assert "실내 온도" not in summer and "여름에는 차 안이 빨리 더워져요" in summer and "℃" not in summer
+    monkeypatch.setattr(wait_api, "_month", lambda: 12)
+    assert "여름에는" not in client.get(f"/wait/{token2}").text

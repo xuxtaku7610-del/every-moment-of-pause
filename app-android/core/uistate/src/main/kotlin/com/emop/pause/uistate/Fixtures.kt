@@ -45,6 +45,32 @@ object Fixtures {
 
     val voiceFail = suggest.copy(voice = VoiceSheetState.FAILED)
 
+    val distress = drive.copy(
+        meta = "강릉까지 1시간 50분",
+        content = DriveContent.Distress("에어컨을 낮추고, 다음 안전한 곳에서 멈춰요", "둔내 졸음쉼터", 6),
+        nextStop = null,
+    )
+
+    val restCare = RestUi(
+        meta = "둔내 졸음쉼터에서 쉬는 중",
+        lead = "15분 쉬어 가요",
+        minutes = 15,
+        restChoice = 15,
+        activities = emptyList(),
+        motion = MotionUi(22, MotionTone.CALM, "콩이 컨디션 편안 22"),
+        waitLimitMin = 10,
+        care = CareUi(
+            "헐떡임 — 덥거나 여름",
+            listOf(
+                "그늘에 세우고 에어컨을 켠 채 창문을 조금 열어 주세요.",
+                "물은 조금씩 자주 주세요. 한 번에 많이 마시게 하지 않아요.",
+                "얼음물에 담그지 말고, 미지근한 물로 몸을 적신 뒤 바로 동물병원에 연락해요.",
+            ),
+            reviewed = false,
+        ),
+        distressChips = listOf("헐떡임", "구토", "침 흘림·하품", "낑낑·떨림", "축 처짐"),
+    )
+
     val vetDrive = drive.copy(meta = "동물병원까지 15분", motion = motionCaution, content = DriveContent.Vet("강릉동물병원", "2.3km", 15), nextStop = null)
 
     val depart = DepartUi(
@@ -92,7 +118,7 @@ object Fixtures {
         batteryUsed = "1%",
     )
 
-    val waitOverdue = wait.copy(elapsed = "11분째", overdue = true, cabin = "실내 온도 정보 없음", batteryUsed = null, battery = null)
+    val waitOverdue = wait.copy(elapsed = "11분째", overdue = true, cabin = "실내 27℃", heat = "실내 온도가 오르고 있어요 (24℃ → 27℃)", batteryUsed = null, battery = null)
 
     val places = PlacesUi(
         title = "함께 가는 장소",
@@ -110,12 +136,15 @@ object Fixtures {
             VetUi("vs_2", "[샘플] 강릉시 동물병원 B", "3.1km", "강원특별자치도 강릉시 (샘플)", null, true, minutes = 8),
         ),
         note = "샘플 데이터예요. 전화번호는 실제 인허가 데이터에서만 보여요.",
-        memo = listOf(SymptomUi("구토", true), SymptomUi("침 흘림", false), SymptomUi("헐떡임", false), SymptomUi("떨림", false)),
+        memo = listOf("구토", "설사", "헐떡임", "축 처짐", "떨림", "기타").map { SymptomUi(it, it == "구토") },
+        memoText = "구토 두 번, 물은 조금 마셨어요",
+        memoInclude = true,
+        tripLine = "이동 2시간 10분 · 멀미 주의 1회(최고 46)",
     )
 
     val arrival = ArrivalUi("콩이 내렸나요?", strong = false, detail = "내린 뒤 확인을 눌러 주세요.")
 
-    val arrivalHot = ArrivalUi("콩이 내렸나요?", strong = true, detail = "차 안이 금방 더워져요. 꼭 확인해 주세요.", warning = "여름철 실내 온도 주의!", cabin = "실내 28℃")
+    val arrivalHot = ArrivalUi("콩이 내렸나요?", strong = true, detail = "차 안이 금방 더워져요. 꼭 확인해 주세요.", warning = "실내 28℃ — 더워지고 있어요", cabin = "실내 28℃")
 
     val tripLog = TripLogUi(
         meta = "10월 31일, 강릉까지",
@@ -140,6 +169,7 @@ object Fixtures {
             SignalRowUi("방위(멀미 예보)", false),
         ),
         version = "1.0.0",
+        shapeSource = "시연 경로 (OSM GPX)",
     )
 
     fun onboarding(step: Int) = OnboardingUi(
@@ -158,6 +188,8 @@ object Fixtures {
         Scene.URGENT -> Screen.Drive(urgent)
         Scene.RESTRICTED -> Screen.Drive(restricted)
         Scene.VET_DRIVE -> Screen.Drive(vetDrive)
+        Scene.DISTRESS -> Screen.Drive(distress)
+        Scene.REST_CARE -> Screen.Rest(restCare)
         Scene.REST -> Screen.Rest(rest)
         Scene.WAIT -> Screen.Wait(wait)
         Scene.WAIT_OVERDUE -> Screen.Wait(waitOverdue)

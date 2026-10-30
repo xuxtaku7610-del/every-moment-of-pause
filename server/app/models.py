@@ -171,6 +171,9 @@ class PetPlace(Base):
     image_url: Mapped[str | None] = mapped_column(String(512))
     space_note: Mapped[str | None] = mapped_column(String(100))
     size_note: Mapped[str | None] = mapped_column(String(100))
+    # 필터 (UPGRADE 6): 명시됐을 때만 True/False, 모르면 NULL("정보 없음")
+    large_dog_ok: Mapped[bool | None] = mapped_column(Boolean)
+    indoor_ok: Mapped[bool | None] = mapped_column(Boolean)
     companion: Mapped[str | None] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
 
@@ -214,6 +217,8 @@ class WaitSession(Base):
     elapsed_sec: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     battery_percent: Mapped[int | None] = mapped_column(Integer)
     cabin_temp_c: Mapped[float | None] = mapped_column(Float)
+    # 0004: 대기 중 처음 받은 실내 온도 — 오르는지 비교 (UPGRADE 2)
+    cabin_temp_start_c: Mapped[float | None] = mapped_column(Float)
     # 0004: 보호자가 폰 페이지에서 "돌아가는 중"을 눌렀다 (차 화면 문구가 바뀐다).
     guardian_returning: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
@@ -235,5 +240,7 @@ class EtaShare(Base):
     vet_name: Mapped[str] = mapped_column(String(128))
     eta_minutes: Mapped[int] = mapped_column(Integer)
     symptoms: Mapped[str | None] = mapped_column(String(200))
+    memo: Mapped[str | None] = mapped_column(String(200))
+    trip_line: Mapped[str | None] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(Tz)

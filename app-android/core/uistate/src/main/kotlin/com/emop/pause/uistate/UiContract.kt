@@ -36,7 +36,7 @@ data class AppUiState(
 )
 
 /** 발표 모드에서 고정 장면을 보여 줄 때 (화면 검증·PT 예비용). [Fixtures.screen]이 상태를 만든다. */
-enum class Scene { DEPART, DRIVE, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, REST, WAIT, WAIT_OVERDUE, PLACES, VETS, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
+enum class Scene { DEPART, DRIVE, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, DISTRESS, REST_CARE, REST, WAIT, WAIT_OVERDUE, PLACES, VETS, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
 
 /** 화면 → ViewModel. 화면은 이 이벤트만 보내고, 무엇이 일어나는지는 ViewModel이 정한다. */
 sealed interface UiEvent {
@@ -46,6 +46,11 @@ sealed interface UiEvent {
     // 주행 (쉼표 추천 카드·음성 실패 시트)
     data object AcceptSuggestion : UiEvent
     data object DeclineSuggestion : UiEvent
+
+    // "콩이가 이상해요" (UPGRADE 7): 주행 중 카드 버튼, 정차 중 고르기
+    data object AcceptDistress : UiEvent
+    data object DismissDistress : UiEvent
+    data class ReportDistress(val label: String) : UiEvent
 
     // 출발 체크
     data class ToggleCheck(val kind: CheckKind) : UiEvent
@@ -74,10 +79,21 @@ sealed interface UiEvent {
     /** 동물병원 도착 예정 공유 링크 만들기 (정차 중). 위치는 보내지 않는다. */
     data class ShareVetEta(val id: String) : UiEvent
 
+    // 증상 메모 (동물병원 화면, 정차 중) — 기기에만 저장
+    data class ToggleMemoChip(val label: String) : UiEvent
+    data class SetMemoText(val text: String) : UiEvent
+    data object ToggleMemoInclude : UiEvent
+    /** 음성 메모(Android STT) 한 번 받아쓰기. */
+    data object StartMemoVoice : UiEvent
+
     // 도착·기록 (F6·F7)
     data object ConfirmLeft : UiEvent
     data class ToggleSymptom(val label: String) : UiEvent
     data object FinishTrip : UiEvent
+    /** 도착 뒤 "오늘 멀미했어요?" 답. null = 건너뛰기. */
+    data class AnswerMotion(val answer: MotionAnswerUi?) : UiEvent
+    /** 프로필: 개인 맞춤 보정 기록 지우기. */
+    data object ResetCalibration : UiEvent
 
     // 반려견 프로필
     data class SetPetName(val name: String) : UiEvent

@@ -22,6 +22,7 @@ object DrivingRules {
         ui.voice == VoiceSheetState.FAILED -> 2
         else -> when (val c = ui.content) {
             is DriveContent.Suggest -> if (c.urgent) 1 else 2
+            is DriveContent.Distress -> 2
             else -> 0
         }
     }
@@ -45,6 +46,10 @@ object DrivingRules {
                 if ((c.coach?.length ?: 0) > MAX_LINE_CHARS) add("코칭 ${c.coach!!.length}자 > $MAX_LINE_CHARS: ${c.coach}")
             }
             is DriveContent.Vet -> place(c.name)
+            is DriveContent.Distress -> {
+                block("반려견 안내", c.line)
+                c.target?.let { place(it) }
+            }
             is DriveContent.Suggest -> {
                 place(c.place)
                 if (c.reasons.size > MAX_REASONS) add("이유 ${c.reasons.size}개 > $MAX_REASONS")

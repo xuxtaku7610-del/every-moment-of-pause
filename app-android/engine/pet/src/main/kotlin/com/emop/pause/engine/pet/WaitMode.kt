@@ -10,7 +10,7 @@ data class WaitInput(
     val gear: Gear?,
     val parkingBrakeOn: Boolean? = null,
     val batterySocPercent: Int? = null,
-    /** 실내 온도(℃). 에뮬레이터·차종에 따라 없다 → null이면 화면에 "실내 온도 정보 없음". */
+    /** 실내 온도 측정값(℃). 에뮬레이터·차종에 따라 없다 → null이면 온도 표시를 숨긴다(CabinHeat). */
     val cabinTempC: Float? = null,
 )
 
@@ -33,7 +33,12 @@ data class WaitStatus(
     val batteryStart: Int? = null,
     val batteryNow: Int? = null,
     val cabinTempC: Float? = null,
+    /** 대기 중 처음 받은 실내 온도 (오르는지 비교, UPGRADE 2). */
+    val cabinTempStartC: Float? = null,
 ) {
+    /** 대기 중 실내 온도가 오르는 중 ([CabinHeat.rising]). 온도를 모르면 false. */
+    val heatRising: Boolean get() = CabinHeat.rising(cabinTempStartC, cabinTempC)
+
     /** 시작 대비 배터리 변화(%p). 신호가 없으면 null. */
     val batteryDelta: Int? get() = if (batteryStart != null && batteryNow != null) batteryNow - batteryStart else null
     val remainingSec: Int get() = limitSec - elapsedSec
@@ -58,7 +63,7 @@ class WaitMode(limitMin: Int = DEFAULT_LIMIT_MIN) {
     /** "잠깐 다녀올게". P단이 아니면 시작하지 않고 빈 목록. */
     fun start(i: WaitInput): List<WaitEvent> {
         if (status.active || !canStart(i)) return emptyList()
-        status = WaitStatus(true, i.nowMs, 0, status.limitSec, false, i.batterySocPercent, i.batterySocPercent, i.cabinTempC)
+        status = WaitStatus(true, i.nowMs, 0, status.limitSec, false, i.batterySocPercent, i.batterySocPercent, i.cabinTempC, i.cabinTempC)
         return listOf(WaitEvent.Started)
     }
 
@@ -73,6 +78,7 @@ class WaitMode(limitMin: Int = DEFAULT_LIMIT_MIN) {
             overdue = status.overdue || becameOverdue,
             batteryNow = i.batterySocPercent ?: status.batteryNow,
             cabinTempC = i.cabinTempC,
+            cabinTempStartC = status.cabinTempStartC ?: i.cabinTempC,
         )
         return if (becameOverdue) listOf(WaitEvent.Overdue) else emptyList()
     }

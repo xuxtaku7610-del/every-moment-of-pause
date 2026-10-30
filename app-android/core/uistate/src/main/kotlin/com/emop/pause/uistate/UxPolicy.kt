@@ -38,6 +38,7 @@ object UxPolicy {
                 is DriveContent.Forecast -> c.copy(line = shorten(c.line, m)!!, title = shorten(c.title, m), coach = null)
                 is DriveContent.Suggest -> c.copy(reasons = c.reasons.take(1))
                 is DriveContent.Heading, is DriveContent.Vet -> c
+                is DriveContent.Distress -> c.copy(line = shorten(c.line, m)!!)
             },
         )
     }

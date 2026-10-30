@@ -93,15 +93,18 @@ import com.emop.pause.ui.theme.Pause
 import com.emop.pause.ui.theme.PauseTheme
 import com.emop.pause.ui.theme.WidthClass
 import com.emop.pause.uistate.ArrivalUi
+import com.emop.pause.uistate.CareSheet
 import com.emop.pause.uistate.DepartUi
 import com.emop.pause.uistate.DriveContent
 import com.emop.pause.uistate.DriveUi
 import com.emop.pause.uistate.Fixtures
 import com.emop.pause.uistate.MotionQuiz
+import com.emop.pause.uistate.MotionAnswerUi
 import com.emop.pause.uistate.MotionTone
 import com.emop.pause.uistate.OnboardingUi
 import com.emop.pause.uistate.PetEditUi
 import com.emop.pause.uistate.PlacesUi
+import com.emop.pause.uistate.PlaceFilter
 import com.emop.pause.uistate.RestUi
 import com.emop.pause.uistate.SettingsUi
 import com.emop.pause.uistate.SizeUi
@@ -167,8 +170,10 @@ fun DriveScreen(ui: DriveUi, on: On) {
             when {
                 ui.restricted -> RestrictedDrive(ui)
                 wc == WidthClass.THIRD -> ThirdDrive(ui, on)
+                content is DriveContent.Distress -> DistressDrive(content, on)
                 content is DriveContent.Forecast -> ForecastDrive(ui, content, wc)
-                content is DriveContent.Suggest && ui.voice == null -> SuggestDrive(ui, content, wc, on)
+                // 음성으로 묻는 중(LISTENING)에도 추천 카드는 보이고 버튼만 숨긴다. 실패하면 아래 시트가 버튼 2개.
+                content is DriveContent.Suggest -> SuggestDrive(ui, content, wc, on, buttons = ui.voice == null)
                 else -> CalmDrive(ui, wc)
             }
         }
@@ -217,6 +222,7 @@ private fun CalmDrive(ui: DriveUi, wc: WidthClass) {
         is DriveContent.Forecast -> ct.line
         is DriveContent.Suggest -> "${ct.minutes}분 뒤 ${ct.place}에서 쉬어 갈까요?"
         is DriveContent.Vet -> null
+        is DriveContent.Distress -> ct.line
     }
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
         val vet = ui.content as? DriveContent.Vet
@@ -225,7 +231,6 @@ private fun CalmDrive(ui: DriveUi, wc: WidthClass) {
         Box(Modifier.weight(if (wc == WidthClass.FULL) 0.65f else 0.5f).fillMaxHeight().clip(RoundedCornerShape(d.cardRadius))) {
             RoadIllustration(ui.roadAhead, Modifier.fillMaxSize())
             ui.nextStop?.let { NextStopPill(it, Modifier.align(Alignment.TopEnd).padding(d.u(16f))) }
-            ui.toast?.let { Toast(it, Modifier.align(Alignment.BottomCenter).padding(d.u(16f))) }
         }
     }
 }
@@ -319,7 +324,7 @@ private fun Stat(label: String, value: String, color: Color, align: Alignment.Ho
 
 /** 쉼표 추천 (4번): 휴게소 그림 35% · 장소·분·거리·이유 2개 · 버튼 2개(피로 위험이면 1개) + 음성 힌트. */
 @Composable
-private fun SuggestDrive(ui: DriveUi, s: DriveContent.Suggest, wc: WidthClass, on: On) {
+private fun SuggestDrive(ui: DriveUi, s: DriveContent.Suggest, wc: WidthClass, on: On, buttons: Boolean = true) {
     val c = Pause.colors
     val d = Pause.dimens
     V5Card(Modifier.fillMaxSize(), pad = d.u(24f), spacing = d.gap) {
@@ -343,11 +348,50 @@ private fun SuggestDrive(ui: DriveUi, s: DriveContent.Suggest, wc: WidthClass, o
                 }
             }
         }
+        if (!buttons) return@V5Card
         Row(horizontalArrangement = Arrangement.spacedBy(d.gap)) {
             PauseButton("여기서 쉴게요", { on(UiEvent.AcceptSuggestion) }, Modifier.weight(1f))
             if (!s.urgent) PauseButton("다음 휴게소로", { on(UiEvent.DeclineSuggestion) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
         }
         VoiceHint(if (s.urgent) "“여기서 쉴게요”라고 말해도 돼요" else "“여기서 쉴게요” 또는 “나중에”라고 말해도 돼요")
+    }
+}
+
+/** "콩이가 이상해요" (UPGRADE 7): 안내 2줄 이하 + 버튼 2개 + 하단 고정 문구(진단 아님). 애니메이션 없음. */
+@Composable
+private fun DistressDrive(dc: DriveContent.Distress, on: On) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    V5Card(Modifier.fillMaxSize(), tint = c.warningSoft, pad = d.u(28f), spacing = d.gap) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StatusIcon(if (dc.vet) "ic_hospital" else "ic_warning", if (dc.vet) R.drawable.fe_hospital else R.drawable.fe_warning, d.u(48f))
+            Spacer(Modifier.width(d.u(16f)))
+            Text("반려견 안내", style = Pause.type.h2, color = c.warningInk)
+        }
+        Text(dc.line, style = Pause.type.display, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        dc.target?.let { t -> Text(listOfNotNull(t, dc.minutes?.let { "약 ${it}분" }).joinToString(" · "), style = Pause.type.h2, color = c.text, maxLines = 1) }
+        Spacer(Modifier.weight(1f))
+        DistressButtons(dc, on, vertical = false)
+        Text(CareSheet.DISCLAIMER, style = Pause.type.label, color = c.sub)
+    }
+}
+
+@Composable
+private fun DistressButtons(dc: DriveContent.Distress, on: On, vertical: Boolean) {
+    val d = Pause.dimens
+    val primary = when {
+        dc.vet -> "동물병원으로"
+        dc.target != null -> "${dc.target}로"
+        else -> "알겠어요"
+    }
+    if (vertical) {
+        PauseButton(primary, { on(UiEvent.AcceptDistress) }, Modifier.fillMaxWidth())
+        PauseButton("괜찮아졌어요", { on(UiEvent.DismissDistress) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY)
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(d.gap)) {
+            PauseButton(primary, { on(UiEvent.AcceptDistress) }, Modifier.weight(1f))
+            PauseButton("괜찮아졌어요", { on(UiEvent.DismissDistress) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+        }
     }
 }
 
@@ -371,6 +415,7 @@ private fun RestrictedDrive(ui: DriveUi) {
         is DriveContent.Suggest -> "${ct.minutes}분 뒤 ${ct.place}"
         is DriveContent.Heading -> "${ct.minutes}분 뒤 ${ct.place}"
         is DriveContent.Vet -> "${ct.name} ${ct.distance}"
+        is DriveContent.Distress -> ct.line
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = Pause.type.display, color = c.text, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -392,9 +437,11 @@ private fun ThirdDrive(ui: DriveUi, on: On) {
             is DriveContent.Suggest -> "${ct.minutes}분 뒤 ${ct.place}"
             is DriveContent.Heading -> "${ct.minutes}분 뒤 ${ct.place}로 가는 중"
             is DriveContent.Vet -> "${ct.name} · ${ct.distance}"
+            is DriveContent.Distress -> ct.line
         }
         line?.let { Text(it, style = Pause.type.h2, color = c.warningInk.takeIf { ui.content is DriveContent.Forecast } ?: c.text, maxLines = 2) }
         Spacer(Modifier.weight(1f))
+        (ui.content as? DriveContent.Distress)?.let { dc -> DistressButtons(dc, on, vertical = true) }
         val s = ui.content as? DriveContent.Suggest
         if (s != null && ui.voice == null) {
             PauseButton("여기서 쉴게요", { on(UiEvent.AcceptSuggestion) }, Modifier.fillMaxWidth())
@@ -408,6 +455,8 @@ private fun ThirdDrive(ui: DriveUi, on: On) {
 private fun DriveFooter(ui: DriveUi, on: On) {
     val c = Pause.colors
     val d = Pause.dimens
+    // 결과 한 줄("경로에 넣었어요", "곧 도착해요 … 산책 어때요?")은 어느 주행 배치에서도 보인다.
+    if (!ui.restricted) ui.toast?.let { Toast(it, Modifier.fillMaxWidth()) }
     when (ui.voice) {
         VoiceSheetState.LISTENING -> V5Card(Modifier.fillMaxWidth(), tint = c.primarySoft) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -420,7 +469,7 @@ private fun DriveFooter(ui: DriveUi, on: On) {
             Text("잘 못 들었어요. 버튼으로 골라 주세요.", style = Pause.type.h2, color = c.text)
             Row(horizontalArrangement = Arrangement.spacedBy(d.gap)) {
                 PauseButton("여기서 쉴게요", { on(UiEvent.AcceptSuggestion) }, Modifier.weight(1f))
-                PauseButton("나중에", { on(UiEvent.DeclineSuggestion) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+                PauseButton("다음 휴게소로", { on(UiEvent.DeclineSuggestion) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
             }
         }
         null -> if (ui.offline) Text("인터넷 없이 내장 데이터로 안내 중", style = Pause.type.label, color = c.sub)
@@ -498,6 +547,28 @@ fun RestScreen(ui: RestUi, on: On) {
     val c = Pause.colors
     val d = Pause.dimens
     Page(ui.meta, on, scroll = true) { wc ->
+        // "콩이 돌보기" (UPGRADE 7): 주행 중에 말한 증상의 체크리스트, 정차 중에만
+        ui.care?.let { cu ->
+            V5Card(Modifier.fillMaxWidth(), tint = c.warningSoft, pad = d.u(24f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("콩이 돌보기 — ${cu.title}", style = Pause.type.h1, color = c.text, modifier = Modifier.weight(1f))
+                    if (!cu.reviewed) StatusChip("검수 전", neutral = true)
+                }
+                cu.lines.forEach { line ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        CheckCircle(false)
+                        Spacer(Modifier.width(d.u(12f)))
+                        Text(line, style = Pause.type.body, color = c.text)
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(cu.disclaimer, style = Pause.type.label, color = c.sub, modifier = Modifier.weight(1f))
+                    PauseButton("동물병원", { on(UiEvent.OpenVets) }, kind = ButtonKind.SECONDARY, compact = true)
+                    Spacer(Modifier.width(d.unit))
+                    PauseButton("괜찮아졌어요", { on(UiEvent.DismissDistress) }, kind = ButtonKind.SECONDARY, compact = true)
+                }
+            }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
             V5Card(Modifier.weight(0.4f), pad = d.u(24f)) {
                 Text(ui.lead, style = Pause.type.display, color = c.text)
@@ -529,6 +600,15 @@ fun RestScreen(ui: RestUi, on: On) {
             PauseButton("함께 가는 장소", { on(UiEvent.OpenPlaces) }, kind = ButtonKind.SECONDARY)
             PauseButton("동물병원", { on(UiEvent.OpenVets) }, kind = ButtonKind.SECONDARY)
         }
+        if (ui.distressChips.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("콩이가 이상해요", style = Pause.type.h2, color = c.text)
+                Spacer(Modifier.width(d.u(16f)))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
+                    ui.distressChips.forEach { l -> Choice(l, false, { on(UiEvent.ReportDistress(l)) }) }
+                }
+            }
+        }
     }
 }
 
@@ -542,6 +622,9 @@ fun WaitScreen(ui: WaitUi, on: On) {
         ui.notice?.let { n ->
             WarningBanner(Modifier.fillMaxWidth(), icon = R.drawable.fe_warning, iconAsset = "ic_warning") { Text(n, style = Pause.type.h2, color = c.text) }
         }
+        ui.heat?.let { h ->
+            WarningBanner(Modifier.fillMaxWidth(), icon = R.drawable.fe_thermometer, iconAsset = "ic_thermometer") { Text(h, style = Pause.type.h2, color = c.warningInk) }
+        }
         Column(Modifier.fillMaxWidth().weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             if (ui.overdue) StatusIcon("ic_warning", R.drawable.fe_warning, d.u(120f)) else StatusIcon("wait_house_dog", R.drawable.fe_house, d.u(160f))
             Spacer(Modifier.height(d.gap))
@@ -551,7 +634,8 @@ fun WaitScreen(ui: WaitUi, on: On) {
             Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f)), verticalAlignment = Alignment.CenterVertically) {
                 ui.batteryUsed?.let { IconLine(Icons.Rounded.BatteryStd, "배터리 $it 사용", c.text) }
                 IconLine(Icons.Rounded.Timer, "설정 시간 ${ui.limitMin}분", c.text)
-                IconLine(Icons.Rounded.Thermostat, ui.cabin, c.text)
+                ui.cabin?.let { IconLine(Icons.Rounded.Thermostat, it, c.text) }
+                ui.seasonNote?.let { IconLine(Icons.Rounded.Thermostat, it, c.sub) }
             }
             Spacer(Modifier.height(d.unit))
             Text(
@@ -575,19 +659,23 @@ fun PlacesScreen(ui: PlacesUi, on: On) {
     val c = Pause.colors
     val d = Pause.dimens
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
+    var largeDog by rememberSaveable { mutableStateOf(false) }
+    var indoor by rememberSaveable { mutableStateOf(false) }
     BackHandler { on(UiEvent.Close) }
     Page(ui.title, on, scroll = true, trailing = { CloseButton(on) }) { wc ->
         if (ui.loading) Text("찾는 중…", style = Pause.type.body, color = c.sub)
         if (!ui.loading && ui.items.isEmpty()) Text("근처에 찾은 곳이 없어요.", style = Pause.type.body, color = c.sub)
         if (ui.items.isNotEmpty()) {
-            val cats = ui.items.groupingBy { it.category }.eachCount()
-            Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
-                Choice("전체 ${ui.items.size}", filter == null, { filter = null })
-                cats.forEach { (k, n) -> Choice("$k $n", filter == k, { filter = k }) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
+                PlaceFilter.groups(ui.items).forEach { (g, n) -> Choice("$g $n", (filter ?: PlaceFilter.ALL) == g, { filter = g }) }
+                Spacer(Modifier.width(d.u(16f)))
+                Choice("대형견 가능", largeDog, { largeDog = !largeDog })
+                Choice("실내 동반 가능", indoor, { indoor = !indoor })
             }
+            PlaceFilter.unknownNote(ui.items, filter, largeDog, indoor)?.let { Text(it, style = Pause.type.label, color = c.sub) }
         }
         V5Card(Modifier.fillMaxWidth(), pad = d.u(8f), spacing = d.u(0f)) {
-            ui.items.filter { filter == null || it.category == filter }.forEachIndexed { i, p ->
+            PlaceFilter.apply(ui.items, filter, largeDog, indoor).shown.forEachIndexed { i, p ->
                 if (i > 0) Box(Modifier.fillMaxWidth().height(d.border).background(c.border))
                 Row(Modifier.fillMaxWidth().heightIn(min = d.u(80f)).padding(d.u(12f)), verticalAlignment = Alignment.CenterVertically) {
                     if (wc != WidthClass.THIRD) {
@@ -668,17 +756,35 @@ fun VetsScreen(ui: VetsUi, on: On) {
                 }
             }
         }
-        V5Card(Modifier.fillMaxWidth(), pad = d.u(20f)) {
+        V5Card(Modifier.fillMaxWidth(), pad = d.u(20f), spacing = d.u(12f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 StatusIcon("ic_mic", R.drawable.fe_microphone, d.u(32f))
                 Spacer(Modifier.width(d.u(12f)))
                 Text("증상 메모", style = Pause.type.h2, color = c.text)
                 Spacer(Modifier.width(d.u(12f)))
-                Text("고른 증상은 도착 예정 공유와 이동 기록에 함께 남아요", style = Pause.type.label, color = c.sub)
+                Text("이 차에만 저장돼요", style = Pause.type.label, color = c.sub, modifier = Modifier.weight(1f))
+                PauseButton(
+                    if (ui.memoListening) "듣고 있어요…" else "음성 메모", { on(UiEvent.StartMemoVoice) },
+                    kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Mic, compact = true, enabled = !ui.memoListening,
+                )
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
-                ui.memo.forEach { s -> Choice(s.label, s.selected, { on(UiEvent.ToggleSymptom(s.label)) }) }
+                ui.memo.forEach { s -> Choice(s.label, s.selected, { on(UiEvent.ToggleMemoChip(s.label)) }) }
             }
+            // 받아쓴 글은 그대로 보여 주고 고칠 수 있다 (정차 중 화면에서만 — 주행 중엔 이 화면이 열리지 않는다)
+            BasicTextField(
+                ui.memoText, { on(UiEvent.SetMemoText(it)) },
+                Modifier.fillMaxWidth().heightIn(min = d.touch).clip(RoundedCornerShape(d.buttonRadius)).background(c.bg)
+                    .border(d.border, c.border, RoundedCornerShape(d.buttonRadius)).padding(horizontal = d.u(16f), vertical = d.u(12f)),
+                textStyle = Pause.type.body.copy(color = c.text),
+                cursorBrush = SolidColor(c.primary),
+                decorationBox = { inner ->
+                    if (ui.memoText.isEmpty()) Text("예: 구토 두 번, 물은 조금 마셨어요", style = Pause.type.body, color = c.sub)
+                    inner()
+                },
+            )
+            ChecklistRow("도착 예정 공유에 증상 메모와 오늘 요약 넣기", ui.memoInclude, { on(UiEvent.ToggleMemoInclude) })
+            ui.tripLine?.let { Text("오늘 요약: $it", style = Pause.type.label, color = c.sub) }
             ui.shareUrl?.let { Text("공유 링크: $it (보호자 폰에서 병원·가족에게 직접 전달해 주세요. 위치는 보내지 않아요.)", style = Pause.type.label, color = c.primary) }
         }
         ui.note?.let { Text(it, style = Pause.type.caption, color = c.sub) }
@@ -699,7 +805,8 @@ fun ArrivalScreen(ui: ArrivalUi, on: On) {
                 if (warning != null) {
                     WarningBanner(Modifier.fillMaxWidth(), icon = R.drawable.fe_thermometer, iconAsset = "ic_thermometer") {
                         Text(warning, style = Pause.type.h1, color = c.warningInk)
-                        ui.cabin?.let { Text(it, style = Pause.type.h1, color = c.warningInk) }
+                        // 제목에 숫자가 이미 있으면 다시 쓰지 않는다
+                        ui.cabin?.takeIf { it !in warning }?.let { Text(it, style = Pause.type.h1, color = c.warningInk) }
                         ui.detail?.let { Text(it, style = Pause.type.h2, color = c.text) }
                     }
                 } else {
@@ -721,6 +828,19 @@ fun TripLogScreen(ui: TripLogUi, on: On) {
     val c = Pause.colors
     val d = Pause.dimens
     Page(ui.meta, on, scroll = true) { wc ->
+        // 개인 맞춤 보정 (UPGRADE 4): 도착 뒤 한 번만, 정차 중. 음성으로도 답할 수 있다.
+        ui.askMotion?.let { q ->
+            V5Card(Modifier.fillMaxWidth(), tint = c.primarySoft, pad = d.u(24f)) {
+                Text(q, style = Pause.type.h1, color = c.text)
+                Text("답할수록 다음 멀미 예보가 이 아이에게 맞춰져요. \"네·조금·아니요\"라고 말해도 돼요.", style = Pause.type.body, color = c.sub)
+                Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
+                    PauseButton("네", { on(UiEvent.AnswerMotion(MotionAnswerUi.YES)) }, Modifier.weight(1f))
+                    PauseButton("조금", { on(UiEvent.AnswerMotion(MotionAnswerUi.LITTLE)) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+                    PauseButton("아니요", { on(UiEvent.AnswerMotion(MotionAnswerUi.NO)) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+                    PauseButton("건너뛰기", { on(UiEvent.AnswerMotion(null)) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
+                }
+            }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
             V5Card(Modifier.weight(0.6f), pad = d.u(24f)) {
                 Text("오늘의 이동 기록", style = Pause.type.h2, color = c.text)
@@ -744,6 +864,7 @@ fun TripLogScreen(ui: TripLogUi, on: On) {
                 }
             }
             Text(ui.summary, style = Pause.type.body, color = c.sub)
+            ui.events?.let { Text(it, style = Pause.type.bodyStrong, color = c.warningInk) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
             V5Card(Modifier.weight(1f)) {
@@ -826,6 +947,12 @@ private fun ProfileForm(ui: PetEditUi, on: On) {
             }
             ToggleRow("반려견 놀이터가 있는 휴게소를 먼저", ui.petZonePreferred, { on(UiEvent.TogglePetZone) })
             ui.problems.forEach { Text(it, style = Pause.type.label, color = c.danger) }
+            ui.calibration?.let { cal ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(cal, style = Pause.type.body, color = c.text, modifier = Modifier.weight(1f))
+                    PauseButton("맞춤 초기화", { on(UiEvent.ResetCalibration) }, kind = ButtonKind.SECONDARY, compact = true)
+                }
+            }
             Text("프로필은 이 차에만 저장되고 서버로 보내지 않아요.", style = Pause.type.caption, color = c.sub)
         }
     }
@@ -932,6 +1059,7 @@ fun SettingsScreen(ui: SettingsUi, on: On, licenses: String) {
             if (wc != WidthClass.THIRD) {
                 V5Card(Modifier.weight(1f), pad = d.u(24f)) {
                     SectionTitle("이 차에서 쓰는 신호")
+                    ui.shapeSource?.let { Text("앞 구간 형상: $it", style = Pause.type.body, color = c.text) }
                     ui.signals.forEach { s ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CheckCircle(s.inUse, d.u(20f))

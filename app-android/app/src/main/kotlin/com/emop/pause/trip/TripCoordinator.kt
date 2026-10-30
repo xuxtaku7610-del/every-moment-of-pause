@@ -10,6 +10,17 @@ import com.emop.pause.data.PetPlaceRepository
 import com.emop.pause.core.model.LatLng
 import com.emop.pause.engine.motion.RouteShape
 import com.emop.pause.engine.motion.TbtRouteShape
+import com.emop.pause.engine.motion.GuidanceFromShape
+import com.emop.pause.engine.motion.MotionConstants
+import com.emop.pause.engine.pet.DistressAction
+import com.emop.pause.engine.pet.DistressAdvice
+import com.emop.pause.engine.pet.DistressKind
+import com.emop.pause.engine.pet.DistressSignals
+import com.emop.pause.engine.pet.PetDistress
+import com.emop.pause.engine.planner.StopType
+import com.emop.pause.data.Vet
+import com.emop.pause.presentation.UiMapper
+import kotlin.math.roundToInt
 import com.emop.pause.engine.pet.ArrivalInput
 import com.emop.pause.engine.pet.ArrivalPrompt
 import com.emop.pause.engine.pet.BoardingCheck
@@ -104,7 +115,27 @@ data class TripUi(
     val share: WaitShareState = WaitShareState(),
     /** 기기에 저장된 프로필이 있는지 (없으면 첫 실행 → 프로필 화면). 불러오기 전에는 null. */
     val profileSaved: Boolean? = null,
+    /** 앞 구간 형상을 무엇으로 보는지 (설정·발표 모드 표시, UPGRADE 5). */
+    val shapeSource: String? = null,
+    /** "콩이가 이상해요" 지금 안내 중 (UPGRADE 7). 수락·괜찮아졌어요면 null. */
+    val distress: DistressState? = null,
+    /** 정차하면 보여 줄 체크리스트 (content/care/care_ID.md). 괜찮아졌어요·여행 끝이면 null. */
+    val careId: String? = null,
+    /** 이번 여행 증상 기록: (이름, 출발 뒤 주행 분) — 이동 기록·도착 예정 공유·개인 보정 질문에 쓴다. */
+    val distressEvents: List<Pair<String, Int>> = emptyList(),
 )
+
+/** "콩이가 이상해요" 한 건: 안내 문구·행동과 고른 정차 장소(또는 병원). */
+data class DistressState(
+    val kind: DistressKind,
+    val advice: DistressAdvice,
+    val stop: RestStop? = null,
+    val vet: Vet? = null,
+    val minutes: Int? = null,
+)
+
+/** 앞 구간 형상: 시연 GPX / 회전 안내(GPX에서 만든 가짜 내비 안내). 실차는 항상 회전 안내 + 진행 방위. */
+enum class ShapeMode { DEMO_GPX, GUIDANCE }
 
 /**
  * 신호 → 엔진(TripBrain) → 제안 문장 → TTS → "응/나중에" → 경유지 추가 (flowchart §2).
@@ -166,8 +197,10 @@ class TripCoordinator @Inject constructor(
         }
     }
 
-    /** 들은 말 (STT 결과, 카드 버튼, 디버그 주입). "잠깐 다녀올게"면 대기 모드, 그 밖의 말은 제안 응답으로 듣기 창에 넘긴다. */
+    /** 들은 말 (STT 결과, 카드 버튼, 디버그 주입). "콩이가 헥헥거려" 같은 반려견 이상이면 그 안내가 먼저(UPGRADE 7),
+     *  "잠깐 다녀올게"면 대기 모드, 그 밖의 말은 제안 응답으로 듣기 창에 넘긴다. */
     fun reply(text: String) {
+        PetDistress.classify(text)?.let { reportDistress(it); return }
         when (VoiceIntent.parse(text)) {
             Utterance.StartWait -> startWait()
             is Utterance.Answer -> replies.trySend(text)
@@ -219,6 +252,91 @@ class TripCoordinator @Inject constructor(
     /** 화면 결과 한 줄 (장소를 경유지로 넣었을 때 등). */
     fun notify(text: String) {
         scope.launch { showToast(text) }
+    }
+
+    // ───────────── "콩이가 이상해요" (UPGRADE 7) ─────────────
+
+    /** 발표 장면용 실내 온도(시뮬레이터 여름 장면). 실차에서는 쓰지 않는다 — 측정값만. */
+    @Volatile var demoCabinTempC: Float? = null
+
+    fun reportDistress(kind: DistressKind) {
+        scope.launch { handleDistress(kind) }
+    }
+
+    private suspend fun handleDistress(kind: DistressKind) {
+        val s = runtime.snapshot.value
+        val t = _ui.value
+        val drivingMin = (t.motion.drivingSec / 60).toInt()
+        val cabin = (if (s.source == SourceMode.SIMULATION) demoCabinTempC else null) ?: s.sample.hvacTempC
+        val signals = DistressSignals(
+            cabinTempC = cabin,
+            month = java.time.LocalDate.now().monthValue,
+            drivingMin = drivingMin,
+            motionIndex = t.motion.index,
+            motionRising = t.motion.index >= MotionConstants.CAUTION || (t.forecast?.predictedIndex ?: 0) > t.motion.index,
+        )
+        val advice = PetDistress.advise(kind, signals)
+        val stop = DistressStops.pick(advice.action, t.stops, t.traveledKm)
+        val vet = if (advice.action == DistressAction.VET) here(s)?.let { runCatching { petPlaces.vetsNear(it).items.firstOrNull() }.getOrNull() } else null
+        val speed = t.kmPerMin.takeIf { it > 0 } ?: (100.0 / 60)
+        val minutes = stop?.let { maxOf(1, ((it.distanceAlongRouteKm - t.traveledKm) / speed).roundToInt()) } ?: vet?.let { UiMapper.vetMinutes(it.distanceKm) }
+        if (advice.boost > 1.0) brain?.boost(advice.boost, s.nowMs)
+        _ui.update {
+            it.copy(
+                distress = DistressState(kind, advice, stop, vet, minutes),
+                careId = advice.care,
+                distressEvents = it.distressEvents + (PetDistress.label(kind) to drivingMin),
+            )
+        }
+        val where = (stop?.name ?: vet?.name)?.let { n -> minutes?.let { " ${n}까지 약 ${it}분이에요." } ?: " $n." }.orEmpty()
+        val extra = if (advice.action == DistressAction.GENTLE_DRIVE) " 조용한 음악도 좋아요." else ""
+        say(advice.line + where + extra, SpeechPriority.SAFETY)
+    }
+
+    /** 안내를 받아들임: 정차 장소를 경유지로(병원은 ViewModel이 도착 예정 공유와 함께). 체크리스트는 정차 때까지 남는다. */
+    fun acceptDistress(): DistressState? {
+        val d = _ui.value.distress ?: return null
+        scope.launch {
+            d.stop?.let { st ->
+                val added = runtime.naviSource?.addWaypoint(st.lat, st.lng, st.name)
+                brain?.onAccepted(st)
+                showToast(if (added?.isSuccess == true) "${st.name}, 경로에 추가했어요." else "경로에 넣지 못했어요. 내비에서 ${st.name}을 골라 주세요.")
+            }
+            _ui.update { it.copy(distress = null) }
+        }
+        return d
+    }
+
+    /** "괜찮아졌어요": 안내와 체크리스트를 닫는다(기록은 남는다). */
+    fun dismissDistress() {
+        scope.launch { _ui.update { it.copy(distress = null, careId = null) } }
+    }
+
+    /** 지금 위치: 실차는 경로 첫 점(NaviHelper 현재 위치), 시뮬레이터는 진행 비율로 경로 위 지점. */
+    private fun here(s: Snapshot): LatLng? {
+        val r = s.route ?: return null
+        if (s.source == SourceMode.VEHICLE) return r.points.firstOrNull()
+        val frac = s.eta?.let { 1.0 - it.remainDistanceM.toDouble() / r.totalDistanceM.coerceAtLeast(1) } ?: 0.0
+        return PetPlaceRepository.pointAlong(r.points, frac)
+    }
+
+    /** 앞 구간 형상 (발표 모드에서 전환). 바꾸면 엔진을 새로 만든다 → 다음 장면 이동부터 반영. */
+    @Volatile var shapeMode: ShapeMode = ShapeMode.DEMO_GPX
+        private set
+
+    fun setShapeMode(m: ShapeMode) {
+        shapeMode = m
+        scope.launch { brain = null }
+    }
+
+    /** 개인 보정 계수 (CalibrationStore → MotionCalibration.scale). 다음 여행(엔진을 새로 만들 때)부터 반영. */
+    @Volatile var motionScale: Double = 1.0
+
+    /** 음성으로 묻고 한 번 듣기 (도착 뒤 "오늘 콩이 멀미했어요?"). 음성 제안을 껐거나 못 들으면 null → 화면 버튼. */
+    suspend fun ask(question: String): String? {
+        if (!voiceEnabled) return null
+        say(question)
+        return dictate()
     }
 
     /** "내 데이터 삭제": 저장한 프로필도 잊는다. */
@@ -359,9 +477,23 @@ class TripCoordinator @Inject constructor(
     private fun startTrip(s: Snapshot): TripBrain {
         setup = setupFor(s)
         // 앞 구간 형상: 시연 GPX가 있으면 그것, 실차는 NaviHelper 회전 안내 + 진행 방위 추정 (docs/plan/sdk_check.md).
-        val shape = s.route?.shape?.takeIf { it.size >= 2 }?.let(RouteShape::fromLatLng)
-            ?: TbtRouteShape().takeIf { s.source == SourceMode.VEHICLE }
-        val b = TripBrain(setup, shape, s.route?.shapeStartM ?: 0) { stops }
+        // 시연 "회전 안내" 모드(UPGRADE 5): GPX 대신 GPX에서 만든 가짜 내비 안내 + 진행 방위만으로 예보한다.
+        val gpx = s.route?.shape?.takeIf { it.size >= 2 }?.let(RouteShape::fromLatLng)
+        val (shape, guidance) = when {
+            gpx != null && shapeMode == ShapeMode.GUIDANCE -> TbtRouteShape() to GuidanceFromShape(gpx)
+            gpx != null -> gpx to null
+            s.source == SourceMode.VEHICLE -> TbtRouteShape() to null
+            else -> null to null
+        }
+        val shapeLabel = when {
+            guidance != null -> "회전 안내 (시연: OSM 길에서 만든 안내) + 진행 방위"
+            gpx != null -> "시연 경로 (OSM GPX)"
+            shape != null -> "회전 안내 + 진행 방위 (NaviHelper)"
+            else -> "없음 (진행 방위만)"
+        }
+        _ui.update { it.copy(shapeSource = shapeLabel) }
+        // 개인 보정 계수(UPGRADE 4)를 반려견 프로필에 실어 멀미 엔진 민감도에 곱한다
+        val b = TripBrain(setup.copy(pet = setup.pet.copy(motionScale = motionScale)), shape, s.route?.shapeStartM ?: 0, guidance) { stops }
         brain = b
         _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours, pet = setup.pet) }
         // 출발 준비에서 받아 둔 휴게소가 있으면 그대로 쓰고, 계획만 이번 설정으로 다시 잡는다.
@@ -542,6 +674,9 @@ class TripCoordinator @Inject constructor(
     }
 
     /** 8초 듣기 창. 그 사이 버튼 응답이 오면 그걸 쓴다. */
+    /** 증상 메모 받아쓰기 한 번 (UPGRADE 3, 정차 중 화면 버튼). 못 들으면 null. */
+    suspend fun dictate(): String? = runCatching { speechIn.listen(DICTATE_MS) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+
     private suspend fun listenOnce(): Reply {
         _ui.update { it.copy(voice = VoicePhase.LISTENING) }
         val text = withTimeoutOrNull(REPLY_WAIT_MS) {
@@ -575,6 +710,7 @@ class TripCoordinator @Inject constructor(
 
     private companion object {
         const val REPLY_WAIT_MS = 8_000L
+        const val DICTATE_MS = 10_000L
         const val REPLAN_MS = 5 * 60_000L
         const val BUTTON_WAIT_MS = 15_000L
         const val TOAST_MS = 8_000L
@@ -597,3 +733,18 @@ internal fun routeKey(r: com.emop.pause.core.model.RouteInfo?): String? =
  */
 internal fun resumeKey(r: com.emop.pause.core.model.RouteInfo?): String? =
     r?.let { "${it.destinationName}|${"%.3f,%.3f".format(java.util.Locale.US, it.destination.lat, it.destination.lng)}" }
+
+/** "콩이가 이상해요" 정차 장소 고르기 (UPGRADE 7). 지나온 곳(지금 + 0.5km 안)은 뺀다. */
+object DistressStops {
+    fun pick(action: DistressAction, stops: List<RestStop>, traveledKm: Double): RestStop? {
+        val ahead = stops.filter { it.distanceAlongRouteKm > traveledKm + 0.5 }.sortedBy { it.distanceAlongRouteKm }
+        return when (action) {
+            // 가장 가까운 안전한 정차 장소: 졸음쉼터도 된다
+            DistressAction.NEAREST_STOP -> ahead.firstOrNull()
+            // 쉼표 앞당김: 반려견 놀이터가 있는 휴게소 → 휴게소 → 아무 정차 장소
+            DistressAction.EARLIER_REST -> ahead.firstOrNull { it.type == StopType.SERVICE_AREA && Facility.PET_ZONE in it.facilities }
+                ?: ahead.firstOrNull { it.type == StopType.SERVICE_AREA } ?: ahead.firstOrNull()
+            DistressAction.GENTLE_DRIVE, DistressAction.VET -> null
+        }
+    }
+}

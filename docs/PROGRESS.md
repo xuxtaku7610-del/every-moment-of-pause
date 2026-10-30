@@ -4,9 +4,52 @@
 규칙: git add·commit·push 하지 않는다. 작업 단위마다 아래 "커밋 대기열 (같이가개)"에 메시지와 파일만 남기고, 커밋은 사용자가 직접 한다.
 
 ## 다음 할 일 (바로 이어서)
-1. 사용자: 커밋 대기열 2차·3차 처리. `docs/design/v5/assets/*.png`(디자이너 그림) 출처를 licenses/ASSETS.md에 — 그 전에는 커밋 여부도 사용자 판단(공개 저장소에 올라감).
+1. 사용자: 커밋 대기열 2·3·4차 처리, `licenses/ASSETS.md` 【도구명】 채우기, TourAPI 키 재발급 후 `server/.env` 교체(교체 뒤 `-m app.jobs.ingest_pet_places`는 캐시 7일 안이면 호출 0건).
 2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
 3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
+
+## UPGRADE (2026-10-30~, `_private/UPGRADE_PROMPT.md`)
+- 사전: 에뮬레이터 확인 — `onTBTInfo` 수신 확인(성남→강릉 32건), `distance`는 구간 거리 → `RouteTurn.fromSegments` 누적(F1-14). `geo fix`는 내비 위치를 못 움직임 → 실차 확인 예정. vhal_check.md "결정: 시뮬레이터로 시연". README "실차 확인 필요" 표.
+- 1 고갯길 비교 크게: `CompareChart`(uistate, CSV·summary 파싱, DM-05 테스트) + `CompareScreen`(정지 그림, 거리 0~15km × 지수, 회색·primary 굵은 선, 끝점 55·30, 사실 3칸 −45% · +7분 12초 · 대관령 옛길 15.0km). 데이터는 `docs/plan/demo_compare.csv`·`demo_compare_summary.txt` 사본(`assets/compare/`), DemoCompareTest가 엔진 결과와 같은지 확인. 발표 모드 "고갯길 비교 크게 보기"·adb `--ez compare true`, 주행이 시작되면 닫힘. 캡처 `artifacts/upgrade/01-compare.png`.
+- 2 실내 온도: javap로 확인해 보니 기존 어댑터가 **설정 온도**(`getHvacTemperature`)를 실내 온도로 읽고 있었다 → 측정값 `checkHvacTemperatureCurrentCapabilities`·`registerHvacTemperatureCurrent`·`getHvacTemperatureCurrent(CELSIUS)`로 고침(지원·권한은 기존 capability 경로). `CabinHeat`(engine:pet, 26℃ 주의·30℃ 강한 경고·대기 중 2℃ 상승, 근거 주석) + 테스트. 값이 있으면 대기 "실내 24℃"·오르면 배너, 도착 경고 단계별 숫자, 폰 페이지 배너(`wait_sessions.cabin_temp_start_c`). 값이 없으면 온도 표시 숨김, 6~9월에만 "여름에는 차 안이 빨리 더워져요"(숫자 없음). 설정 "실내 온도 측정값 (대기·도착 경고)". 시뮬레이터 장면은 시나리오의 실내 온도 값 사용.
+- 3 증상 음성 메모: 동물병원 화면(정차 중) 버튼(구토·설사·헐떡임·축 처짐·떨림·기타) + "음성 메모"(Android STT 한 번 받아쓰기, 결과를 입력칸에 그대로·고칠 수 있음, 에뮬레이터는 adb `--es memo`로 대신). `VetMemo`(테스트 F5-06) + `SymptomMemoStore`(기기에만, 내 데이터 삭제에 포함). 체크박스 "도착 예정 공유에 증상 메모와 오늘 요약 넣기"를 켰을 때만 `/eta`에 symptoms·memo·tripLine("이동 2시간 10분 · 멀미 주의 1회(최고 46)") — 서버 `eta_shares.memo·trip_line`. 주행 중에는 화면 입력 없음(7번 음성 흐름이 증상 이벤트를 남김).
+- 4 개인 맞춤 보정: `MotionCalibration`(engine:motion, 로그 계수·η 0.6·3회부터·0.6~1.6, 테스트 F7-05) → `PetProfile.motionScale`가 민감도에 곱해짐(다음 여행부터). 이동 기록 화면 위 "오늘 콩이 멀미했어요?" 네·조금·아니요·건너뛰기(도착 확인 뒤 한 번, 음성으로도 묻고 `MotionAnswerParser`로 해석). `CalibrationStore`(기기에만, 반려견별 30개, 내 데이터 삭제에 포함). 프로필 "콩이 맞춤 정도: 기록 n회, 민감도 보통 → …" + 맞춤 초기화. 근거 motion_model.md "개인 보정".
+- 5 회전 안내만으로 예보: `GuidanceFromShape`(OSM 고갯길 → 가짜 NaviHelper 안내 87건, 10초마다 앞 3km) + `TbtRouteShape`. `TbtOnlyForecastTest` — 미리 정한 허용 오차(예보 비율 ≥70% · 시작 차이 ≤600m · 지속 비율 0.5~2배) 모두 통과(100% · 20m · 0.65). `PetTripScenarioTest` F1-15: 회전 안내 모드에서도 고갯길 2,620m 앞에서 예보(GPX보다 180초 늦음). 처음 짠 "지금 지수는 같다" 단정은 틀렸다(방위 없는 시나리오라 가정 원호로 54 → 77) → 실제 성질로 바꾸고 문서에 남김. 발표 모드 전환·설정 "앞 구간 형상" 표시. shape_compare.md 갱신.
+- 6 장소 전국 + 필터: 17개 시·도, 날짜별 호출 장부(하루 900건, 같은 날 여러 번 실행해도 합산), 첫 전국 수집 224건(오늘 합 350/900) — **327곳**(시·도별 public_data.md), 사진 225. `large_dog_ok`·`indoor_ok`는 명시된 경우만(154/6/167, 2/8/317). 앱 `PlaceFilter`(전체/카페/식당/숙소/산책·관광 + 대형견 가능·실내 동반 가능, 정보 없음은 따로 알림, 테스트 F4-08). 휴게소 놀이터 정보와 섞지 않음.
+- 7 "콩이가 이상해요": `PetDistress`(engine:pet, 키워드 분류 + 신호로 표의 각 줄, 테스트 F9-01~03) · `DistressStops`(가장 가까운 정차/놀이터 휴게소 앞당김, F9-06) · TripCoordinator(음성·adb 말 → 2줄 안내 + 정차 장소·병원, 안전 우선 음성, 부드러운 주행이면 멀미 민감도 30분 ×1.2~1.3) · 주행 화면 `DriveContent.Distress`(버튼 2개 + 하단 "일반 안내예요. 심하면 동물병원에 연락하세요") · 응급은 병원 경유지 + 증상 메모 자동 + 도착 예정 공유 · 정차 화면 "콩이 돌보기" 체크리스트(content/care 8개, 검수 전 표시, F9-05) + "콩이가 이상해요" 칩 · 이동 기록 "오늘 헐떡임 1회(출발 n분 뒤)"·공유 요약에 반영. 발표 장면 "콩이가 이상해요"(2,400초, 여름 실내 31℃ 장면 값). 에뮬레이터: 31℃ + "헥헥거려" → "에어컨을 낮추고…" + 여주휴게소 약 15분(이 구간 가장 가까운 정차 장소), 정차 칩 → 체크리스트 카드 확인.
+- 마무리: `./gradlew test` 종료 코드 0 — 고유 278개 실패 0, `pytest` 74 통과. 리허설 장면 8개 모두 OK 125초(대본 3:00 유지: 7번 30초 넣고 출발·대기·고갯길 줄이고 도착 전 산책은 선택). 캡처 `artifacts/upgrade/`(01 비교 · 02 대기 온도·도착 경고 · 03 증상 메모 · 05 설정 · 07 반려견 안내 · 08 체크리스트), `artifacts/rehearsal/`. README 기능 표(F3·F4·F5·F7·F8·F9)·데이터 건수·"실차 확인 필요".
+
+## 커밋 대기열 (같이가개 5차 — UPGRADE, 10/30 오후) — 4차 다음에
+1. `[UP] 에뮬레이터 확인: TBT 구간 거리 누적, 실차 확인 표` — `app-android/core/model/src/main/kotlin/com/emop/pause/core/model/Signals.kt app-android/core/model/src/test/kotlin/com/emop/pause/core/model/RouteTurnTest.kt app-android/core/navi docs/plan/sdk_check.md docs/vhal_check.md`
+2. `[UP] 고갯길 비교 전체 화면 그래프` — `app-android/core/uistate/src/main/kotlin/com/emop/pause/uistate/CompareChart.kt app-android/core/uistate/src/test/kotlin/com/emop/pause/uistate/CompareChartTest.kt app-android/app/src/main/kotlin/com/emop/pause/ui/screens/CompareScreen.kt app-android/app/src/main/assets/compare docs/plan/demo_compare_summary.txt app-android/app/src/test/kotlin/com/emop/pause/trip/DemoCompareTest.kt`
+3. `[UP] 실내 온도 측정값(설정 온도 아님)·온도 단계·폰 배너` — `app-android/core/vehicle app-android/engine/pet/src/main/kotlin/com/emop/pause/engine/pet/CabinHeat.kt app-android/engine/pet/src/main/kotlin/com/emop/pause/engine/pet/WaitMode.kt app-android/engine/pet/src/test server/app/api/wait.py`
+4. `[UP] 증상 음성 메모와 도착 예정 공유 첨부` — `app-android/app/src/main/kotlin/com/emop/pause/trip/VetMemo.kt app-android/app/src/main/kotlin/com/emop/pause/trip/SymptomMemoStore.kt app-android/app/src/test/kotlin/com/emop/pause/trip/VetMemoTest.kt server/app/api/eta.py server/tests/test_eta.py`
+5. `[UP] 개인 맞춤 보정` — `app-android/engine/motion/src/main/kotlin/com/emop/pause/engine/motion/MotionCalibration.kt app-android/engine/motion/src/test/kotlin/com/emop/pause/engine/motion/MotionCalibrationTest.kt app-android/app/src/main/kotlin/com/emop/pause/trip/CalibrationStore.kt app-android/app/src/main/kotlin/com/emop/pause/trip/MotionAnswerParser.kt app-android/app/src/test/kotlin/com/emop/pause/trip/MotionAnswerParserTest.kt app-android/core/model/src/main/kotlin/com/emop/pause/core/model/Pet.kt docs/plan/motion_model.md`
+6. `[UP] 회전 안내만으로 예보(가짜 내비)와 비교` — `app-android/engine/motion/src/main/kotlin/com/emop/pause/engine/motion/GuidanceFromShape.kt app-android/app/src/test/kotlin/com/emop/pause/trip/TbtOnlyForecastTest.kt app-android/app/src/test/kotlin/com/emop/pause/trip/PetTripScenarioTest.kt docs/plan/shape_compare.md`
+7. `[UP] 장소 전국 적재·하루 호출 장부·필터` — `server/app/jobs/ingest_pet_places.py server/app/models.py server/alembic/versions/0004_place_details.py server/app/api/places.py server/tests/test_places_vets.py app-android/core/uistate/src/main/kotlin/com/emop/pause/uistate/PlaceFilter.kt app-android/core/uistate/src/test/kotlin/com/emop/pause/uistate/PlaceFilterTest.kt app-android/data docs/plan/public_data.md`
+8. `[UP] "콩이가 이상해요" 규칙·체크리스트·시연 장면` — `app-android/engine/pet/src/main/kotlin/com/emop/pause/engine/pet/PetDistress.kt app-android/engine/pet/src/test/kotlin/com/emop/pause/engine/pet/PetDistressTest.kt app-android/engine/motion/src/main/kotlin/com/emop/pause/engine/motion/MotionComfortEngine.kt app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/test/kotlin/com/emop/pause/trip/DistressFlowTest.kt app-android/core/uistate app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/build.gradle.kts content/care`
+9. `[UP] 리허설·대본·녹화·문서` — `scripts/rehearsal.py docs/demo_script.md docs/recording.md README.md test_plan.md api_spec.md database.md docs/BLOCKED.md docs/PROGRESS.md`
+(여러 항목이 같은 파일(TripCoordinator.kt·MainViewModel.kt·PetScreens.kt·ScreenStates.kt·0004)을 고치므로 `git add -A` 한 번으로 묶는 편이 안전하다.)
+
+## V5 후속 (2026-10-30 저녁) — 사용자 결정 5개 + 분할 창·리허설·README·녹화
+- 결정 1: 디자이너 그림 = 사용자가 생성형 AI 디자인 도구로 직접 제작 → `licenses/ASSETS.md`(도구명 【도구명】), 디버그 전용 해제(main assets, 시트·안 쓰는 원본은 APK 제외).
+- 결정 2: 실내/실외·대형견을 판정하지 않음 → `space_note`·`size_note`(동반 조건 원문 문장), 화면 태그는 동반 구분만. 편의시설 목록의 "테라스"는 제외.
+- 결정 3: 서울·경기(영동고속도로 축 15km) + 강원 → 117곳(서울 34·경기 14·강원 69, 사진 71). 추가 호출 50건, 캐시 120개.
+- 결정 4: vets.csv에 업태·진료 대상 열 없음 → 이름 규칙 유지(224곳 제외). 그런 열이 있으면 먼저 쓰도록(`KIND_COLUMNS`, 테스트). 기준·건수 `docs/plan/public_data.md`.
+- 결정 5: `app/logmask.py` — 모든 로그 레코드에서 serviceKey·api_key 등 쿼리 값을 `***`로(create_app·수집 잡에서 설치), 테스트 2개.
+- 분할 창: 에뮬레이터에 car splitscreen 기능이 있고 `am task resize`로 **실제** 1280dp·853dp 창 캡처 성공(`artifacts/ui/final_v5/14-split-*`, README).
+- 리허설: `scripts/rehearsal.py`(1배속, 장면 7개, 캡처 13장 `artifacts/rehearsal/`). 처음 2장면 막힘 → 원인과 고친 것: ① 서버 DB에 휴게소 0곳이라 쉼표 추천 없음 → 휴게소 적재 + 앱이 빈 서버 목록을 실패로 보고 대체(F2-09) ② 음성으로 묻는 중 추천 카드가 사라짐·결과 한 줄이 기본 배치에서만 보임 → 카드 유지·한 줄을 공통 아래쪽으로 ③ 도착 전 한 줄이 실제 데이터에서 카페("쉬어 가기") → 확인 문구 변경·대본 반영. 최종 **7장면 모두 OK, 118초**(3분 안, 대본 유지). 시트 버튼 "나중에" → "다음 휴게소로"로 통일.
+- 정정: 같은 세션 중간에 "앱 테스트 249개 통과"라고 본 것은 이전 결과 파일이었다(그때 테스트 컴파일 실패 — V5MapperTest 인자). 고친 뒤 실제 `./gradlew test` 종료 코드 0, 고유 250개 실패 0. pytest 72 통과.
+- 녹화: `docs/recording.md`(adb screenrecord·에뮬레이터 webm 둘 다 동작 확인, 장면별 길이 2:55, 자막 초안).
+
+## 커밋 대기열 (같이가개 4차 — V5 후속, 10/30 저녁) — 3차 다음에
+1. `[V5] 디자이너 그림 릴리스 포함·출처 표기` — `app-android/app/build.gradle.kts licenses/ASSETS.md docs/design/v5/assets app-android/app/src/debug/assets/DEMO_ASSETS.md app-android/app/src/main/kotlin/com/emop/pause/ui/components/Kit.kt docs/design/v5/STYLE_V5.md`
+2. `[V5] TourAPI 동반 조건은 원문만(실내·대형견 판정 제거), 서울·경기 영동선 축 적재` — `server/app/jobs/ingest_pet_places.py server/app/models.py server/alembic/versions/0004_place_details.py server/app/api/places.py server/tests/test_places_vets.py app-android/data app-android/core/uistate app-android/app/src/main/kotlin/com/emop/pause/presentation/UiMapper.kt app-android/app/src/test/kotlin/com/emop/pause/presentation/V5MapperTest.kt api_spec.md database.md docs/ui_contract.md`
+3. `[V5] 동물병원 진료 대상 열 우선, 적재 기준 문서` — `server/app/jobs/load_vets.py docs/plan/public_data.md`
+4. `[V5] 로그 쿼리스트링 키 마스킹` — `server/app/logmask.py server/app/main.py server/tests/test_health.py`
+5. `[V5] 리허설에서 찾은 것: 빈 휴게소 목록 대체, 음성 묻는 중 추천 카드 유지, 결과 한 줄 공통` — `app-android/data/src/main/kotlin/com/emop/pause/data/RestStopRepository.kt app-android/data/src/test/kotlin/com/emop/pause/data/RestStopRepositoryTest.kt app-android/app/src/main/kotlin/com/emop/pause/ui/screens/PetScreens.kt test_plan.md`
+6. `[V5] 리허설 스크립트·대본·녹화 순서·README 화면과 데이터 건수` — `scripts/rehearsal.py docs/demo_script.md docs/recording.md README.md docs/screens/v5 docs/PROGRESS.md docs/BLOCKED.md todo.md`
+(0004 마이그레이션은 3·4차가 같은 파일을 고친다 — 아직 아무 데도 배포 전이라 하나로 둔다. 2·3·4차를 `git add -A` 한 번으로 묶어도 된다.)
 
 ## V5 (2026-10-30) — 디자인 v5 + 공공데이터 실제 전환 (`_private/V5_PROMPT.md`)
 - 0 디자인: 새 overview(12화면+토큰 표)를 `docs/design/v5/screens/01~13`으로 자름, DESIGNER_NOTES 값 + 픽셀 샘플로 `STYLE_V5.md`(색 라이트·다크, 글자·간격 = 기준값×배율 2, 컴포넌트, 화면 치수, 분할 창). UI_SPEC·STYLE_V3·STYLE_V4에 "폐기 — v5가 기준".

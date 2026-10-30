@@ -1,0 +1,1 @@
+demo length=14989 guidedMinKph=16 guidedAvgKph=33 unguided=55(peak 55, 1200s) guided=30(peak 30, 1632s)

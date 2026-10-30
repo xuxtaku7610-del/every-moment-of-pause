@@ -32,6 +32,9 @@ data class PetPlace(
     /** 동반 가능 동물 원문 ("소형견(10kg이하) 한마리 동반 가능"). 대형견 가능 여부를 판정하지 않는다. */
     val sizeNote: String? = null,
     val companion: String? = null,
+    /** 필터 (UPGRADE 6): 글에 명시됐을 때만, 모르면 null. */
+    val largeDogOk: Boolean? = null,
+    val indoorOk: Boolean? = null,
 )
 
 data class Vet(val id: String, val name: String, val lat: Double, val lng: Double, val distanceKm: Double, val address: String?, val phone: String?, val sample: Boolean)
@@ -109,7 +112,7 @@ class PetPlaceRepository(
 
         private fun fromDto(d: PlaceDto) = PetPlace(
             d.placeId, d.name, d.category, d.lat, d.lng, d.address, d.petPolicy, d.sample, d.distanceAlongRouteKm, d.offRouteKm ?: d.distanceKm,
-            d.imageUrl, d.spaceNote, d.sizeNote, d.companion,
+            d.imageUrl, d.spaceNote, d.sizeNote, d.companion, d.largeDogOk, d.indoorOk,
         )
         private fun fromDto(d: VetDto) = Vet(d.vetId, d.name, d.lat, d.lng, d.distanceKm, d.address, d.phone, d.sample)
 

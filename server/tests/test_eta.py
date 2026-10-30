@@ -20,13 +20,13 @@ def client(db_engine):
 
 def test_f5_05_eta_share_page_without_location(client, db_engine):
     h = register(client)
-    body = {"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토 2회"]}
+    body = {"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"], "memo": "구토 두 번, 물은 조금", "tripLine": "이동 2시간 10분 · 멀미 주의 1회(최고 46)"}
     r = client.post(f"{V1}/eta", json=body, headers=h)
     assert r.status_code == 201
     token = r.json()["token"]
     assert r.json()["pageUrl"] == f"/eta/{token}" and len(token) >= 20
     page = client.get(f"/eta/{token}")
-    assert page.status_code == 200 and "콩이" in page.text and "강릉동물병원" in page.text and "구토 2회" in page.text
+    assert page.status_code == 200 and "콩이" in page.text and "강릉동물병원" in page.text and "구토 두 번, 물은 조금" in page.text and "멀미 주의 1회" in page.text
     assert "12분 뒤 도착" in page.text and "위치는 공유하지 않고" in page.text and page.headers["cache-control"] == "no-store"
     with Session(db_engine) as s:
         assert s.get(EtaShare, hash_token(token)) is not None and s.get(EtaShare, token) is None

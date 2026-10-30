@@ -31,6 +31,9 @@ class EtaIn(BaseModel):
     vetName: str = Field(min_length=1, max_length=128)
     etaMinutes: int = Field(ge=0, le=600)
     symptoms: list[str] = Field(default_factory=list, max_length=8)
+    # 증상 메모(받아쓴 글)·오늘 이동 한 줄 — 앱에서 사용자가 체크했을 때만 온다 (UPGRADE 3)
+    memo: str | None = Field(default=None, max_length=200)
+    tripLine: str | None = Field(default=None, max_length=80)
 
 
 def _now() -> datetime:
@@ -48,7 +51,8 @@ def create(body: EtaIn, session: Session = Depends(get_session), device_id: str 
     expires = now + timedelta(minutes=TTL_MIN)
     symptoms = ", ".join(s.strip()[:20] for s in body.symptoms if s.strip())[:200] or None
     session.add(EtaShare(token_hash=hash_token(token), device_id=device_id, pet_name=body.petName.strip(), vet_name=body.vetName.strip(),
-                         eta_minutes=body.etaMinutes, symptoms=symptoms, created_at=now, expires_at=expires))
+                         eta_minutes=body.etaMinutes, symptoms=symptoms, memo=(body.memo or "").strip() or None,
+                         trip_line=(body.tripLine or "").strip() or None, created_at=now, expires_at=expires))
     session.commit()
     return {"token": token, "pageUrl": f"/eta/{token}", "expiresAt": expires.isoformat(timespec="seconds")}
 
@@ -63,7 +67,11 @@ def render(row: EtaShare | None, now: datetime | None = None) -> tuple[int, str]
     kst = arrive.astimezone(timezone(timedelta(hours=9)))
     rows = [("병원", row.vet_name), ("도착 예정", f"{kst:%H:%M} (지금부터 약 {left}분)")]
     if row.symptoms:
-        rows.append(("증상 메모", row.symptoms))
+        rows.append(("증상", row.symptoms))
+    if row.memo:
+        rows.append(("증상 메모", row.memo))
+    if row.trip_line:
+        rows.append(("오늘 이동", row.trip_line))
     row_html = "".join(f"<div class='row'><span>{k}</span><span>{html.escape(v)}</span></div>" for k, v in rows)
     body = (
         f"<section class='card hero'>{pages.DOG}<p class='title'>{html.escape(row.pet_name)} · 동물병원으로 가는 중</p>"

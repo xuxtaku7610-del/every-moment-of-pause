@@ -58,7 +58,7 @@ flowchart TD
 | `DriveContent.Vet` (새) | `name`(14자), `distance`, `minutes` | 8번 주행 중: 1순위 병원 2줄만 |
 | `DepartUi` | `route`("강릉까지"), `duration` | 1번 경로 카드 |
 | `WaitUi` | `batteryUsed`(신호 있을 때만), `notice`(켤 때 20초 안전 안내) | 5번. 보호자 "돌아가는 중"이면 `headline`이 바뀐다 |
-| `PlaceUi` / `PlacesUi` | `imageUrl`, `tags`(데이터에 있는 것만) / `credit`("사진 한국관광공사") | 7번 |
+| `PlaceUi` / `PlacesUi` | `imageUrl`, `tags`(동반 구분 "전구역/일부구역 동반"만), `notes`(동반 조건 원문 문장 — 실내·대형견을 판정하지 않음, 결정 10/30) / `credit`("사진 한국관광공사") | 7번 |
 | `VetUi` / `VetsUi` | `minutes`, `status`("영업 중", 실데이터만) / `memo`(증상 고르기), `shareUrl` | 8번. 영업시간·24시는 쓰지 않는다. 이벤트 `ShareVetEta` |
 | `ArrivalUi` | `warning`("여름철 실내 온도 주의!"), `cabin`(신호 있을 때만) | 9번 |
 | `TripLogUi` | `warnings`(멀미 주의 횟수), `history` | 10번 |

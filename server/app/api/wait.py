@@ -98,6 +98,8 @@ def put(token: str, body: WaitUpdate, session: Session = Depends(get_session), d
         raise ApiError(410, "WAIT_EXPIRED", "끝났거나 만료된 대기 공유입니다.")
     row.state, row.elapsed_sec, row.limit_min = body.state, body.elapsedSec, body.limitMin
     row.battery_percent, row.cabin_temp_c, row.updated_at = body.batteryPercent, body.cabinTempC, _now()
+    if row.cabin_temp_start_c is None and body.cabinTempC is not None:
+        row.cabin_temp_start_c = body.cabinTempC
     session.commit()
     return _status(row)
 
@@ -123,6 +125,20 @@ def status(token: str, session: Session = Depends(get_session)) -> dict:
 
 # ───────────── 보호자 폰 페이지 (API 접두사 밖, 6번 화면 v5) ─────────────
 
+# 실내 온도 단계 — 앱 engine/pet CabinHeat와 같은 값 (근거는 그 파일 주석)
+CAUTION_C = 26.0
+RISE_C = 2.0
+SUMMER = range(6, 10)
+
+
+def _month() -> int:
+    return datetime.now(timezone(timedelta(hours=9))).month
+
+
+def heat_rising(start: float | None, now: float | None) -> bool:
+    return now is not None and (now >= CAUTION_C or (start is not None and now - start >= RISE_C))
+
+
 def _mins(sec: int) -> str:
     m = sec // 60
     return f"{m}분째" if m >= 1 else f"{sec}초째"
@@ -147,6 +163,12 @@ def render(row: WaitSession | None, token: str = "") -> tuple[int, str]:
     tile_html = "".join(f"<div class='tile'><div class='label'>{k}</div><div class='value'>{html.escape(v)}</div></div>" for k, v in tiles)
     banner = "<div class='banner'><b>설정 시간이 지났어요</b>차로 돌아가 주세요.</div>" if overdue else ""
     stale = f"<div class='banner'><b>차와 연결 확인 중</b>마지막 갱신 {html.escape(s['updatedAt'][11:16])}</div>" if s["stale"] else ""
+    heat = ""
+    if heat_rising(row.cabin_temp_start_c, s["cabinTempC"]):
+        start = f"{row.cabin_temp_start_c:.0f}℃ → " if row.cabin_temp_start_c is not None else ""
+        heat = f"<div class='banner'><b>실내 온도가 오르고 있어요</b>{start}{s['cabinTempC']:.0f}℃ · 차로 돌아가 주세요.</div>"
+    elif s["cabinTempC"] is None and _month() in SUMMER:
+        heat = "<p class='note'>여름에는 차 안이 빨리 더워져요.</p>"
     if row.guardian_returning:
         action = "<div class='ok'>차 화면에 '돌아오는 중'이라고 알렸어요</div>"
     else:
@@ -155,7 +177,7 @@ def render(row: WaitSession | None, token: str = "") -> tuple[int, str]:
             "<button class='btn' type='submit'>돌아가는 중</button></form>"
         )
     body = (
-        f"{banner}{stale}<section class='card hero'>{pages.DOG}"
+        f"{banner}{heat}{stale}<section class='card hero'>{pages.DOG}"
         f"<p class='title'>{'시간이 지났어요' if overdue else '대기 중이에요'}</p><p class='big'>{_mins(s['elapsedSec'])}</p></section>"
         f"<div class='tiles'>{tile_html}</div>{action}"
         "<p class='note'>위치는 공유하지 않아요. 이 페이지는 보조 안내예요 — 반려견을 차에 오래 혼자 두지 마세요.</p>"

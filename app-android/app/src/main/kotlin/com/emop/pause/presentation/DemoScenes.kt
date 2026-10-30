@@ -14,6 +14,8 @@ data class DemoJump(
     val expectMode: AppMode,
     val expectCause: PauseCause? = null,
     val say: String? = null,
+    /** 시뮬레이터 장면용 실내 온도(여름 장면). 실차는 측정값만 쓴다. */
+    val cabinTempC: Float? = null,
 )
 
 object DemoScenes {
@@ -22,6 +24,8 @@ object DemoScenes {
     val JUMPS = listOf(
         DemoJump("출발 체크", 0, expectMode = AppMode.PREPARE),
         DemoJump("고속도로", 210, expectMode = AppMode.DRIVING),
+        // UPGRADE 7: 고속도로 중 "콩이가 헥헥거려" + 여름 실내 31℃ → 1줄 안내 + 가장 가까운 정차 장소
+        DemoJump("콩이가 이상해요", 2_400, expectMode = AppMode.DRIVING, say = "콩이가 헥헥거려", cabinTempC = 31f),
         // 약 3,460초에 반려견 맞춤 쉼표(횡성휴게소, 놀이터·운전 피로)를 제안한다 — PetTripScenarioTest가 확인
         DemoJump("쉼표 추천", 3_420, expectMode = AppMode.DRIVING),
         DemoJump("휴게소 쉼표", 5_240, expectMode = AppMode.PAUSE, expectCause = PauseCause.REST),

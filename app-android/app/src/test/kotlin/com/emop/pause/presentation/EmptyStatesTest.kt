@@ -76,11 +76,14 @@ class EmptyStatesTest {
     }
 
     @Test
-    fun `F3-06 대기 - 실내 온도가 없으면 정보 없음, 공유가 없으면 주소 없음`() {
+    fun `F3-06 대기 - 실내 온도가 없으면 온도 표시를 숨기고(여름엔 일반 문구만), 공유가 없으면 주소 없음`() {
         val w = WaitStatus(active = true, elapsedSec = 185, limitSec = 600, batteryStart = 60, batteryNow = 59)
-        val ui = UiMapper.wait(w, kong)
+        val ui = UiMapper.wait(w, kong, month = 11)
         assertEquals("3분째", ui.elapsed)
-        assertEquals("실내 온도 정보 없음", ui.cabin)
+        assertNull(ui.cabin)
+        assertNull(ui.seasonNote)
+        assertEquals("여름에는 차 안이 빨리 더워져요", UiMapper.wait(w, kong, month = 7).seasonNote)
+        assertNull(UiMapper.wait(w.copy(cabinTempC = 24.4f), kong, month = 7).seasonNote)
         assertEquals("배터리 59%", ui.battery)
         assertNull(ui.share.url)
         assertEquals("실내 24℃", UiMapper.wait(w.copy(cabinTempC = 24.4f), kong).cabin)

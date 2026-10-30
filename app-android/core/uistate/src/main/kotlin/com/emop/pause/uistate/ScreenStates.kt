@@ -62,6 +62,12 @@ sealed interface DriveContent {
 
     /** 동물병원 가는 길 (주행 중엔 1순위 한 곳 2줄만, 목록·가이드·메모는 정차 중). 버튼 없음. */
     data class Vet(val name: String, val distance: String, val minutes: Int?) : DriveContent
+
+    /**
+     * "콩이가 이상해요" (UPGRADE 7): 안내 2줄 이하([line]) + 버튼 2개(정차 장소·병원으로 / 괜찮아졌어요) + 고정 하단 문구.
+     * [target]은 버튼에 싣는 장소 이름(14자), 없으면 "알겠어요".
+     */
+    data class Distress(val line: String, val target: String?, val minutes: Int?, val vet: Boolean = false) : DriveContent
 }
 
 data class DriveUi(
@@ -138,6 +144,10 @@ data class RestUi(
     /** "잠깐 다녀올게" 제한 시간 (기본 10분). */
     val waitLimitMin: Int,
     val battery: String? = null,
+    /** "콩이 돌보기" 체크리스트 (말했던 증상, 정차 중에만). */
+    val care: CareUi? = null,
+    /** 정차 중 "콩이가 이상해요" 고르기. */
+    val distressChips: List<String> = emptyList(),
 )
 
 // ───────────── 잠깐 대기 (F3, 차 화면 = 바깥 사람용 안내) ─────────────
@@ -153,8 +163,8 @@ data class WaitUi(
     val headline: String,
     /** "3분째". */
     val elapsed: String,
-    /** "실내 24℃" 또는 "실내 온도 정보 없음" (지어내지 않는다, F3-06). */
-    val cabin: String,
+    /** "실내 24℃" — 실내 온도 측정값이 있을 때만. 없으면 null → 온도 표시를 숨긴다 (지어내지 않는다, F3-06·UPGRADE 2). */
+    val cabin: String?,
     val battery: String?,
     val limitMin: Int,
     val overdue: Boolean,
@@ -163,6 +173,10 @@ data class WaitUi(
     val batteryUsed: String? = null,
     /** 켤 때 한 번: "반려견을 차에 오래 혼자 두지 마세요. 이 화면은 보조 안내예요." */
     val notice: String? = null,
+    /** 대기 중 온도가 오를 때 "실내 온도가 오르고 있어요 (24℃ → 27℃)". */
+    val heat: String? = null,
+    /** 온도를 모를 때 6~9월에만 "여름에는 차 안이 빨리 더워져요". */
+    val seasonNote: String? = null,
 )
 
 // ───────────── 함께 가는 장소·동물병원 (F4·F5, 정차 중에만) ─────────────
@@ -181,6 +195,9 @@ data class PlaceUi(
     val tags: List<String> = emptyList(),
     /** 동반 조건 원문 문장(가능 동물·실내/실외·필요 사항) — 추측하지 않고 그대로. */
     val notes: List<String> = emptyList(),
+    /** 필터용: 글에 명시됐을 때만 true/false, 모르면 null ("정보 없음"). */
+    val largeDogOk: Boolean? = null,
+    val indoorOk: Boolean? = null,
 )
 
 data class PlacesUi(
@@ -209,10 +226,18 @@ data class VetsUi(
     val items: List<VetUi>,
     val note: String?,
     val loading: Boolean = false,
-    /** 증상 메모(키보드 없이 고르기, 음성 메모는 정차 중). */
+    /** 증상 메모 버튼(구토·설사·헐떡임·축 처짐·떨림·기타). */
     val memo: List<SymptomUi> = emptyList(),
     /** 도착 예정 공유 링크 (만들었으면). */
     val shareUrl: String? = null,
+    /** 받아쓴 메모(화면에 그대로, 고칠 수 있음). 기기에만 저장. */
+    val memoText: String = "",
+    /** 공유할 때 증상 메모·오늘 요약을 넣을지 (체크박스). */
+    val memoInclude: Boolean = false,
+    /** 음성 메모를 듣는 중. */
+    val memoListening: Boolean = false,
+    /** 오늘 이동 한 줄 요약 (공유에 함께 붙는다): "이동 2시간 10분 · 멀미 주의 1회(최고 46)". */
+    val tripLine: String? = null,
 )
 
 // ───────────── 도착 체크·이동 기록 (F6·F7) ─────────────
@@ -223,7 +248,7 @@ data class ArrivalUi(
     /** 덥거나 여름이면 강한 알림 (F6-03). */
     val strong: Boolean,
     val detail: String?,
-    /** 경고 카드 제목 ("여름철 실내 온도 주의!") — strong일 때. 실내 온도는 신호가 있을 때만 [cabin]. */
+    /** 경고 카드 제목: 온도가 있으면 단계별("실내 31℃ — 매우 더워요!"), 없으면 여름에만 일반 문구. 실내 온도는 신호가 있을 때만 [cabin]. */
     val warning: String? = null,
     val cabin: String? = null,
 )
@@ -245,7 +270,14 @@ data class TripLogUi(
     val warnings: Int = 0,
     /** 이전 기록 (최근 순, 최대 3). */
     val history: List<HistoryUi> = emptyList(),
+    /** 도착 뒤 한 번만: "오늘 콩이 멀미했어요?" (답하거나 건너뛰면 null). */
+    val askMotion: String? = null,
+    /** 오늘 증상 기록 한 줄: "오늘 헐떡임 1회(출발 10분 뒤)". */
+    val events: String? = null,
 )
+
+/** "오늘 멀미했어요?" 답. 건너뛰기는 기록하지 않는다. */
+enum class MotionAnswerUi { YES, LITTLE, NO }
 
 data class HistoryUi(val date: String, val line: String)
 
@@ -268,6 +300,8 @@ data class PetEditUi(
     val problems: List<String>,
     /** 처음 실행: 닫기 대신 "나중에". */
     val firstRun: Boolean,
+    /** "콩이 맞춤 정도: 기록 5회, 민감도 보통 → 조금 높음" (기록이 있을 때). */
+    val calibration: String? = null,
 )
 
 data class SignalRowUi(val name: String, val inUse: Boolean, val source: String? = null)
@@ -300,6 +334,8 @@ data class SettingsUi(
     val reduceMotion: Boolean = false,
     val signals: List<SignalRowUi> = emptyList(),
     val version: String = "",
+    /** "앞 구간 형상: 시연 경로 (OSM GPX)" / "회전 안내 + 진행 방위" (UPGRADE 5). */
+    val shapeSource: String? = null,
     /** 앱 정보 "데이터 출처" — 라이선스상 꼭 보여야 하는 표기(OSM ODbL 등). 디자인이 바뀌어도 빼지 않는다. */
     val credits: List<String> = DATA_CREDITS,
 )

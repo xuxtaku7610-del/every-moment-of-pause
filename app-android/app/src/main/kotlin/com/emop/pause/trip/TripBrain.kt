@@ -22,6 +22,7 @@ import com.emop.pause.engine.motion.MotionInput
 import com.emop.pause.engine.motion.MotionState
 import com.emop.pause.engine.motion.RouteShapeProvider
 import com.emop.pause.engine.motion.TbtRouteShape
+import com.emop.pause.engine.motion.GuidanceFromShape
 import com.emop.pause.engine.planner.Facility
 import com.emop.pause.engine.planner.PetPlannerInput
 import com.emop.pause.engine.planner.PetRestPlanner
@@ -81,6 +82,8 @@ class TripBrain(
     private val setup: TripSetup,
     shape: RouteShapeProvider? = null,
     private val shapeStartM: Int = 0,
+    /** 시연 "회전 안내" 모드: GPX에서 만든 가짜 NaviHelper 안내를 [GUIDE_MS]마다 [TbtRouteShape]에 넣는다 (UPGRADE 5). */
+    private val guidance: GuidanceFromShape? = null,
     private val stops: () -> List<RestStop>,
 ) {
     private val fatigue = FatigueEngine(setup.sleepHours)
@@ -88,6 +91,7 @@ class TripBrain(
     private val motion = MotionComfortEngine(setup.pet, shape)
     private val tbt = shape as? TbtRouteShape
     private var lastTurns: List<RouteTurn>? = null
+    private var lastGuideMs: Long? = null
     private val preferred = setup.pet.facilityPrefs.mapNotNull(Facility::fromCode).toSet()
     private var lastForecastMs: Long? = null
     /** 마지막으로 말한 예보: (시각, 구간 시작, 구간 끝) — 경로 진행 거리(m) 기준. */
@@ -100,7 +104,16 @@ class TripBrain(
     var state = BrainState()
         private set
 
+    private var boostUntilMs: Long? = null
+
+    /** "콩이가 이상해요"(불안·멀미 초기) 뒤 [minutes]분 동안 멀미 예보 민감도를 [factor]배로 (UPGRADE 7). */
+    fun boost(factor: Double, nowMs: Long, minutes: Int = BOOST_MIN) {
+        motion.boost = factor
+        boostUntilMs = nowMs + minutes * 60_000L
+    }
+
     fun tick(i: BrainInput): BrainState {
+        boostUntilMs?.let { if (i.nowMs >= it) { motion.boost = 1.0; boostUntilMs = null } }
         val f = fatigue.update(FatigueInput(i.nowMs, i.minuteOfDay, i.driveState, i.sample, i.capabilities))
         val n = needs.update(
             NeedsInput(i.nowMs, i.mode == AppMode.PAUSE, i.capabilities, i.sample.batterySocPercent, i.eta?.remainDistanceM, i.eta?.remainTimeSec),
@@ -112,6 +125,10 @@ class TripBrain(
             if (i.turns != lastTurns) {
                 lastTurns = i.turns
                 tbt.onTurns(routeM, i.turns)
+            }
+            if (guidance != null && lastGuideMs.let { it == null || i.nowMs - it >= GUIDE_MS }) {
+                lastGuideMs = i.nowMs
+                tbt.onTurns(routeM, guidance.upcoming(routeM))
             }
         }
         val m = motion.update(MotionInput(i.nowMs, i.sample.speedKph, i.sample.headingDeg, routeM))
@@ -217,6 +234,9 @@ class TripBrain(
         const val ANNOUNCE_WITHIN_M = 5_000.0
         const val ANNOUNCE_MIN_AHEAD_M = 300.0
         const val ROAD_STEP_M = 50.0
+        /** 실제 onTBTInfo가 약 10초마다 다시 오는 것과 맞춘 가짜 안내 주기. */
+        const val GUIDE_MS = 10_000L
+        const val BOOST_MIN = 30
         const val ROAD_SAMPLES = 21
     }
 }

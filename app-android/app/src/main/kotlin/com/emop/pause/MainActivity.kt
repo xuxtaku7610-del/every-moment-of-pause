@@ -34,6 +34,8 @@ import com.emop.pause.ui.screens.PlacesScreen
 import com.emop.pause.ui.screens.RestScreen
 import com.emop.pause.ui.screens.SettingsScreen
 import com.emop.pause.ui.screens.OnboardingScreen
+import com.emop.pause.ui.screens.CompareScreen
+import com.emop.pause.uistate.CompareChart
 import com.emop.pause.ui.screens.TripLogScreen
 import com.emop.pause.ui.screens.VetsScreen
 import com.emop.pause.ui.screens.WaitScreen
@@ -57,6 +59,11 @@ class MainActivity : ComponentActivity() {
         }
         applyDebugExtras(intent)
         val licenses = runCatching { assets.open("licenses/Pretendard-OFL.txt").bufferedReader().use { it.readText() } }.getOrDefault("")
+        // 고갯길 비교 큰 그래프 (UPGRADE 1): docs/plan/demo_compare.csv·summary 사본(DemoCompareTest가 같은지 확인)
+        val compareChart = runCatching {
+            fun read(n: String) = assets.open("compare/$n").bufferedReader().use { it.readText() }
+            CompareChart.parse(read("demo_compare.csv"), read("demo_compare_summary.txt"))
+        }.getOrNull()
         setContent {
             PauseTheme(scale = designScale(screenWidthDp())) {
                 val ui by viewModel.ui.collectAsStateWithLifecycle()
@@ -68,6 +75,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     if (ui.demoOpen) DemoOverlay(viewModel, ui)
+                    val app by viewModel.app.collectAsStateWithLifecycle()
+                    // 정차 중에만 (주행이 시작되면 그리지 않는다, DS-01)
+                    if (app.compareOpen && !ui.drivingLocked && compareChart != null) CompareScreen(compareChart) { viewModel.setCompareOpen(false) }
                 }
             }
         }
@@ -116,6 +126,10 @@ class MainActivity : ComponentActivity() {
         intent.getStringExtra("scene")?.let { n -> viewModel.setScene(Scene.entries.firstOrNull { it.name.equals(n, true) }) }
         if (intent.hasExtra("forceWidth")) forceWidth = intent.getIntExtra("forceWidth", 0)
         if (intent.hasExtra("demo")) viewModel.setDemoOpen(intent.getBooleanExtra("demo", false))
+        if (intent.hasExtra("compare")) viewModel.setCompareOpen(intent.getBooleanExtra("compare", false))
+        intent.getStringExtra("memo")?.let(viewModel::heardMemo)
+        if (intent.hasExtra("guidance")) viewModel.setGuidanceMode(intent.getBooleanExtra("guidance", false))
+        if (intent.hasExtra("cabin")) viewModel.setDemoCabin(intent.getIntExtra("cabin", 0).toFloat())
         intent.getStringExtra("shareBase")?.let(viewModel::setShareBase)
         when (intent.getStringExtra("onboard")) {
             "done" -> viewModel.skipProfile()
@@ -181,7 +195,16 @@ private fun DemoOverlay(vm: MainViewModel, ui: AppUiState) {
     val compare by vm.compare.collectAsStateWithLifecycle()
     DemoPanel(
         s, t, vm.scenarioNames(), ui.scene,
-        DemoActions(vm::useScenario, vm::useVehicle, vm::play, vm::pause, vm::setSpeed, vm::jump, vm::reply, vm::setScene) { vm.setDemoOpen(false) },
+        DemoActions(
+            vm::useScenario, vm::useVehicle, vm::play, vm::pause, vm::setSpeed, vm::jump, vm::reply, vm::setScene,
+            close = { vm.setDemoOpen(false) },
+            compareBig = {
+                vm.setDemoOpen(false)
+                vm.setCompareOpen(true)
+            },
+            guidance = vm::setGuidanceMode,
+            cabin = vm::setDemoCabin,
+        ),
         compare,
     )
 }

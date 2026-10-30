@@ -65,8 +65,10 @@ android {
     // v5 그림 (STYLE_V5 §1): docs/design/v5/assets/ = 사용자가 생성형 AI 디자인 도구로 직접 만든 그림(licenses/ASSETS.md).
     // 결정 10/30: 릴리스에도 묶는다. 한눈에 보기 시트·쓰지 않는 원본(앱 아이콘 PNG·주행 도로 사진)은 APK에서 뺀다.
     sourceSets.getByName("main").assets.srcDir("../../docs/design/v5/assets")
+    // "콩이가 이상해요" 정차 후 체크리스트 (UPGRADE 7, 검수 전 reviewed=false)
+    sourceSets.getByName("main").assets.srcDir("../../content/care")
     androidResources {
-        ignoreAssetsPatterns += listOf("!_sheet.png", "!app_icon*.png", "!road_drive.png", "!README.md", "!pet_placeholder.png")
+        ignoreAssetsPatterns += listOf("!_sheet.png", "!app_icon.png", "!app_icon_foreground.png", "!road_drive.png", "!README.md", "!pet_placeholder.png")
     }
 }
 

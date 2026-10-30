@@ -66,7 +66,10 @@ class PleosNaviSource(context: Context) : NaviSource {
         // 회전 안내: onTBTInfo(List<TBTInfo>), TBTInfo.getType(): TurnType · getDistance(): Double (javap navi-data 3.0.4).
         // 멀미 예보의 앞 구간 형상 추정에만 쓴다 (TbtRouteShape). 위치는 서버로 보내지 않는다.
         override fun onTBTInfo(tbtInfoList: List<TBTInfo>) {
-            turnsState.value = tbtInfoList.mapNotNull { t -> turnKind(t.type)?.let { RouteTurn(it, t.distance) } }
+            // distance는 앞 안내 지점부터의 구간 거리 → 누적해서 현재 위치 기준으로 (에뮬레이터 확인 10/30)
+            turnsState.value = RouteTurn.fromSegments(tbtInfoList.map { t -> turnKind(t.type) to t.distance })
+            // 실차·에뮬레이터 확인용: 건수와 앞 3개의 종류·거리만 (위치는 남기지 않는다)
+            Log.i(TAG, "onTBTInfo n=${tbtInfoList.size} " + tbtInfoList.take(3).joinToString { "${it.type}@${it.distance.toInt()}m" })
         }
 
         override fun onDestinationInfo(destinationInfo: DestinationInfo) {
@@ -185,5 +188,7 @@ internal fun turnKind(t: TurnType): TurnKind? = when (t) {
     TurnType.TURN_ENTER_OVER_R, TurnType.TURN_ENTER_OVER_L, TurnType.TURN_ENTER_OVER_C,
     TurnType.TURN_AVOID_OVER_R, TurnType.TURN_AVOID_OVER_L, TurnType.TURN_AVOID_OVER_C,
     TurnType.TURN_EXIT_ROUNDABOUT, TurnType.TURN_WAY, TurnType.TURN_DEVIDE_MERGE -> TurnKind.STRAIGHT
+    // TURN_TOLL·TURN_ENTER_SERVICEAREA·TURN_SERVICE_AREA·TURN_RESTAREA·TURN_REST_AREA·TURN_ARRIVE 등(에뮬레이터에서 실제로 옴)은
+    // 굽이가 아니라 null — 거리는 RouteTurn.fromSegments에서 누적에만 쓴다.
     else -> null
 }

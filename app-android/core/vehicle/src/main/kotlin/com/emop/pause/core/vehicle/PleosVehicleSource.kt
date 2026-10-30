@@ -55,8 +55,16 @@ class PleosVehicleSource(context: Context) : VehicleSource {
         override fun onEvBatteryStateOfChargeUpdated(value: Int?) = update { it.copy(batterySocPercent = value) }
         override fun onFailed(e: Exception) = fail(Signal.BATTERY_SOC, e)
     }
+    // 실내 온도 = 측정값(`…TemperatureCurrent`). `getHvacTemperature`·`registerHvacTemperature`는 설정 온도라 쓰지 않는다
+    // (javap Vehicle 2.3.2, 2026-10-30 확인 — 이전에는 설정 온도를 실내 온도로 읽고 있었다). 알림을 받으면 섭씨로 다시 읽는다
+    // (리스너 값의 단위가 문서에 없어서).
     private val tempListener = object : HvacTemperatureListener {
-        override fun onHvacTemperatureUpdated(temperature: Float?) = update { it.copy(hvacTempC = temperature) }
+        override fun onHvacTemperatureUpdated(temperature: Float?) {
+            val area = areas[Signal.HVAC_TEMP] ?: return
+            runCatching {
+                vehicle.getHVAC().getHvacTemperatureCurrent(area, TemperatureUnit.CELSIUS, { v -> update { it.copy(hvacTempC = v) } }, { e -> warnRead(Signal.HVAC_TEMP, e) })
+            }
+        }
         override fun onFailed(e: Exception) = fail(Signal.HVAC_TEMP, e)
     }
     private val acListener = object : HvacAcStateListener {
@@ -92,13 +100,13 @@ class PleosVehicleSource(context: Context) : VehicleSource {
 
         val hvac = vehicle.getHVAC()
         guard(Signal.HVAC_TEMP) {
-            hvac.checkHvacTemperatureCapabilities({ cfg, bounds, _ ->
-                val area = bounds.keys.firstOrNull() ?: driverSeat
+            hvac.checkHvacTemperatureCurrentCapabilities({ cfg, supported ->
+                val area = supported.firstOrNull() ?: driverSeat
                 if (cfg.readable()) guard(Signal.HVAC_TEMP) {
                     addCapability(Signal.HVAC_TEMP)
                     areas[Signal.HVAC_TEMP] = area
-                    hvac.registerHvacTemperature(area, tempListener)
-                    hvac.getHvacTemperature(area, TemperatureUnit.CELSIUS, { v -> update { it.copy(hvacTempC = v) } }, { e -> warnRead(Signal.HVAC_TEMP, e) })
+                    hvac.registerHvacTemperatureCurrent(area, tempListener)
+                    hvac.getHvacTemperatureCurrent(area, TemperatureUnit.CELSIUS, { v -> update { it.copy(hvacTempC = v) } }, { e -> warnRead(Signal.HVAC_TEMP, e) })
                 }
             }, { e -> fail(Signal.HVAC_TEMP, e) })
         }
@@ -132,7 +140,7 @@ class PleosVehicleSource(context: Context) : VehicleSource {
             vehicle.getGear().unregisterGearSelection(gearListener)
             vehicle.getEvBattery().unregisterEvBatteryStateOfCharge(socListener)
             val hvac = vehicle.getHVAC()
-            areas[Signal.HVAC_TEMP]?.let { hvac.unregisterHvacTemperature(it, tempListener) }
+            areas[Signal.HVAC_TEMP]?.let { hvac.unregisterHvacTemperatureCurrent(it, tempListener) }
             areas[Signal.HVAC_AC]?.let { hvac.unregisterHvacAcState(it, acListener) }
             areas[Signal.HVAC_RECIRCULATION]?.let { hvac.unregisterHvacRecirculationState(it, recirculationListener) }
         }

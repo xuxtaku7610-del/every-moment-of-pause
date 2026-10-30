@@ -58,7 +58,17 @@ interface PauseApi {
 /** 보호자 폰이 "돌아가는 중"을 누르면 [returning] = true. */
 @Serializable data class WaitStatusRes(val state: String = "waiting", val returning: Boolean = false)
 
-@Serializable data class EtaShareReq(val petName: String, val vetName: String, val etaMinutes: Int, val symptoms: List<String> = emptyList())
+@Serializable
+data class EtaShareReq(
+    val petName: String,
+    val vetName: String,
+    val etaMinutes: Int,
+    val symptoms: List<String> = emptyList(),
+    /** 증상 메모(받아쓴 글) — 사용자가 체크했을 때만. */
+    val memo: String? = null,
+    /** 오늘 이동 한 줄 요약. */
+    val tripLine: String? = null,
+)
 
 @Serializable data class EtaShareRes(val token: String, val pageUrl: String, val expiresAt: String)
 
@@ -117,6 +127,9 @@ data class PlaceDto(
     val spaceNote: String? = null,
     /** 동반 가능 동물(크기·무게) 원문. */
     val sizeNote: String? = null,
+    /** 필터: 명시됐을 때만 true/false, 모르면 null. */
+    val largeDogOk: Boolean? = null,
+    val indoorOk: Boolean? = null,
     /** 동반 구분 원문 ("전구역 동반가능"). */
     val companion: String? = null,
     val distanceAlongRouteKm: Double? = null,

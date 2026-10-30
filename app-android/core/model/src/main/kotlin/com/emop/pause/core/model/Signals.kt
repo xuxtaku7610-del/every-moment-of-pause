@@ -43,9 +43,24 @@ data class RouteInfo(
 
 /**
  * 앞쪽 회전 안내 한 건 — NaviHelper `onTBTInfo(List<TBTInfo>)`, `TBTInfo(type: TurnType, distance: Double, description)` (javap 3.0.4).
- * [distanceM]은 받은 시점 현재 위치에서 회전 지점까지 남은 거리(m)로 본다 — TODO(pleos-sdk): 에뮬레이터에서 단위·기준 확인.
+ * [distanceM] = 받은 시점 현재 위치에서 이 회전 지점까지 남은 거리(m). NaviHelper가 주는 `distance`는 **앞 안내 지점에서 이 지점까지의
+ * 구간 거리**라서(에뮬레이터 확인 2026-10-30: 성남→강릉 안내 32건 합 188.5km ≈ 경로 194km) [fromSegments]로 누적해 만든다.
  */
-data class RouteTurn(val kind: TurnKind, val distanceM: Double)
+data class RouteTurn(val kind: TurnKind, val distanceM: Double) {
+    companion object {
+        /**
+         * NaviHelper 안내 목록(종류, 구간 거리 m) → 현재 위치 기준 누적 거리의 회전 목록.
+         * 종류가 null(톨게이트·휴게소·졸음쉼터·도착 등 굽이가 아닌 안내)이어도 거리는 누적에 넣고 목록에서만 뺀다.
+         */
+        fun fromSegments(items: List<Pair<TurnKind?, Double>>): List<RouteTurn> {
+            var at = 0.0
+            return items.mapNotNull { (kind, seg) ->
+                at += seg.coerceAtLeast(0.0)
+                kind?.let { RouteTurn(it, at) }
+            }
+        }
+    }
+}
 
 /** SDK `TurnType`을 멀미 예보에 필요한 만큼만 줄인 종류 (매핑은 core:navi `PleosNaviSource`). */
 enum class TurnKind { LEFT, RIGHT, SHARP_LEFT, SHARP_RIGHT, KEEP_LEFT, KEEP_RIGHT, UTURN, RAMP_LEFT, RAMP_RIGHT, ROUNDABOUT, STRAIGHT }

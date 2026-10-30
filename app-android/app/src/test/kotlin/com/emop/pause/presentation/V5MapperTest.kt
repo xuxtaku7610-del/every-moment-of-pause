@@ -30,7 +30,7 @@ class V5MapperTest {
         assertFalse("실내" in tags || "실외" in tags || "대형견" in tags, tags)
         assertEquals(emptyList<String>(), UiMapper.placeTags(place(null, null, null)))
         assertEquals(emptyList<String>(), UiMapper.placeNotes(place(null, null, null)))
-        val ui = UiMapper.places(null, Found(listOf(place(null, true, null, "https://tong.visitkorea.or.kr/a.jpg")), PlaceSource.SERVER), false)
+        val ui = UiMapper.places(null, Found(listOf(place(null, null, null, "https://tong.visitkorea.or.kr/a.jpg")), PlaceSource.SERVER), false)
         assertEquals("사진 한국관광공사", ui.credit)
         assertEquals("https://tong.visitkorea.or.kr/a.jpg", ui.items.single().imageUrl)
         assertNull(UiMapper.places(null, Found(listOf(place(null, null, null)), PlaceSource.SERVER), false).credit)
@@ -60,9 +60,30 @@ class V5MapperTest {
         val later = UiMapper.wait(WaitStatus(active = true, elapsedSec = 300, batteryStart = 58, batteryNow = 57), t)
         assertNull(later.notice)
         assertEquals("1%", later.batteryUsed)
-        assertEquals("실내 온도 정보 없음", later.cabin)
+        assertNull(later.cabin)
         val back = UiMapper.wait(WaitStatus(active = true, elapsedSec = 300), t.copy(share = WaitShareState("u", true, returning = true)))
         assertEquals("주인이 돌아오는 중이에요", back.headline)
+    }
+
+    @Test
+    fun `F3-12 대기 중 온도가 오르면 배너 문구, 모르면 없음`() {
+        val rising = UiMapper.wait(WaitStatus(active = true, elapsedSec = 300, cabinTempStartC = 23.6f, cabinTempC = 26.2f), TripUi())
+        assertEquals("실내 26℃", rising.cabin)
+        assertEquals("실내 온도가 오르고 있어요 (24℃ → 26℃)", rising.heat)
+        assertNull(UiMapper.wait(WaitStatus(active = true, cabinTempStartC = 23.0f, cabinTempC = 23.5f), TripUi()).heat)
+        assertNull(UiMapper.wait(WaitStatus(active = true), TripUi()).heat)
+    }
+
+    @Test
+    fun `F6-05 도착 경고 - 온도가 있으면 단계별 숫자, 없으면 여름 일반 문구만`() {
+        fun arrival(temp: Float?, strong: Boolean) = UiMapper.arrival(TripUi(arrival = com.emop.pause.engine.pet.ArrivalPrompt(strong, temp)))
+        assertEquals("실내 31℃ — 매우 더워요!", arrival(31f, true).warning)
+        assertEquals("실내 27℃ — 더워지고 있어요", arrival(27f, true).warning)
+        assertNull(arrival(22f, false).warning)
+        val summer = arrival(null, true)
+        assertEquals("여름에는 차 안이 빨리 더워져요", summer.warning)
+        assertNull(summer.cabin)
+        assertFalse(summer.warning!!.any { it.isDigit() }, "온도를 모르면 숫자를 쓰지 않는다")
     }
 
     @Test

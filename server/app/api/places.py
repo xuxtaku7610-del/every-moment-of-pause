@@ -40,6 +40,8 @@ def item(p: PetPlace) -> dict:
         "imageUrl": p.image_url,
         "spaceNote": p.space_note,
         "sizeNote": p.size_note,
+        "largeDogOk": p.large_dog_ok,
+        "indoorOk": p.indoor_ok,
         "companion": p.companion,
         "sample": p.source == "sample",
         "source": p.source,

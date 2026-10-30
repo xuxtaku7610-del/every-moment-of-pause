@@ -10,6 +10,7 @@ from tests.conftest import make_client, register
 
 V1 = "/api/v1"
 DATA = Path(__file__).resolve().parent / "data"
+FIX = Path(__file__).resolve().parent / "fixtures"
 SCENARIO = Path(__file__).resolve().parents[2] / "scenarios" / "pet-trip.json"
 
 
@@ -104,31 +105,39 @@ def test_f4_04_fetch_pages_until_total_then_details():
     assert len(pages) == len(ingest_pet_places.TOUR_AREAS) * 2
 
 
-def test_f4_06_seoul_gyeonggi_only_along_yeongdong_corridor():
-    # 결정 10/30: 서울·경기는 영동고속도로 축 15km 안만 상세를 부른다 (호출 수 절약), 강원은 전부
-    def item(cid, lat, lng):
-        return {"contentid": cid, "title": cid, "mapx": str(lng), "mapy": str(lat), "contenttypeid": "39"}
-
-    lists = {
-        "1": [item("seoul_center", 37.57, 126.98), item("seoul_far_west", 37.55, 126.80)],
-        "31": [item("icheon", 37.27, 127.44), item("paju", 37.76, 126.78)],
-        "32": [item("chuncheon", 37.88, 127.73)],
-    }
-    asked = []
+def test_f4_06_nationwide_areas_and_daily_budget_ledger(tmp_path):
+    # UPGRADE 6: 17개 시·도 전체, 같은 날 여러 번 실행해도 하루 예산을 넘기지 않는다(캐시 폴더 장부)
+    assert len(ingest_pet_places.TOUR_AREAS) == 17 and ingest_pet_places.AREAS["39"] == "제주"
+    n = []
 
     def get(url, params):
-        if url.endswith("areaBasedList2"):
-            it = lists[params["areaCode"]]
-            return {"response": {"body": {"totalCount": len(it), "items": {"item": it}}}}
-        asked.append(params["contentId"])
+        n.append(params.get("contentId"))
         return {"response": {"body": {"items": ""}}}
 
-    pages, _ = ingest_pet_places.fetch_tour("KEY", get)
-    assert set(asked) == {"seoul_center", "icheon", "chuncheon"}
-    assert {p.source_id for p in ingest_pet_places.normalize_tour(pages)} == {"seoul_center", "icheon", "chuncheon"}
+    first = ingest_pet_places.TourCache(get, tmp_path, daily=3)
+    for c in ("a", "b"):
+        first("detailPetTour2", {"contentId": c})
+    second = ingest_pet_places.TourCache(get, tmp_path, daily=3)  # 같은 날 두 번째 실행
+    assert second.used_today == 2 and second.budget == 1
+    second("detailPetTour2", {"contentId": "c"})
+    with pytest.raises(ingest_pet_places.BudgetExceeded):
+        second("detailPetTour2", {"contentId": "d"})
+    assert second("detailPetTour2", {"contentId": "a"}) is not None  # 캐시는 예산과 상관없이
+    assert n == ["a", "b", "c"]
 
 
-FIX = Path(__file__).resolve().parent / "fixtures"
+def test_f4_07_filter_flags_only_when_stated():
+    # 대형견·실내 동반은 글에 명시됐을 때만 참/거짓, 아니면 None("정보 없음")
+    lst, det = _real()
+    by = {p.source_id: p for p in ingest_pet_places.normalize_tour([lst], det)}
+    assert by["125779"].large_dog_ok is True          # 전 견종 동반 가능
+    assert by["1947118"].large_dog_ok is None         # "소형견(10kg이하)…동반 가능"은 대형견을 말하지 않음 → 모름
+    assert by["2665662"].indoor_ok is False           # 실내 출입 어려운 점 양해
+    assert by["3536831"].indoor_ok is None            # 전구역 동반가능만으로는 실내라고 명시 안 됨
+    from app.jobs.ingest_pet_places import indoor_ok_of, large_dog_ok_of
+    assert indoor_ok_of({"etcAcmpyInfo": "실내 동반 가능합니다."}) is True
+    assert large_dog_ok_of({"acmpyPsblCpam": "소형견만 동반 가능"}) is False
+    assert large_dog_ok_of({"acmpyPsblCpam": "대형견 동반 가능 (목줄 필수)"}) is True
 
 
 def _real():

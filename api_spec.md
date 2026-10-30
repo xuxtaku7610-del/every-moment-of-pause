@@ -167,8 +167,10 @@
       "sample": true,
       "source": "sample",
       "imageUrl": null,
-      "indoor": null,
-      "largeDog": null,
+      "spaceNote": null,
+      "sizeNote": null,
+      "largeDogOk": null,
+      "indoorOk": null,
       "companion": null
     }
   ],
@@ -178,7 +180,7 @@
 - `category`: `restaurant` · `cafe` · `lodging` · `tour` · `walk`(산책로·공원).
 - `sample=true`면 앱은 "샘플" 배지를 붙인다(키 없이 적재한 데이터). `source`: `tourapi` | `sample`.
 - 좌표 2개 미만 → `400 INVALID_REQUEST`, `bufferMeters`는 500~20000.
-- (2026-10-30) TourAPI `KorPetTourService2` 실제 응답으로 확인한 필드: `imageUrl`(대표 이미지 `firstimage`, https로 바꿈) · `companion`(동반 구분 `acmpyTypeCd`, "전구역 동반가능"/"일부구역 동반가능") · `largeDog`(`acmpyPsblCpam` 글에서: "대형견 불가"·"소형견만"·25kg 미만 제한 → false, "전 견종"·25kg 이상 → true) · `indoor`(글에 "실내"/"실외"가 있을 때만 `indoor`·`outdoor`·`both`). 글에 없으면 `null` — 지어내지 않는다. `petPolicy` = 가능 동물 · 필요 사항.
+- (2026-10-30) TourAPI `KorPetTourService2` 실제 응답으로 확인한 필드: `imageUrl`(대표 이미지 `firstimage`, https로 바꿈) · `companion`(동반 구분 `acmpyTypeCd`, "전구역 동반가능"/"일부구역 동반가능") · `sizeNote`(동반 가능 동물 `acmpyPsblCpam` **원문**) · `spaceNote`(동반 조건 글에서 실내·실외·야외·테라스가 쓰인 **원문 문장**) · `petPolicy`(필요 사항 `acmpyNeedMtr` 원문). 실내 여부·대형견 가능 여부는 **판정하지 않는다**(결정 10/30, API에 필드 없음). 글에 없으면 `null`. 기준·건수는 [docs/plan/public_data.md](docs/plan/public_data.md).
 
 ### 2.6 GET `/places/near`
 쿼리: `lat`, `lng`, `radiusMeters`(기본 3000, 최대 10000), `categories`(쉼표 구분, 기본 `walk,cafe`), `limit`(기본 10).
@@ -231,9 +233,9 @@ PUT·GET 상태 응답에 `returning`(보호자가 폰에서 "돌아가는 중"�
 ### 2.8-1 동물병원 도착 예정 공유 (F5)
 **POST `/eta`** (기기 토큰 필요) — 보호자 폰으로 보낼 링크를 만든다. 앱·서버가 병원에 자동으로 보내지 않는다.
 ```json
-{"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"]}
+{"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"], "memo": "구토 두 번, 물은 조금", "tripLine": "이동 2시간 10분 · 멀미 주의 1회(최고 46)"}
 ```
-응답 `201` `{"token": "...", "pageUrl": "/eta/...", "expiresAt": "..."}`. 정의되지 않은 필드(위치 등) `422`. 토큰 128비트, 해시만 저장, 2시간 만료.
+`symptoms`·`memo`·`tripLine`은 앱에서 사용자가 "증상 메모와 오늘 요약 넣기"를 체크했을 때만 온다. 응답 `201` `{"token": "...", "pageUrl": "/eta/...", "expiresAt": "..."}`. 정의되지 않은 필드(위치 등) `422`. 토큰 128비트, 해시만 저장, 2시간 만료.
 
 **GET `/eta/{token}`** (인증 없음, HTML) → "콩이 · 동물병원으로 가는 중 / 12분 뒤 도착", 병원·도착 예정 시각(KST)·증상 메모. 만료 `410`.
 

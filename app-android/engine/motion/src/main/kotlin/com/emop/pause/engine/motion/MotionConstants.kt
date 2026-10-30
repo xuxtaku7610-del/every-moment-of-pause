@@ -86,6 +86,6 @@ object MotionConstants {
             MotionTendency.NORMAL -> 1.0
             MotionTendency.HIGH -> 1.5
         }
-        return size * age * tendency
+        return size * age * tendency * p.motionScale.coerceIn(MotionCalibration.MIN_SCALE, MotionCalibration.MAX_SCALE)
     }
 }

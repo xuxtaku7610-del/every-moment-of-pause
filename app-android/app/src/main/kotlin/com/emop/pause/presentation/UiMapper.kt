@@ -20,11 +20,13 @@ import com.emop.pause.engine.pause.PauseCurator
 import com.emop.pause.engine.pause.PauseInput
 import com.emop.pause.engine.pet.CheckItem
 import com.emop.pause.engine.pet.WaitStatus
+import com.emop.pause.engine.pet.CabinHeat
 import com.emop.pause.engine.planner.Facility
 import com.emop.pause.engine.planner.Reason
 import com.emop.pause.engine.planner.RestStop
 import com.emop.pause.runtime.Snapshot
 import com.emop.pause.trip.TripUi
+import com.emop.pause.trip.VetMemo
 import com.emop.pause.trip.VoicePhase
 import com.emop.pause.uistate.ActivityKind
 import com.emop.pause.uistate.ActivityUi
@@ -118,7 +120,15 @@ object UiMapper {
         val name = t.pet.name
         val asking = t.asking
         val forecast = t.forecast?.takeIf { it.startInM <= FORECAST_SHOW_M }
+        val d = t.distress
         val content: DriveContent = when {
+            // "콩이가 이상해요"가 가장 먼저 (UPGRADE 7): 2줄 + 버튼 2개
+            d != null -> DriveContent.Distress(
+                d.advice.line,
+                (d.stop?.name ?: d.vet?.name)?.let { n -> if (n.length > 14) n.take(13) + "…" else n },
+                d.minutes,
+                vet = d.vet != null,
+            )
             asking != null && asking.fatigueFirst -> DriveContent.Suggest(asking.minutesAway, asking.stop.name, listOf("졸음 위험"), urgent = true, distance = kmTo(asking.stop, t))
             asking != null -> DriveContent.Suggest(
                 asking.minutesAway, asking.stop.name, asking.reasons.take(2).map { reasonText(it, name) },
@@ -244,12 +254,12 @@ object UiMapper {
 
     fun elapsed(sec: Int) = if (sec >= 60) "${sec / 60}분째" else "${sec}초째"
 
-    fun wait(w: WaitStatus, t: TripUi): WaitUi = WaitUi(
+    fun wait(w: WaitStatus, t: TripUi, month: Int = java.time.LocalDate.now().monthValue): WaitUi = WaitUi(
         // 보호자가 폰 페이지에서 "돌아가는 중"을 누르면 차 화면 문구가 바뀐다.
         headline = if (t.share.returning) "주인이 돌아오는 중이에요" else "주인이 곧 돌아와요",
         elapsed = elapsed(w.elapsedSec),
         // 실내 온도는 신호가 있을 때만 숫자로. 없으면 지어내지 않는다 (F3-06).
-        cabin = w.cabinTempC?.let { "실내 ${it.roundToInt()}℃" } ?: "실내 온도 정보 없음",
+        cabin = w.cabinTempC?.let { "실내 ${it.roundToInt()}℃" },
         battery = w.batteryNow?.let { "배터리 $it%" },
         limitMin = w.limitSec / 60,
         overdue = w.overdue,
@@ -257,6 +267,8 @@ object UiMapper {
         // 배터리는 신호가 있을 때만 (디자이너 메모: 측정·연동이 가능한 경우에만 표시).
         batteryUsed = w.batteryDelta?.let { "${max(0, -it)}%" },
         notice = if (w.elapsedSec < NOTICE_SEC) WAIT_NOTICE else null,
+        heat = if (w.heatRising) "실내 온도가 오르고 있어요 (${w.cabinTempStartC?.roundToInt() ?: "?"}℃ → ${w.cabinTempC?.roundToInt()}℃)" else null,
+        seasonNote = CabinHeat.seasonNote(w.cabinTempC, month),
     )
 
     /** 대기 모드를 켤 때 한 번 (처음 [NOTICE_SEC]초). */
@@ -276,7 +288,7 @@ object UiMapper {
     fun placeNotes(p: PetPlace): List<String> = listOfNotNull(p.sizeNote, p.spaceNote, p.petPolicy).distinct()
 
     private fun place(p: PetPlace, distance: String) =
-        PlaceUi(p.id, p.name, categoryKo[p.category] ?: p.category, distance, p.petPolicy, p.sample, p.imageUrl, placeTags(p), placeNotes(p))
+        PlaceUi(p.id, p.name, categoryKo[p.category] ?: p.category, distance, p.petPolicy, p.sample, p.imageUrl, placeTags(p), placeNotes(p), p.largeDogOk, p.indoorOk)
 
     fun places(along: Found<PetPlace>?, near: Found<PetPlace>?, loading: Boolean): PlacesUi {
         val items = near?.items.orEmpty().map { p -> place(p, "목적지에서 ${km(p.offKm ?: 0.0)}") } +
@@ -291,7 +303,14 @@ object UiMapper {
         )
     }
 
-    fun vets(found: Found<Vet>?, loading: Boolean, memo: List<SymptomUi> = emptyList(), shareUrl: String? = null) = VetsUi(
+    fun vets(
+        found: Found<Vet>?,
+        loading: Boolean,
+        memo: VetMemo = VetMemo(),
+        shareUrl: String? = null,
+        listening: Boolean = false,
+        tripLine: String? = null,
+    ) = VetsUi(
         found?.items.orEmpty().map { v ->
             // 인허가 데이터는 "영업 중" 상태만 있다. 영업시간·24시는 지어내지 않는다.
             VetUi(v.id, v.name, km(v.distanceKm), v.address, v.phone, v.sample, vetMinutes(v.distanceKm), if (v.sample) null else "영업 중")
@@ -299,20 +318,32 @@ object UiMapper {
         if (found?.items.orEmpty().any { it.sample }) "샘플 데이터예요. 전화번호는 실제 인허가 데이터에서만 보여요."
         else "지방행정 인허가 데이터(동물병원) · 영업시간은 데이터에 없어요. 가기 전에 전화로 확인해 주세요.",
         loading,
-        memo,
+        VetMemo.CHIPS.map { SymptomUi(it, it in memo.chips) },
         shareUrl,
+        memo.text,
+        memo.include,
+        listening,
+        tripLine,
     )
 
     // ───────────── 도착 (F6) ─────────────
 
     fun arrival(t: TripUi): ArrivalUi {
         val strong = t.arrival?.strong == true
-        val cabin = t.arrival?.cabinTempC?.let { "실내 ${it.roundToInt()}℃" }
+        val temp = t.arrival?.cabinTempC
+        val cabin = temp?.let { "실내 ${it.roundToInt()}℃" }
+        // 온도가 있으면 단계별 숫자, 없으면(여름이라 strong) 숫자 없는 일반 문구만 (UPGRADE 2, CabinHeat)
+        val warning = when (CabinHeat.level(temp)) {
+            CabinHeat.Level.STRONG -> "$cabin — 매우 더워요!"
+            CabinHeat.Level.CAUTION -> "$cabin — 더워지고 있어요"
+            CabinHeat.Level.OK -> null
+            null -> if (strong) "여름에는 차 안이 빨리 더워져요" else null
+        }
         return ArrivalUi(
             question = "${t.pet.name} 내렸나요?",
             strong = strong,
             detail = if (strong) "차 안이 금방 더워져요. 꼭 확인해 주세요." else "내린 뒤 확인을 눌러 주세요.",
-            warning = if (strong) "여름철 실내 온도 주의!" else null,
+            warning = warning,
             cabin = cabin,
         )
     }

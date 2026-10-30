@@ -48,8 +48,10 @@
 - [x] (CC) v5: 토큰(라이트·다크, 배율)·부품·일러스트·화면 12종·온보딩 3단계·앱 아이콘, 검증 루프(docs/ui_review.md v5)
 - [x] (CC) v5: 폰 대기 페이지(6번)·"돌아가는 중", 동물병원 도착 예정 공유(`/eta`)
 - [x] (CC) 실제 데이터: TourAPI KorPetTourService2(강원 69곳·사진·동반 조건), 동물병원 인허가 파일(5,063곳)
-- [ ] (나) 디자이너 그림 출처를 licenses/ASSETS.md에 → 릴리스 포함 여부 결정
-- [ ] (나) 실제 Pleos 분할 창에서 1/2·1/3 확인
+- [x] (나) 디자이너 그림 출처 → 사용자 제작(생성형 AI), 릴리스 포함 (도구명은 【도구명】 채우기)
+- [x] (CC) 1/2·1/3 실제 창(`am task resize`) 캡처
+- [x] (CC) 시연 리허설 자동 실행(scripts/rehearsal.py, 118초), 녹화 순서 docs/recording.md
+- [ ] (나) TourAPI 키 재발급 → server/.env 교체
 
 ## 5. 마무리
 - [x] (CC) README 심사 대응표·실행 방법·공공데이터 출처

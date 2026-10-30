@@ -50,6 +50,12 @@ class DemoActions(
     val say: (String) -> Unit = {},
     val scene: (Scene?) -> Unit = {},
     val close: () -> Unit = {},
+    /** 고갯길 비교 전체 화면 (정차 중에만 열린다). */
+    val compareBig: () -> Unit = {},
+    /** 앞 구간 형상: true = 회전 안내(가짜 내비), false = 시연 경로(GPX). */
+    val guidance: (Boolean) -> Unit = {},
+    /** 장면용 실내 온도 (시뮬레이터만, null = 시나리오 값). */
+    val cabin: (Float?) -> Unit = {},
 )
 
 /**
@@ -89,7 +95,7 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                 }
                 Section("장면으로 이동")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DemoScenes.JUMPS.forEach { j -> Choice(j.label, false) { a.jump(j.tSec); j.say?.let(a.say) } }
+                    DemoScenes.JUMPS.forEach { j -> Choice(j.label, false) { a.cabin(j.cabinTempC); a.jump(j.tSec); j.say?.let(a.say) } }
                 }
             }
             Section("운전자 응답 넣기")
@@ -97,6 +103,9 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                 Choice("\"여기서 쉴게요\"", false) { a.say("여기서 쉴게요") }
                 Choice("\"나중에\"", false) { a.say("나중에") }
                 Choice("\"잠깐 다녀올게\"", false) { a.say("잠깐 다녀올게") }
+                Choice("\"콩이가 헥헥거려\"", false) { a.say("콩이가 헥헥거려") }
+                Choice("\"콩이 토했어\"", false) { a.say("콩이 토했어") }
+                Choice("\"콩이가 축 처졌어\"", false) { a.say("콩이가 축 처졌어") }
             }
             Section("고갯길 비교 (안내 없이 vs 안내대로, docs/plan/demo_compare.md)")
             if (compare == null) {
@@ -108,6 +117,12 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                     style = Pause.type.label, color = c.text,
                 )
                 Text("주의 예보 지수(진단 아님), 대관령 옛길(© OpenStreetMap, ODbL), 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.sub)
+            }
+            Choice("고갯길 비교 크게 보기 (정차 중)", false) { a.compareBig() }
+            Section("앞 구간 형상 (지금: ${trip.shapeSource ?: "-"}) — 바꾼 뒤 장면 이동부터")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Choice("시연 경로 (GPX)", trip.shapeSource?.startsWith("시연 경로") == true) { a.guidance(false) }
+                Choice("회전 안내 (GPX 없이)", trip.shapeSource?.startsWith("회전 안내 (시연") == true) { a.guidance(true) }
             }
             Section("시안 장면 고정 (화면 검증용)")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

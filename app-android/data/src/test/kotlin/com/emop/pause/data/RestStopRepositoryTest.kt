@@ -110,6 +110,18 @@ class RestStopRepositoryTest {
     }
 
     @Test
+    fun `T4-8 서버가 빈 목록을 주면 캐시를 지우지 않고 대체 데이터로`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"items":[],"count":0}"""))
+        val cached = listOf(StopRecord("rs_x", "캐시휴게소", StopType.SERVICE_AREA, 37.30, 127.13, emptySet()))
+        val cache = MemoryCache(cached)
+        val r = RestStopRepository(api(), cache) { bundled }.loadForRoute(route)
+        assertEquals(StopSource.CACHE, r.source)
+        assertEquals(1, cache.records.size)
+        server.enqueue(MockResponse().setBody("""{"items":[],"count":0}"""))
+        assertEquals(StopSource.BUNDLED, RestStopRepository(api(), MemoryCache()) { bundled }.loadForRoute(route, routeM).source)
+    }
+
+    @Test
     fun `T4-7 서버도 캐시도 없으면 내장 기본 데이터`() = runTest {
         server.shutdown()
         val r = RestStopRepository(api(), MemoryCache()) { bundled }.loadForRoute(route, routeM)

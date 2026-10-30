@@ -7,6 +7,7 @@ import com.emop.pause.engine.motion.MotionCompare
 import com.emop.pause.engine.motion.RouteShape
 import com.emop.pause.sim.Gpx
 import com.emop.pause.sim.Scenario
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -34,5 +35,12 @@ class DemoCompareTest {
         }
         File(out, "summary.txt").writeText(summary.toString())
         println(summary)
+        // 발표 모드 큰 그래프(UPGRADE 1)는 이 결과를 문서·앱 assets 사본으로 그린다 → 모델이 바뀌면 사본도 다시 복사해야 통과
+        val demoCsv = File(out, "demo_compare_demo.csv").readText()
+        val demoLine = summary.lineSequence().first { it.startsWith("demo ") }
+        for (dir in listOf("../../docs/plan", "src/main/assets/compare")) {
+            assertEquals(demoCsv.trim(), File(dir, "demo_compare.csv").readText().trim().replace("\r\n", "\n"), "$dir/demo_compare.csv 를 다시 복사")
+            assertEquals(demoLine.trim(), File(dir, "demo_compare_summary.txt").readText().trim(), "$dir/demo_compare_summary.txt 를 다시 복사")
+        }
     }
 }

@@ -38,12 +38,29 @@
 | --- | --- | --- |
 | ![온보딩](docs/screens/v5/11-onboarding-3.jpg) | ![폰 대기](docs/screens/v5/06-phone-wait-light.jpg) | ![도착 예정](docs/screens/v5/08b-phone-eta-light.jpg) |
 
+| 실제 분할 창 1/2 (1280dp) | 실제 분할 창 1/3 (853dp) |
+| --- | --- |
+| ![1/2 창](docs/screens/v5/14-split-half-real.jpg) | ![1/3 창](docs/screens/v5/14-split-third-suggest.jpg) |
+
+### 실차 확인 필요 (2026-10-30 기준)
+에뮬레이터에서 확인한 것과 실차에서만 확인할 수 있는 것을 나눈다. 시연은 앱 시뮬레이터(시나리오)와 발표 모드로 한다.
+
+| 항목 | 에뮬레이터 결과 | 실차에서 확인할 것 |
+| --- | --- | --- |
+| NaviHelper 회전 안내 `onTBTInfo` | **확인함** — 성남→강릉 안내 32건 수신. `distance`는 구간 거리라 누적해서 씀. 회전 안내만으로 예보하는 모드는 시뮬레이터 테스트로 허용 오차 통과(docs/plan/shape_compare.md) | 주행하며 남은 거리가 갱신되는지, 고갯길 굽이가 목록에 나오는지 |
+| 실내 온도 측정값 | 에뮬레이터는 값 없음 → 온도 표시 숨김·여름 일반 문구 확인 | `getHvacTemperatureCurrent` 값과 단위, 대기 중 갱신 주기 |
+| 위치 따라 안내 재생 | 안 됨 — `geo fix`가 내비 위치를 바꾸지 않음(Pleos 위치 서비스 별도) | 실제 주행으로 예보 시작 거리 |
+| 차량 값(기어·속도·벨트)·Car data 패널 | 시도 중단(결정) — 에뮬레이터 user 빌드 | AAOS 속성·Pleos Vehicle SDK 값이 앱 "이 차에서 쓰는 신호"에 뜨는지 |
+| 앱이 뒤에 있을 때 콜백 | 내비가 앞이면 앱 프로세스가 내려가 콜백 끊김 | 분할 화면에서 둘 다 받는지 |
+| 분할 창 1/2·1/3 | **확인함** — `am task resize`로 1280·853dp | 사용자가 런처에서 직접 나누는 동작 |
+| 음성 인식 | 에뮬레이터 마이크 없음 → 버튼 대체 확인 | 차 마이크로 "여기서 쉴게요" |
+
 ### 심사 항목과의 연결 (대응표)
 | 심사 항목 | 근거 | 확인 방법 |
 | --- | --- | --- |
 | 차량 특화성 | 속도(가속도)·방위·기어·주차 브레이크·배터리·경로 남은 거리를 동시에 읽어야 가능한 판단. 대기 모드는 P단·배터리를 아는 차 화면에서만 가능 | 설정 "이 차에서 쓰는 신호", 발표 모드 신호 줄, [docs/plan/sdk_check.md](docs/plan/sdk_check.md) |
 | 창의성 | "운전자 피로"가 아니라 **말 못 하는 동승자(반려견)의 멀미를 미리 예보**. 휴식 장소를 반려견 기준으로 고르고, 차 화면을 바깥 사람용 안내판으로 바꿈 | 시연 대본 [docs/demo_script.md](docs/demo_script.md) 장면 2~4 |
-| 기술 활용성 | Vehicle SDK, NaviHelper SDK, AAOS 차량 속성, CarUxRestrictions, Android STT/TTS, ISO 2631-1 멀미 누적량(MSDV) 단순화 모델, 로컬 LLM(Ollama), 공공데이터 3종 | [docs/plan/motion_model.md](docs/plan/motion_model.md), 고갯길 비교 [docs/plan/demo_compare.md](docs/plan/demo_compare.md)(OSM 실제 도로, 55 → 30), 테스트 [test_plan.md](test_plan.md) |
+| 기술 활용성 | Vehicle SDK, NaviHelper SDK, AAOS 차량 속성, CarUxRestrictions, Android STT/TTS, ISO 2631-1 멀미 누적량(MSDV) 단순화 모델, 로컬 LLM(Ollama), 공공데이터 3종 — **실제 적재(2026-10-30): 반려동물 동반 장소 327곳**(TourAPI 전국 17개 시·도, 사진 225곳, 시·도별 [docs/plan/public_data.md](docs/plan/public_data.md)) · **동물병원 5,063곳**(인허가 파일 영업 중, 농장 동물 병원 224곳 제외) · 휴게소 30곳(도로공사 키 없음 → 샘플) | [docs/plan/motion_model.md](docs/plan/motion_model.md), 고갯길 비교 [docs/plan/demo_compare.md](docs/plan/demo_compare.md)(OSM 실제 도로, 55 → 30), 테스트 [test_plan.md](test_plan.md) |
 
 ---
 
@@ -53,11 +70,13 @@
 | --- | --- | --- | --- |
 | F1 | 멀미 예보 주행 | 속도(가속도 추정), 방위, 경로 형상·남은 거리, 기어 | 신호 잡음 처리, AppMode/DriveState, 쿨다운 |
 | F2 | 반려견 맞춤 쉼표 + 음성 경유지 추가 | 속도·주행 시간, 배터리, NaviHelper | 휴게소 추천 엔진·ScoringPolicy·니즈 타이머·피로 지수·음성 |
-| F3 | 잠깐 대기 모드 + 보호자 폰 웹페이지 | 기어 P, 배터리, 주차 브레이크, (가능하면) 실내 온도 | 서버, 발표 모드 패널 |
-| F4 | 함께 가는 장소 (TourAPI 반려동물 동반여행) | 남은 시간·목적지 | 서버 수집·캐시 |
-| F5 | 동물병원 가는 길 | NaviHelper, 속도 | F1 엔진 |
+| F3 | 잠깐 대기 모드 + 보호자 폰 웹페이지("돌아가는 중", 실내 온도가 오르면 배너) | 기어 P, 배터리, 주차 브레이크, 실내 온도 **측정값**(`getHvacTemperatureCurrent`, 없으면 숨김) | 서버, 발표 모드 패널 |
+| F4 | 함께 가는 장소 (TourAPI 반려동물 동반여행, 전국 327곳, 대형견·실내 필터는 명시된 곳만) | 남은 시간·목적지 | 서버 수집·캐시 |
+| F5 | 동물병원 가는 길 + 증상 음성 메모 + 도착 예정 공유(위치 없이, 2시간) | NaviHelper, 속도 | F1 엔진 |
 | F6 | 타고·내릴 때 체크 ("콩이 내렸나요?") | 기어 P, 주행 종료 판단 | 출발 준비 화면 |
-| F7 | 콩이 이동 기록 (한계 시간·병원용 요약) | 주행 기록 | 여행 리포트, TripRecorder, TripResume, Ollama 문장+템플릿 |
+| F7 | 콩이 이동 기록 (한계 시간·병원용 요약) + **개인 맞춤 보정**("오늘 멀미했어요?" 답으로 민감도 계수, 3회부터) | 주행 기록 | 여행 리포트, TripRecorder, TripResume, Ollama 문장+템플릿 |
+| F8 | 온보딩 3단계 (반려견 프로필 → 차량 연동 신호 확인 → 멀미 민감도 진단) | 쓰는 신호 목록 | — |
+| F9 | **"콩이가 이상해요"** — 주행 중 "헥헥거려·토했어·낑낑대·축 처졌어"를 말하면 규칙(증상 + 실내 온도·계절·출발 뒤 시간·멀미 지수)으로 1줄 안내 + 가장 가까운 정차 장소(응급은 동물병원 + 도착 예정 공유), 정차 후 체크리스트(검수 전) | 실내 온도 측정값, 속도·경로, NaviHelper | 음성, 휴게소·병원 데이터 |
 
 **뺀 것(쉼표에서):** 아이 원정대, 도착 맞춤 라디오, "아직 멀었어?", 파워냅.
 
@@ -67,7 +86,7 @@
 | 데이터 | 출처 | 키 없을 때 |
 | --- | --- | --- |
 | 휴게소·편의시설 | 한국도로공사 휴게소 API (공공데이터포털) | `server/app/data/sample_reststops.json` |
-| 반려동물 동반여행 | 한국관광공사 TourAPI `KorPetTourService2` (`areaBasedList2`·`detailPetTour2`, 강원 69곳, 7일 캐시) | `server/app/data/sample_pet_places.json` ("샘플" 표시) |
+| 반려동물 동반여행 | 한국관광공사 TourAPI `KorPetTourService2` (`areaBasedList2`·`detailPetTour2`): 전국 327곳, 7일 캐시·하루 900건 장부. 실내·대형견은 글에 명시된 경우만 필터(그 밖은 "정보 없음"), 동반 조건은 원문 그대로 | `server/app/data/sample_pet_places.json` ("샘플" 표시) |
 | 동물병원 | 지방행정 인허가 데이터(동물병원) 파일 `server/data/raw/*.csv` (영업 중 반려동물 병원 5,063곳) | `server/app/data/sample_vets.json` |
 | 고갯길 시연 경로 | OpenStreetMap 지방도 456호선(대관령 옛길) — `scenarios/geo/mountain_road.gpx` | 저장소에 포함 (`python scripts/gen_demo_data.py --fetch-osm`으로 다시 받기) |
 
