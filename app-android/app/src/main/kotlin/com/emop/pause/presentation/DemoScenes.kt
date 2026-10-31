@@ -23,7 +23,8 @@ object DemoScenes {
 
     val JUMPS = listOf(
         DemoJump("출발 체크", 0, expectMode = AppMode.PREPARE),
-        DemoJump("고속도로", 210, expectMode = AppMode.DRIVING),
+        // 출발 30분 뒤: 최근 30분 그래프가 차고 고속도로 교통 흐름으로 지수가 0이 아니다(2026-10-31)
+        DemoJump("고속도로", 1_800, expectMode = AppMode.DRIVING),
         // UPGRADE 7: 고속도로 중 "콩이가 헥헥거려" + 여름 실내 31℃ → 1줄 안내 + 가장 가까운 정차 장소
         DemoJump("콩이가 이상해요", 2_400, expectMode = AppMode.DRIVING, say = "콩이가 헥헥거려", cabinTempC = 31f),
         // 약 3,460초에 반려견 맞춤 쉼표(횡성휴게소, 놀이터·운전 피로)를 제안한다 — PetTripScenarioTest가 확인

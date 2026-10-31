@@ -44,6 +44,8 @@ sealed interface DriveContent {
         val startMin: Int? = null,
         val durationMin: Int? = null,
         val startM: Int? = null,
+        /** 엔진 예측 곡선: 지금부터 1분 간격 예상 지수 (0번 = 지금, 최대 21개). 그래프는 이 점만 잇는다. */
+        val series: List<Int> = emptyList(),
     ) : DriveContent
 
     /**
@@ -98,6 +100,10 @@ data class DriveUi(
     val nextStopMin: Int? = null,
     /** 앞 1km 경로 곡률(1/m, 50m 간격, 왼쪽 +). 도로 일러스트가 휘는 정도 — 없으면 곧은 길. */
     val roadAhead: List<Float> = emptyList(),
+    /** 다음 굽은 길까지 거리 ("3.2km", 형상이 없으면 null) — 상태 패널 빈자리 대신 (엔진 값). */
+    val nextCurve: String? = null,
+    /** 최근 30분 멀미 지수 (1분 간격, 엔진 값). 2점 미만이면 그래프 없음. */
+    val recentMotion: List<Int> = emptyList(),
 )
 
 enum class VoiceSheetState { LISTENING, FAILED }

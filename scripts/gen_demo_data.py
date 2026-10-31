@@ -1,4 +1,4 @@
-"""시연 데이터 생성기 (같이가개 PIVOT 3단계). 실행: python scripts/gen_demo_data.py [--fetch-osm | --osm-file <Overpass 응답.json>]
+"""시연 데이터 생성기 (같이가개 PIVOT 3단계). 실행: python scripts/gen_demo_data.py [--fetch-osm | --osm-file <Overpass 응답.json>] [--scenario-only]
 
 만드는 것 (결정적):
 - scenarios/geo/mountain_road.gpx: 고갯길 형상 = **OpenStreetMap 실제 도로** 지방도 456호선 대관령 옛길 구간
@@ -30,6 +30,10 @@ MAIN = [
     (37.6880, 128.7570), (37.7519, 128.8761),
 ]
 TOTAL_KM = 230.0
+# 고속도로 교통 흐름 (scenario 안 highway())
+TRAFFIC_STEP_SEC = 20
+TRAFFIC_SWING_KPH = 6.0
+TRAFFIC_SLOW_KPH = 85.0
 MOUNTAIN_START_KM = 205.0
 
 
@@ -240,6 +244,26 @@ def scenario(mountain_len_m):
         t += int(round(dt))
         pos = to_m
 
+    def highway(to_m, kph):
+        """고속도로 교통 흐름: drive()와 같은 시각·거리에 닿되, 그 사이 TRAFFIC_STEP_SEC초마다 속도만 ±TRAFFIC_SWING_KPH 출렁이고
+        약 9분마다 1분쯤 TRAFFIC_SLOW_KPH까지 준다(결정적 의사 난수). 실제 고속도로도 차간 거리 조절·앞차 감속으로 흔들린다는 가정 —
+        일정 속도 100km/h 그대로면 멀미 지수가 2시간 내내 0이라 화면이 비어 보였다(2026-10-31)."""
+        nonlocal t, pos
+        t0, p0 = t, pos
+        drive(to_m, kph)
+        t1, p1 = t, pos
+        k = 1
+        while t0 + k * TRAFFIC_STEP_SEC < t1 - TRAFFIC_STEP_SEC:
+            tt = t0 + k * TRAFFIC_STEP_SEC
+            noise = math.sin(k * 12.9898 + t0 * 0.001) * 43758.5453
+            noise = (noise - math.floor(noise)) * 2 - 1
+            v = kph + TRAFFIC_SWING_KPH * noise
+            if k % 27 in (13, 14, 15):
+                v = TRAFFIC_SLOW_KPH
+            at = p0 + (p1 - p0) * (tt - t0) / (t1 - t0)
+            frames.append({"t": tt, "speedKph": round(v, 1), "remainDistanceM": round(total - at), "remainTimeSec": round((total - at) / (90 / 3.6))})
+            k += 1
+
     kf(label="depart", trip="NOT_STARTED", driveState="PARKED", gear="PARK", speedKph=0, socPercent=82, charging=False,
        hvacTempC=23, parkingBrake=None)
     frames[-1].pop("parkingBrake")
@@ -250,21 +274,21 @@ def scenario(mountain_len_m):
     drive(1500, 45)
     kf(label="highway", speedKph=100)
     # 고속도로 → 횡성휴게소(140km) 진입 직전 감속
-    drive(139_000, 100)
+    highway(139_000, 100)
     kf(speedKph=100, socPercent=58)
     drive(139_800, 60)
     kf(label="휴게소 진입", speedKph=30)
     drive(140_000, 30)
     kf(label="rest_stop", driveState="PARKED", gear="PARK", speedKph=0, socPercent=57)
     t += 300
-    kf(label="wait", hvacTempC=24)
+    kf(label="wait", hvacTempC=24, speedKph=0)
     t += 900  # 대기 15분 (제한 10분 → 초과 장면)
-    kf(label="대기 끝", hvacTempC=25)
+    kf(label="대기 끝", hvacTempC=25, speedKph=0)  # 정차 끝에 속도 0 (없으면 정차 중 속도가 0→40으로 보간됐다)
     t += 60
     kf(label="다시 출발", driveState="DRIVING", gear="DRIVE", speedKph=40)
     drive(141_000, 60)
     kf(speedKph=100)
-    drive(MOUNTAIN_START_KM * 1000 - 1000, 100)
+    highway(MOUNTAIN_START_KM * 1000 - 1000, 100)
     kf(label="대관령 진입", speedKph=100, socPercent=40)
     drive(MOUNTAIN_START_KM * 1000, 70)
     kf(label="mountain_road", speedKph=45)
@@ -308,6 +332,9 @@ def main():
     pts, length = read_gpx(GPX_PATH)
     sc = scenario(length)
     (ROOT / "scenarios/pet-trip.json").write_bytes((json.dumps(sc, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+    if "--scenario-only" in sys.argv:  # 시나리오만 다시 만든다(공공데이터로 바꾼 샘플 파일은 건드리지 않음)
+        print(f"pet-trip {len(sc['timeline'])} keyframes, duration {sc['timeline'][-1]['t']}s")
+        return
     update_reststops()
     for name, data in (("sample_pet_places.json", pet_places()), ("sample_vets.json", vets())):
         (ROOT / "server/app/data" / name).write_bytes((json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))

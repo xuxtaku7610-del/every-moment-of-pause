@@ -37,6 +37,20 @@ object PetTripLog {
         return if (e.basedOn < 3) "$base (기록 ${e.basedOn}번 기준)" else base
     }
 
+    /**
+     * 이동 기록 화면의 한 줄 (이번 여행 + 평소 한계). 같은 화면의 "멀미 주의 n번"과 어긋나지 않게 **이번 여행 값을 먼저** 본다:
+     * 이번에 주의에 닿았으면 그 시각, 평소 한계가 있으면 덧붙이고, 둘 다 없을 때만 "아직 닿은 적이 없어요".
+     */
+    fun insight(name: String, trip: PetTripRecord, e: LimitEstimate?): String {
+        val first = trip.firstCautionMin
+        return when {
+            first != null && e != null -> "이번엔 출발 ${duration(first)} 뒤 멀미 주의에 닿았어요. ${limitPhrase(name, e)}"
+            first != null -> "이번엔 출발 ${duration(first)} 뒤 멀미 주의에 닿았어요. 기록이 쌓이면 평소 한계를 알려 드려요."
+            e != null -> "이번엔 멀미 주의 없이 도착했어요. ${limitPhrase(name, e)}"
+            else -> limitPhrase(name, null)
+        }
+    }
+
     /** 동물병원에 보여 줄 요약 줄 (F7-03). 증상 메모는 사용자가 적은 그대로. */
     fun vetSummary(name: String, trip: PetTripRecord, e: LimitEstimate?): List<String> = buildList {
         add("$name 이동 기록")

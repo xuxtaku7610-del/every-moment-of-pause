@@ -71,7 +71,6 @@ import com.emop.pause.uistate.OnboardingUi
 import com.emop.pause.core.model.AppMode
 import com.emop.pause.data.net.EtaShareReq
 import com.emop.pause.data.net.EtaUpdateReq
-import com.emop.pause.engine.motion.MotionConstants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,7 +87,7 @@ import java.util.UUID
 import javax.inject.Inject
 
 /** 저장한 이번 여행 기록 (이동 기록 화면). */
-data class SavedTrip(val id: String, val record: PetTripRecord, val series: List<Int>, val summary: String)
+data class SavedTrip(val id: String, val record: PetTripRecord, val series: List<Int>, val summary: String, val cautions: Int = 0)
 
 data class AppState(
     val overlay: Overlay = Overlay.NONE,
@@ -163,12 +162,16 @@ class MainViewModel @Inject constructor(
         trip.voiceEnabled = settings.voiceSuggest
         trip.eager = settings.timing == 0
         viewModelScope.launch { refreshLimit() }
-        // 발표 모드 점프: 건너뛴 구간의 정차 기록을 다시 쌓는다. 이때 휴게소 목록은 다시 받는 중일 수 있어
-        // 이름은 비워 두고(빈 목록) 다음 실시간 기록에서 그 위치·목록으로 채운다.
+        // 발표 모드 점프: 건너뛴 구간을 엔진이 따라잡은 값(멀미·피로·정차·증상)으로 이동 기록을 다시 쌓는다 — 처음부터 달린 것과 같은 숫자.
+        // 이때 휴게소 목록은 다시 받는 중일 수 있어 정차 이름은 비워 두고(빈 목록) 목록이 오면 채운다.
         viewModelScope.launch {
-            runtime.replays.collect { frames ->
+            trip.replayed.collect { ticks ->
                 recorder.reset()
-                frames.forEach { s -> recorder.tick(s.clockMinute, s.mode, s.pauseCause, null, null, s.route?.totalDistanceM?.let { tot -> (tot - (s.eta?.remainDistanceM ?: tot)) / 1000.0 } ?: 0.0, emptyList()) }
+                ticks.forEach { (s, t) ->
+                    recorder.onMotion(t.motion.index, t.motion.drivingSec, t.motion.firstCautionDrivingSec)
+                    recorder.tick(s.clockMinute, s.mode, s.pauseCause, t.fatigue?.score, t.fatigue?.continuousDriveMinutes, t.traveledKm, emptyList())
+                }
+                lastRecordedSec = ticks.lastOrNull()?.s?.nowMs?.div(1000) ?: -1L
             }
         }
         viewModelScope.launch {
@@ -570,7 +573,7 @@ class MainViewModel @Inject constructor(
             runCatching { petStore.saveTrip(id, record, System.currentTimeMillis(), log.motionSeries.mapIndexed { i, v -> i * TripRecorder.SAMPLE_MIN to v }) }
             refreshLimit()
             val summary = summarize(record, _app.value.limit)
-            _app.update { it.copy(saved = SavedTrip(id, record, log.motionSeries, summary), symptoms = emptySet(), askMotion = true) }
+            _app.update { it.copy(saved = SavedTrip(id, record, log.motionSeries, summary, log.cautionCount), symptoms = emptySet(), askMotion = true) }
             // 음성으로도 한 번 묻는다 (정차 중). 못 들으면 화면 버튼으로.
             val heard = trip.ask("오늘 ${trip.ui.value.pet.name} 멀미했어요? 네, 조금, 아니요로 말해 주세요.")
             MotionAnswerParser.parse(heard)?.let { answerMotion(it) }
@@ -639,10 +642,10 @@ class MainViewModel @Inject constructor(
             stops = record.stops,
             motionPeak = record.motionPeak,
             motionSeries = (saved?.series ?: log.motionSeries).ifEmpty { listOf(0, 0) },
-            limitLine = PetTripLog.limitPhrase(t.pet.name, a.limit),
+            limitLine = PetTripLog.insight(t.pet.name, record, a.limit),
             vetSummary = PetTripLog.vetSummary(t.pet.name, record.copy(symptomNote = note), a.limit),
             symptoms = SYMPTOMS.map { SymptomUi(it, it in a.symptoms) },
-            warnings = cautionCount(saved?.series ?: log.motionSeries),
+            warnings = saved?.cautions ?: log.cautionCount,
             askMotion = askMotion,
             events = events,
             calibration = if (a.askMotion) null else calibrationLine(t.pet.name, a),
@@ -692,13 +695,8 @@ class MainViewModel @Inject constructor(
     /** 오늘 이동 한 줄 (공유에 붙는다). */
     private fun todayLine(a: AppState): String? {
         val log = recorder.log()
-        return VetMemo.tripLine(log.drivingMin, cautionCount(log.motionSeries), log.motionPeak, trip.ui.value.distressEvents.map { it.first })
+        return VetMemo.tripLine(log.drivingMin, log.cautionCount, log.motionPeak, trip.ui.value.distressEvents.map { it.first })
     }
-
-    /** 멀미 주의(40)에 들어간 횟수: 40 아래 → 40 이상으로 오른 번 수. */
-    private fun cautionCount(series: List<Int>): Int = series.zipWithNext().count { (p, n) -> p < MotionConstants.CAUTION && n >= MotionConstants.CAUTION } +
-        if ((series.firstOrNull() ?: 0) >= MotionConstants.CAUTION) 1 else 0
-
 
     /** 기록 확인 → 증상 메모를 함께 저장하고 새 여행 준비. 시뮬레이션은 처음으로 되감는다. */
     private fun finishTrip() {

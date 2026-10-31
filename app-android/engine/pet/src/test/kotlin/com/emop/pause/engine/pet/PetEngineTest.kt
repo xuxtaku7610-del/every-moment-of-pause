@@ -164,6 +164,16 @@ class PetTripLogTest {
     }
 
     @Test
+    fun `F7-02 이동 기록 한 줄은 이번 여행 값을 먼저 본다 (주의 n번과 어긋나지 않게)`() {
+        val reached = trip(1, 151)
+        assertEquals("이번엔 출발 2시간 31분 뒤 멀미 주의에 닿았어요. 기록이 쌓이면 평소 한계를 알려 드려요.", PetTripLog.insight("콩이", reached, null))
+        val e = LimitEstimate(70, 3)
+        assertEquals("이번엔 출발 2시간 31분 뒤 멀미 주의에 닿았어요. 콩이는 약 1시간 10분이 한계예요.", PetTripLog.insight("콩이", reached, e))
+        assertEquals("이번엔 멀미 주의 없이 도착했어요. 콩이는 약 1시간 10분이 한계예요.", PetTripLog.insight("콩이", trip(2, null), e))
+        assertEquals("콩이는 아직 멀미 주의 단계에 닿은 적이 없어요.", PetTripLog.insight("콩이", trip(2, null), null))
+    }
+
+    @Test
     fun `F7-02 최근 10번만 본다`() {
         val old = (1..10).map { trip(it, 30) }
         val recent = (11..20).map { trip(it, 90) }

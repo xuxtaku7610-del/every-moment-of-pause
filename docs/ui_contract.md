@@ -94,3 +94,8 @@ flowchart TD
 | 폰 공유 실패 | 대기: "폰 공유 연결 안 됨 — 차 화면 안내는 계속돼요" |
 | 장소·병원 찾는 중 / 없음 | "찾는 중…" / "근처에 찾은 곳이 없어요." |
 | 프로필 미저장 | 출발 체크 `pet.sample = true`, 첫 실행이면 프로필 화면 |
+
+## 2026-10-31 추가 (기본값 있음, 기존 화면·테스트 그대로)
+- `DriveContent.Forecast.series: List<Int>` — 엔진 예측 곡선(1분 간격, 0번 = 지금, 최대 21개). 그래프는 이 점만 잇는다. `peak` = 이 곡선의 최고.
+- `DriveUi.nextCurve: String?`("3.4km", 구간 안이면 "지금") · `DriveUi.recentMotion: List<Int>`(최근 30분, 1분 간격).
+- `TripLogUi.limitLine`은 이제 이번 여행 값을 먼저 보는 한 줄(`PetTripLog.insight`), `warnings`는 1초 값 기준 주의 횟수.

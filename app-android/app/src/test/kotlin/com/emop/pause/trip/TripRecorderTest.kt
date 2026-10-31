@@ -17,8 +17,11 @@ class TripRecorderTest {
             r.tick(9 * 60 + min, mode, null, 30, min, min * 1.5, emptyList())
         }
         val log = r.log()
-        assertEquals(listOf(0, 5, 10, 15, 20, 25, 20, 20, 20, 45, 50, 55, 60), log.motionSeries)
+        // 점마다 그 5분 안의 최고값 (30분 점 = 26~29분 주행 29, 정차 20) → 그래프 최고 = 최고 지수
+        assertEquals(listOf(0, 5, 10, 15, 20, 25, 29, 20, 20, 45, 50, 55, 60), log.motionSeries)
         assertEquals(60, log.motionPeak)
+        assertEquals(log.motionPeak, log.motionSeries.max())
+        assertEquals(1, log.cautionCount, "40에 41분에 처음 들어가고 내려오지 않았다")
         assertEquals(40, log.firstCautionMin)
         assertEquals(1, log.visits.size)
         assertEquals(60, log.drivingMin)
@@ -40,5 +43,15 @@ class TripRecorderTest {
         val r = TripRecorder()
         r.tick(600, AppMode.PAUSE, null, 10, 0, 40.0, listOf(RestStop("Y03", "횡성휴게소", StopType.SERVICE_AREA, 95.0)))
         assertEquals(TripRecorder.ROADSIDE, r.currentStop)
+    }
+
+    @Test
+    fun `주의 횟수는 1초 값 기준이고 39·40을 오가도 한 번만 센다`() {
+        val r = TripRecorder()
+        listOf(10, 39, 40, 39, 41, 30, 45, 20).forEachIndexed { i, v ->
+            r.onMotion(v, i * 60L, null)
+            r.tick(i, AppMode.DRIVING, null, 10, i, i * 1.0, emptyList())
+        }
+        assertEquals(2, r.log().cautionCount, "40 진입 → 30까지 내려감 → 45 다시 진입")
     }
 }

@@ -2,6 +2,8 @@
 
     python scripts/ui_capture.py <태그> [화면 ...]      # 예: before, after, it1 — 화면을 빼면 전부
     python scripts/ui_capture.py --pair before after   # artifacts/ui/v6/<화면>-before-after.png (앱 영역만 잘라 나란히)
+    python scripts/ui_capture.py dark --dark 01 02      # 다크 테마 (cmd uimode night yes, 끝나면 되돌림)
+    python scripts/ui_capture.py half --split half 01   # 실제 분할 창 1/2(1280dp)·1/3(853dp) — am task resize
 
 주행·멀미 예보·쉼표·대기·도착·이동 기록은 **시뮬레이터 실제 값**(pet-trip 장면 점프), 나머지는 화면 계약 Fixtures 장면.
 에뮬레이터·디버그 앱·서버(:8000)가 떠 있어야 한다. 나란히 붙이기는 설치된 Chrome 헤드리스를 쓴다(없으면 건너뜀).
@@ -19,6 +21,24 @@ import rehearsal as r  # noqa: E402
 OUT = r.ROOT / "artifacts" / "ui" / "v6"
 # Pleos 런처 안 앱 영역 (2560×1440 원본 기준)
 CROP = "1682:1210:853:90"
+# 분할 창 오른쪽 끝(px): Pleos 앱 영역 x=853부터. 1/2 = 1280dp, 1/3 = 853dp (docs/BLOCKED.md 10/30)
+SPLIT_RIGHT = {"half": 2133, "third": 1706}
+FULL_RIGHT = 2535
+
+
+def task_id() -> str | None:
+    out = subprocess.run(["adb", "shell", "dumpsys", "activity", "activities"], capture_output=True, text=True, encoding="utf-8", errors="replace", env=r.ENV).stdout
+    for line in out.splitlines():
+        if "Task{" in line and "com.emop.pause" in line and " #" in line:
+            return line.split(" #")[1].split()[0]
+    return None
+
+
+def resize(right: int) -> None:
+    tid = task_id()
+    if tid:
+        subprocess.run(["adb", "shell", "am", "task", "resize", tid, "853", "90", str(right), "1300"], capture_output=True, env=r.ENV)
+        time.sleep(3)
 
 
 def sim(seek: int, wait: str | None = None, timeout: float = 30, settle: float = 6, speed: int = 1, **extra: object) -> bool:
@@ -59,13 +79,13 @@ def wait_mode() -> bool:
 
 
 def triplog() -> bool:
-    # 점프로 건너뛴 구간은 멀미 기록이 비므로, 고갯길 앞(8,400초)부터 10배속으로 실제로 달려 기록을 채운다(100배속은 1초 표본을 건너뜀)
-    if not sim(8400, "내렸어요", timeout=420, settle=1, speed=10):
+    # 도착 장면으로 바로 점프: 건너뛴 구간은 엔진이 1초씩 따라잡은 값으로 이동 기록을 채운다(2026-10-31, 처음부터 달린 것과 같은 숫자)
+    if not sim(10843, "내렸어요", timeout=100, settle=1):
         return False
     xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
     if xy:
         r.tap(xy)
-    ok = r.wait_for("이동 기록", 15) is not None
+    ok = r.wait_for("최고 지수", 15) is not None
     time.sleep(3)
     return ok
 
@@ -79,8 +99,8 @@ def compare() -> bool:
 
 
 SCREENS = {
-    "01-drive": lambda: sim(210, "멀미 지수", settle=8),
-    "02-forecast": lambda: sim(8748, "굽은 길", timeout=40, settle=2),
+    "01-drive": lambda: sim(1800, "최근 30분", settle=8),
+    "02-forecast": lambda: sim(8748, "예상 최고", timeout=40, settle=2),
     "03-triplog": triplog,
     "04-pet": lambda: fixture("pet"),
     "05-depart": depart,
@@ -139,18 +159,29 @@ def main() -> int:
     ap.add_argument("tag", nargs="?")
     ap.add_argument("screens", nargs="*")
     ap.add_argument("--pair", nargs=2)
+    ap.add_argument("--split", choices=list(SPLIT_RIGHT))
+    ap.add_argument("--dark", action="store_true")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     if a.pair:
         pair(*a.pair)
         return 0
     names = [n for n in SCREENS if not a.screens or any(n.startswith(s) or s in n for s in a.screens)]
+    if a.dark:
+        subprocess.run(["adb", "shell", "cmd", "uimode", "night", "yes"], capture_output=True, env=r.ENV)
+        time.sleep(2)
     for n in names:
         ok = SCREENS[n]()
+        if a.split:
+            resize(SPLIT_RIGHT[a.split])
         path = OUT / f"{n}-{a.tag}.png"
         with open(path, "wb") as f:
             f.write(subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, env=r.ENV).stdout)
         print(f"{n}: {'OK' if ok else '기대 글자 못 찾음'} → {path.name}", flush=True)
+    if a.split:
+        resize(FULL_RIGHT)
+    if a.dark:
+        subprocess.run(["adb", "shell", "cmd", "uimode", "night", "no"], capture_output=True, env=r.ENV)
     r.start(scene="none", compare=False)
     return 0
 

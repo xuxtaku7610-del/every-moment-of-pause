@@ -54,6 +54,10 @@ object MotionConstants {
      */
     const val A_DRIVER_MAX = 3.0
 
+    /** 예보 "안내 없이" 운전자의 감속·가속 한계(m/s², 가정). 고속도로에서 굽은 길로 들어갈 때도 이 안에서 줄인다. */
+    const val DRIVER_DECEL_MPS2 = 1.0
+    const val DRIVER_ACCEL_MPS2 = 0.8
+
     /** 권장 속도 계산용 편안한 횡가속(m/s²) (§6, 가정). */
     const val A_COMFORT = 1.0
 

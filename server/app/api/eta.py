@@ -9,6 +9,7 @@
 - 병원은 접수함에서 응답 하나를 누른다: 접수 확인 / 도착하면 바로 볼게요 / 지금은 어려워요. 앱은 `GET /eta/{token}`으로 받아 간다.
 - 접수함 링크도 보호자가 직접 전달한다(문자·전화로 불러 주기). 서버는 병원에 아무것도 보내지 않는다.
 """
+import hashlib
 import html
 import math
 import secrets
@@ -151,8 +152,36 @@ def _left(row: EtaShare, now: datetime) -> tuple[int, datetime]:
     return left, arrive.astimezone(timezone(timedelta(hours=9)))
 
 
-def render_clinic(row: EtaShare | None, now: datetime | None = None, token: str = "") -> tuple[int, str]:
-    """병원 접수함 (F5-07): 도착 예정(15초마다 새로 고침)·증상·메모·오늘 이동 + 응답 버튼 3개."""
+CLINIC_POLL_SEC = 15
+
+# 접수함 새로 고침·알림 (F5-11): 15초마다 같은 주소를 받아 #inbox만 바꾸고, data-* 서명이 달라진 칸을 강조한다.
+# 소리는 브라우저 정책상 사용자가 한 번 눌러 켠다(localStorage에 기억, 새로 연 페이지에서 막히면 버튼이 다시 켜 달라고 한다).
+CLINIC_JS = """
+(function(){
+var KEY='pause-clinic-sound',ctx=null,btn=document.getElementById('snd');
+function label(){var on=localStorage.getItem(KEY)==='on'&&ctx&&ctx.state==='running';btn.setAttribute('aria-pressed',on);
+btn.textContent=on?'알림 소리 켜짐':(localStorage.getItem(KEY)==='on'?'알림 소리 다시 켜기':'알림 소리 켜기');}
+function beep(n){if(!ctx||ctx.state!=='running'||localStorage.getItem(KEY)!=='on')return;for(var i=0;i<n;i++){var o=ctx.createOscillator(),g=ctx.createGain();
+o.frequency.value=i?1046:880;g.gain.value=0.2;o.connect(g);g.connect(ctx.destination);var t=ctx.currentTime+i*0.25;o.start(t);o.stop(t+0.18);}}
+function unlock(){try{ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();}catch(e){}}
+btn.onclick=function(){var on=localStorage.getItem(KEY)==='on'&&ctx&&ctx.state==='running';if(on){localStorage.setItem(KEY,'off');}
+else{unlock();localStorage.setItem(KEY,'on');setTimeout(function(){beep(1);label();},50);}label();};
+if(localStorage.getItem(KEY)==='on')unlock();label();
+function mark(el,on){if(el)el.classList.toggle('changed',on);}
+var box=document.getElementById('inbox');
+if(box&&box.dataset.fresh==='1'){mark(document.getElementById('hero'),true);setTimeout(function(){beep(2)},300);}
+setInterval(function(){fetch(location.href,{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){
+var nb=new DOMParser().parseFromString(t,'text/html').getElementById('inbox');if(!nb){location.reload();return;}
+var ch={hero:nb.dataset.eta!==box.dataset.eta,info:nb.dataset.info!==box.dataset.info};
+box.replaceWith(nb);box=nb;mark(document.getElementById('hero'),ch.hero);mark(document.getElementById('info'),ch.info);
+if(ch.hero||ch.info)beep(nb.dataset.arrived==='1'?2:1);label();}).catch(function(){});},""" + str(CLINIC_POLL_SEC * 1000) + """);
+})();
+"""
+
+
+def render_clinic(row: EtaShare | None, now: datetime | None = None, token: str = "", fresh: bool = False) -> tuple[int, str]:
+    """병원 접수함 (F5-07·F5-11): 도착 예정(15초마다)·증상·메모·오늘 이동 + 응답 버튼 3개.
+    [fresh] = 이 접수를 처음 연 것(새 접수) → 강조 + 소리. 도착 예정·증상이 바뀌면 그 칸만 강조 + 소리."""
     now = now or _now()
     if row is None or now >= _aware(row.expires_at):
         body = "<section class='card hero'><p class='title'>접수가 끝났어요</p><p class='note'>사전 접수는 2시간 뒤 사라져요.</p></section>"
@@ -174,13 +203,19 @@ def render_clinic(row: EtaShare | None, now: datetime | None = None, token: str 
         f"<form method='post' action='/clinic/{token}/reply?r={k}'><button class='btn{' alt' if k == 'busy' else ''}'>{v}</button></form>"
         for k, v in REPLIES.items()
     )
+    eta_sig = "arrived" if row.arrived else str(left)
+    info_sig = hashlib.sha256("|".join(v for _, v in rows).encode()).hexdigest()[:12]
     body = (
-        f"<section class='card hero'><p class='kicker'>사전 접수 · {html.escape(row.vet_name)}</p>"
+        "<div class='bar'><span class='chip'>" + ("새 사전 접수" if fresh else "사전 접수") + "</span>"
+        "<button id='snd' class='snd' type='button' aria-pressed='false'>알림 소리 켜기</button></div>"
+        f"<div id='inbox' data-eta='{eta_sig}' data-info='{info_sig}' data-arrived='{int(bool(row.arrived))}' data-fresh='{int(fresh)}'>"
+        f"<section id='hero' class='card hero'><p class='kicker'>{html.escape(row.vet_name)}<span class='tag'>바뀜</span></p>"
         f"<p class='title'>{html.escape(row.pet_name)} 보호자가 오는 중</p><p class='big'>{head}</p><p class='note'>{sub}</p></section>"
-        f"<section class='card'>{row_html}</section>{chosen}<section>{buttons}</section>"
+        f"<section id='info' class='card'>{row_html}<span class='tag'>바뀜</span></section>{chosen}<section>{buttons}</section></div>"
         "<p class='note'>보호자가 직접 보낸 링크예요. 위치는 받지 않고 도착 예정 시각만 보여요. 진단 정보가 아니에요. 2시간 뒤 사라져요.</p>"
+        "<p class='demo'>시연용 접수함 · 실제 서비스는 병원 예약 시스템 연동</p>"
     )
-    return 200, pages.page(f"{row.pet_name} 사전 접수", body, refresh_sec=15)
+    return 200, pages.page(f"{row.pet_name} 사전 접수", body, refresh_sec=CLINIC_POLL_SEC, script=CLINIC_JS)
 
 
 def _clinic_row(session: Session, token: str) -> EtaShare | None:
@@ -191,10 +226,11 @@ def _clinic_row(session: Session, token: str) -> EtaShare | None:
 def clinic_page(token: str, request: Request) -> HTMLResponse:
     with Session(request.app.state.engine) as session:
         row = _clinic_row(session, token)
-        if row is not None and row.clinic_seen_at is None and _now() < _aware(row.expires_at):
+        fresh = row is not None and row.clinic_seen_at is None and _now() < _aware(row.expires_at)
+        if fresh:
             row.clinic_seen_at = _now()
             session.commit()
-        code, text = render_clinic(row, token=token)
+        code, text = render_clinic(row, token=token, fresh=fresh)
     return HTMLResponse(text, status_code=code, headers={"Cache-Control": "no-store"})
 
 

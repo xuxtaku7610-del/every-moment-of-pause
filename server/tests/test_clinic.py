@@ -96,3 +96,24 @@ def test_f5_10_clinic_link_expires_with_share(client, db_engine):
         assert eta.render_clinic(row, later)[0] == 410
     assert client.get("/clinic/unknown").status_code == 404
     assert client.post("/clinic/unknown/reply?r=ready", follow_redirects=False).status_code == 404
+
+
+def test_f5_11_clinic_inbox_highlights_changes_and_marks_demo(client):
+    """새 접수·도착 예정 변경을 강조하고 소리는 사용자가 켠다. 시연용 접수함 표시."""
+    h = register(client)
+    res = _intake(client, h)
+    first = client.get(res["clinicUrl"]).text
+    assert "새 사전 접수" in first and "data-fresh='1'" in first
+    assert "알림 소리 켜기" in first and "AudioContext" in first  # 소리는 버튼으로 켠다(자동 재생 없음)
+    assert "시연용 접수함 · 실제 서비스는 병원 예약 시스템 연동" in first
+    assert "<noscript><meta http-equiv='refresh'" in first  # 스크립트가 꺼져도 15초 새로 고침
+    again = client.get(res["clinicUrl"]).text
+    assert "data-fresh='0'" in again and "새 사전 접수" not in again
+    before_eta = again.split("data-eta='")[1].split("'")[0]
+    before_info = again.split("data-info='")[1].split("'")[0]
+    client.put(f"{V1}/eta/{res['token']}", json={"etaMinutes": 6}, headers=h)
+    after = client.get(res["clinicUrl"]).text
+    assert after.split("data-eta='")[1].split("'")[0] != before_eta  # 도착 예정이 바뀌면 서명이 바뀐다 → 강조·소리
+    assert after.split("data-info='")[1].split("'")[0] == before_info  # 증상은 그대로
+    client.put(f"{V1}/eta/{res['token']}", json={"etaMinutes": 0, "arrived": True}, headers=h)
+    assert "data-arrived='1'" in client.get(res["clinicUrl"]).text

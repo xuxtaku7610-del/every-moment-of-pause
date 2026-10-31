@@ -2,6 +2,7 @@ package com.emop.pause.trip
 
 import com.emop.pause.core.model.AppMode
 import com.emop.pause.core.model.PauseCause
+import com.emop.pause.engine.motion.MotionConstants
 import com.emop.pause.engine.planner.RestStop
 import kotlin.math.abs
 import kotlin.math.max
@@ -27,13 +28,15 @@ data class TripLog(
     val longestDriveMin: Int,
     val distanceKm: Double,
     val startMinute: Int?,
-    /** 멀미 지수 흐름(0~100, 5분 간격, F7-01). 피로 흐름과 같은 시각에 찍는다. */
+    /** 멀미 지수 흐름(0~100, 5분 간격, F7-01). 피로 흐름과 같은 시각에 찍고, 값은 그 5분 안의 최고값 — 그래프 최고 = [motionPeak]. */
     val motionSeries: List<Int> = emptyList(),
     val motionPeak: Int = 0,
     /** 멀미 지수가 주의(40)에 처음 닿은 주행 분 (F7-02 한계 시간 추정). */
     val firstCautionMin: Int? = null,
     /** 주행 시간(분, 정차 제외). */
     val drivingMin: Int = 0,
+    /** 멀미 주의(40)에 들어간 횟수 (1초 값 기준, 35 아래로 내려갔다 다시 들어와야 한 번 더 센다). */
+    val cautionCount: Int = 0,
 )
 
 /**
@@ -46,6 +49,9 @@ class TripRecorder {
     private val series = mutableListOf<Int>()
     private val motionSeries = mutableListOf<Int>()
     private var motionNow = 0
+    private var windowMax = 0
+    private var cautionCount = 0
+    private var inCaution = false
     private var motionPeak = 0
     private var firstCautionMin: Int? = null
     private var drivingMin = 0
@@ -61,12 +67,20 @@ class TripRecorder {
         visits.clear(); series.clear(); marks.clear()
         lastSampleMin = null; current = null; peak = 0; longest = 0; distance = 0.0; start = null
         motionSeries.clear(); motionNow = 0; motionPeak = 0; firstCautionMin = null; drivingMin = 0
+        windowMax = 0; cautionCount = 0; inCaution = false
     }
 
     /** 멀미 엔진 상태 (MotionComfortEngine). [firstCautionSec]은 주의에 처음 닿은 주행 초. */
     fun onMotion(index: Int, drivingSec: Long, firstCautionSec: Long?) {
         motionNow = index
+        windowMax = max(windowMax, index)
         motionPeak = max(motionPeak, index)
+        if (!inCaution && index >= MotionConstants.CAUTION) {
+            inCaution = true
+            cautionCount++
+        } else if (inCaution && index < MotionConstants.CAUTION - CAUTION_HYSTERESIS) {
+            inCaution = false
+        }
         drivingMin = (drivingSec / 60).toInt()
         if (firstCautionMin == null && firstCautionSec != null) firstCautionMin = (firstCautionSec / 60).toInt()
     }
@@ -79,9 +93,12 @@ class TripRecorder {
         continuousMin?.let { longest = max(longest, it) }
         if (fatigueScore != null && (lastSampleMin == null || minute - lastSampleMin!! >= SAMPLE_MIN)) {
             series += fatigueScore
-            motionSeries += motionNow
+            motionSeries += max(windowMax, motionNow)
+            windowMax = 0
             lastSampleMin = minute
         }
+        // 점프로 따라잡을 때는 휴게소 목록이 아직 없어 이름이 비어 있다 → 목록이 오면 지난 정차도 채운다.
+        if (stops.isNotEmpty()) visits.filter { it.name == null && it !== current }.forEach { it.name = nearestName(it.km, stops) }
         if (mode == AppMode.PAUSE) {
             val v = current ?: StopVisit(nearestName(traveledKm, stops), minute, traveledKm).also {
                 current = it
@@ -107,7 +124,7 @@ class TripRecorder {
 
     fun log(): TripLog {
         val n = max(1, series.size - 1)
-        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin)
+        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin, cautionCount)
     }
 
     /** 목록이 비어 있으면 null(아직 모름), 3km 안에 휴게소가 없으면 "길가". */
@@ -118,6 +135,8 @@ class TripRecorder {
 
     companion object {
         const val SAMPLE_MIN = 5
+        /** 주의 횟수를 다시 세려면 이만큼 아래(40 − 5)로 내려가야 한다 — 39·40을 오가며 여러 번 세지 않게. */
+        const val CAUTION_HYSTERESIS = 5
         const val NEAR_KM = 3.0
         const val ROADSIDE = "길가"
 

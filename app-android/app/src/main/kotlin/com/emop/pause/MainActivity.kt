@@ -56,8 +56,9 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             if (BuildConfig.DEBUG) viewModel.useScenario(DEFAULT_SCENARIO) else viewModel.useVehicle()
             requestSpeedIfNeeded()
+            // 처음 만들 때만: 분할 창 전환·다크 전환으로 다시 만들어질 때 첫 실행 명령(seek 등)을 또 적용하지 않게 (10/31)
+            applyDebugExtras(intent)
         }
-        applyDebugExtras(intent)
         val licenses = runCatching { assets.open("licenses/Pretendard-OFL.txt").bufferedReader().use { it.readText() } }.getOrDefault("")
         // 고갯길 비교 큰 그래프 (UPGRADE 1): docs/plan/demo_compare.csv·summary 사본(DemoCompareTest가 같은지 확인)
         val compareChart = runCatching {

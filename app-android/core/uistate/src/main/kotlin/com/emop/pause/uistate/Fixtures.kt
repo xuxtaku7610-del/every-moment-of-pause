@@ -21,6 +21,8 @@ object Fixtures {
         nextStopName = "횡성휴게소",
         nextStopMin = 46,
         roadAhead = List(21) { k -> (k / 20.0 / 900).toFloat() },
+        nextCurve = "62km",
+        recentMotion = List(31) { k -> 30 + k / 4 },
     )
 
     val forecast = drive.copy(
@@ -35,6 +37,7 @@ object Fixtures {
             startMin = 3,
             durationMin = 8,
             startM = 3000,
+            series = listOf(38, 38, 38, 40, 46, 53, 59, 64, 68, 70, 71, 71, 71, 70, 70, 70, 69, 69, 69, 68, 68),
         ),
         roadAhead = bends,
     )

@@ -126,6 +126,1482 @@
       "remainTimeSec": 9140
     },
     {
+      "t": 230,
+      "speedKph": 96.7,
+      "remainDistanceM": 227944,
+      "remainTimeSec": 9118
+    },
+    {
+      "t": 250,
+      "speedKph": 101.4,
+      "remainDistanceM": 227389,
+      "remainTimeSec": 9096
+    },
+    {
+      "t": 270,
+      "speedKph": 99.3,
+      "remainDistanceM": 226833,
+      "remainTimeSec": 9073
+    },
+    {
+      "t": 290,
+      "speedKph": 104.1,
+      "remainDistanceM": 226278,
+      "remainTimeSec": 9051
+    },
+    {
+      "t": 310,
+      "speedKph": 100.9,
+      "remainDistanceM": 225722,
+      "remainTimeSec": 9029
+    },
+    {
+      "t": 330,
+      "speedKph": 101.4,
+      "remainDistanceM": 225167,
+      "remainTimeSec": 9007
+    },
+    {
+      "t": 350,
+      "speedKph": 104.8,
+      "remainDistanceM": 224611,
+      "remainTimeSec": 8984
+    },
+    {
+      "t": 370,
+      "speedKph": 101.9,
+      "remainDistanceM": 224056,
+      "remainTimeSec": 8962
+    },
+    {
+      "t": 390,
+      "speedKph": 104.8,
+      "remainDistanceM": 223500,
+      "remainTimeSec": 8940
+    },
+    {
+      "t": 410,
+      "speedKph": 101.6,
+      "remainDistanceM": 222944,
+      "remainTimeSec": 8918
+    },
+    {
+      "t": 430,
+      "speedKph": 97.8,
+      "remainDistanceM": 222389,
+      "remainTimeSec": 8896
+    },
+    {
+      "t": 450,
+      "speedKph": 105.9,
+      "remainDistanceM": 221833,
+      "remainTimeSec": 8873
+    },
+    {
+      "t": 470,
+      "speedKph": 85.0,
+      "remainDistanceM": 221278,
+      "remainTimeSec": 8851
+    },
+    {
+      "t": 490,
+      "speedKph": 85.0,
+      "remainDistanceM": 220722,
+      "remainTimeSec": 8829
+    },
+    {
+      "t": 510,
+      "speedKph": 85.0,
+      "remainDistanceM": 220167,
+      "remainTimeSec": 8807
+    },
+    {
+      "t": 530,
+      "speedKph": 98.5,
+      "remainDistanceM": 219611,
+      "remainTimeSec": 8784
+    },
+    {
+      "t": 550,
+      "speedKph": 94.9,
+      "remainDistanceM": 219056,
+      "remainTimeSec": 8762
+    },
+    {
+      "t": 570,
+      "speedKph": 102.5,
+      "remainDistanceM": 218500,
+      "remainTimeSec": 8740
+    },
+    {
+      "t": 590,
+      "speedKph": 96.5,
+      "remainDistanceM": 217944,
+      "remainTimeSec": 8718
+    },
+    {
+      "t": 610,
+      "speedKph": 97.9,
+      "remainDistanceM": 217389,
+      "remainTimeSec": 8696
+    },
+    {
+      "t": 630,
+      "speedKph": 101.2,
+      "remainDistanceM": 216833,
+      "remainTimeSec": 8673
+    },
+    {
+      "t": 650,
+      "speedKph": 97.9,
+      "remainDistanceM": 216278,
+      "remainTimeSec": 8651
+    },
+    {
+      "t": 670,
+      "speedKph": 103.8,
+      "remainDistanceM": 215722,
+      "remainTimeSec": 8629
+    },
+    {
+      "t": 690,
+      "speedKph": 96.0,
+      "remainDistanceM": 215167,
+      "remainTimeSec": 8607
+    },
+    {
+      "t": 710,
+      "speedKph": 97.8,
+      "remainDistanceM": 214611,
+      "remainTimeSec": 8584
+    },
+    {
+      "t": 730,
+      "speedKph": 102.4,
+      "remainDistanceM": 214056,
+      "remainTimeSec": 8562
+    },
+    {
+      "t": 750,
+      "speedKph": 103.0,
+      "remainDistanceM": 213500,
+      "remainTimeSec": 8540
+    },
+    {
+      "t": 770,
+      "speedKph": 102.2,
+      "remainDistanceM": 212944,
+      "remainTimeSec": 8518
+    },
+    {
+      "t": 790,
+      "speedKph": 99.8,
+      "remainDistanceM": 212389,
+      "remainTimeSec": 8496
+    },
+    {
+      "t": 810,
+      "speedKph": 96.4,
+      "remainDistanceM": 211833,
+      "remainTimeSec": 8473
+    },
+    {
+      "t": 830,
+      "speedKph": 105.9,
+      "remainDistanceM": 211278,
+      "remainTimeSec": 8451
+    },
+    {
+      "t": 850,
+      "speedKph": 101.8,
+      "remainDistanceM": 210722,
+      "remainTimeSec": 8429
+    },
+    {
+      "t": 870,
+      "speedKph": 97.0,
+      "remainDistanceM": 210167,
+      "remainTimeSec": 8407
+    },
+    {
+      "t": 890,
+      "speedKph": 105.7,
+      "remainDistanceM": 209611,
+      "remainTimeSec": 8384
+    },
+    {
+      "t": 910,
+      "speedKph": 102.9,
+      "remainDistanceM": 209056,
+      "remainTimeSec": 8362
+    },
+    {
+      "t": 930,
+      "speedKph": 105.4,
+      "remainDistanceM": 208500,
+      "remainTimeSec": 8340
+    },
+    {
+      "t": 950,
+      "speedKph": 96.8,
+      "remainDistanceM": 207944,
+      "remainTimeSec": 8318
+    },
+    {
+      "t": 970,
+      "speedKph": 105.4,
+      "remainDistanceM": 207389,
+      "remainTimeSec": 8296
+    },
+    {
+      "t": 990,
+      "speedKph": 104.9,
+      "remainDistanceM": 206833,
+      "remainTimeSec": 8273
+    },
+    {
+      "t": 1010,
+      "speedKph": 85.0,
+      "remainDistanceM": 206278,
+      "remainTimeSec": 8251
+    },
+    {
+      "t": 1030,
+      "speedKph": 85.0,
+      "remainDistanceM": 205722,
+      "remainTimeSec": 8229
+    },
+    {
+      "t": 1050,
+      "speedKph": 85.0,
+      "remainDistanceM": 205167,
+      "remainTimeSec": 8207
+    },
+    {
+      "t": 1070,
+      "speedKph": 95.9,
+      "remainDistanceM": 204611,
+      "remainTimeSec": 8184
+    },
+    {
+      "t": 1090,
+      "speedKph": 105.1,
+      "remainDistanceM": 204056,
+      "remainTimeSec": 8162
+    },
+    {
+      "t": 1110,
+      "speedKph": 101.8,
+      "remainDistanceM": 203500,
+      "remainTimeSec": 8140
+    },
+    {
+      "t": 1130,
+      "speedKph": 103.0,
+      "remainDistanceM": 202944,
+      "remainTimeSec": 8118
+    },
+    {
+      "t": 1150,
+      "speedKph": 103.4,
+      "remainDistanceM": 202389,
+      "remainTimeSec": 8096
+    },
+    {
+      "t": 1170,
+      "speedKph": 96.7,
+      "remainDistanceM": 201833,
+      "remainTimeSec": 8073
+    },
+    {
+      "t": 1190,
+      "speedKph": 94.1,
+      "remainDistanceM": 201278,
+      "remainTimeSec": 8051
+    },
+    {
+      "t": 1210,
+      "speedKph": 98.1,
+      "remainDistanceM": 200722,
+      "remainTimeSec": 8029
+    },
+    {
+      "t": 1230,
+      "speedKph": 105.8,
+      "remainDistanceM": 200167,
+      "remainTimeSec": 8007
+    },
+    {
+      "t": 1250,
+      "speedKph": 98.9,
+      "remainDistanceM": 199611,
+      "remainTimeSec": 7984
+    },
+    {
+      "t": 1270,
+      "speedKph": 104.3,
+      "remainDistanceM": 199056,
+      "remainTimeSec": 7962
+    },
+    {
+      "t": 1290,
+      "speedKph": 104.0,
+      "remainDistanceM": 198500,
+      "remainTimeSec": 7940
+    },
+    {
+      "t": 1310,
+      "speedKph": 96.1,
+      "remainDistanceM": 197944,
+      "remainTimeSec": 7918
+    },
+    {
+      "t": 1330,
+      "speedKph": 94.8,
+      "remainDistanceM": 197389,
+      "remainTimeSec": 7896
+    },
+    {
+      "t": 1350,
+      "speedKph": 97.5,
+      "remainDistanceM": 196833,
+      "remainTimeSec": 7873
+    },
+    {
+      "t": 1370,
+      "speedKph": 105.7,
+      "remainDistanceM": 196278,
+      "remainTimeSec": 7851
+    },
+    {
+      "t": 1390,
+      "speedKph": 95.7,
+      "remainDistanceM": 195722,
+      "remainTimeSec": 7829
+    },
+    {
+      "t": 1410,
+      "speedKph": 105.8,
+      "remainDistanceM": 195167,
+      "remainTimeSec": 7807
+    },
+    {
+      "t": 1430,
+      "speedKph": 94.1,
+      "remainDistanceM": 194611,
+      "remainTimeSec": 7784
+    },
+    {
+      "t": 1450,
+      "speedKph": 103.5,
+      "remainDistanceM": 194056,
+      "remainTimeSec": 7762
+    },
+    {
+      "t": 1470,
+      "speedKph": 102.9,
+      "remainDistanceM": 193500,
+      "remainTimeSec": 7740
+    },
+    {
+      "t": 1490,
+      "speedKph": 94.1,
+      "remainDistanceM": 192944,
+      "remainTimeSec": 7718
+    },
+    {
+      "t": 1510,
+      "speedKph": 97.1,
+      "remainDistanceM": 192389,
+      "remainTimeSec": 7696
+    },
+    {
+      "t": 1530,
+      "speedKph": 97.5,
+      "remainDistanceM": 191833,
+      "remainTimeSec": 7673
+    },
+    {
+      "t": 1550,
+      "speedKph": 85.0,
+      "remainDistanceM": 191278,
+      "remainTimeSec": 7651
+    },
+    {
+      "t": 1570,
+      "speedKph": 85.0,
+      "remainDistanceM": 190722,
+      "remainTimeSec": 7629
+    },
+    {
+      "t": 1590,
+      "speedKph": 85.0,
+      "remainDistanceM": 190167,
+      "remainTimeSec": 7607
+    },
+    {
+      "t": 1610,
+      "speedKph": 105.8,
+      "remainDistanceM": 189611,
+      "remainTimeSec": 7584
+    },
+    {
+      "t": 1630,
+      "speedKph": 94.6,
+      "remainDistanceM": 189056,
+      "remainTimeSec": 7562
+    },
+    {
+      "t": 1650,
+      "speedKph": 104.1,
+      "remainDistanceM": 188500,
+      "remainTimeSec": 7540
+    },
+    {
+      "t": 1670,
+      "speedKph": 97.7,
+      "remainDistanceM": 187944,
+      "remainTimeSec": 7518
+    },
+    {
+      "t": 1690,
+      "speedKph": 96.6,
+      "remainDistanceM": 187389,
+      "remainTimeSec": 7496
+    },
+    {
+      "t": 1710,
+      "speedKph": 102.0,
+      "remainDistanceM": 186833,
+      "remainTimeSec": 7473
+    },
+    {
+      "t": 1730,
+      "speedKph": 103.9,
+      "remainDistanceM": 186278,
+      "remainTimeSec": 7451
+    },
+    {
+      "t": 1750,
+      "speedKph": 104.9,
+      "remainDistanceM": 185722,
+      "remainTimeSec": 7429
+    },
+    {
+      "t": 1770,
+      "speedKph": 104.3,
+      "remainDistanceM": 185167,
+      "remainTimeSec": 7407
+    },
+    {
+      "t": 1790,
+      "speedKph": 100.0,
+      "remainDistanceM": 184611,
+      "remainTimeSec": 7384
+    },
+    {
+      "t": 1810,
+      "speedKph": 95.8,
+      "remainDistanceM": 184056,
+      "remainTimeSec": 7362
+    },
+    {
+      "t": 1830,
+      "speedKph": 101.3,
+      "remainDistanceM": 183500,
+      "remainTimeSec": 7340
+    },
+    {
+      "t": 1850,
+      "speedKph": 103.4,
+      "remainDistanceM": 182944,
+      "remainTimeSec": 7318
+    },
+    {
+      "t": 1870,
+      "speedKph": 99.7,
+      "remainDistanceM": 182389,
+      "remainTimeSec": 7296
+    },
+    {
+      "t": 1890,
+      "speedKph": 95.5,
+      "remainDistanceM": 181833,
+      "remainTimeSec": 7273
+    },
+    {
+      "t": 1910,
+      "speedKph": 101.0,
+      "remainDistanceM": 181278,
+      "remainTimeSec": 7251
+    },
+    {
+      "t": 1930,
+      "speedKph": 98.8,
+      "remainDistanceM": 180722,
+      "remainTimeSec": 7229
+    },
+    {
+      "t": 1950,
+      "speedKph": 101.4,
+      "remainDistanceM": 180167,
+      "remainTimeSec": 7207
+    },
+    {
+      "t": 1970,
+      "speedKph": 94.0,
+      "remainDistanceM": 179611,
+      "remainTimeSec": 7184
+    },
+    {
+      "t": 1990,
+      "speedKph": 97.7,
+      "remainDistanceM": 179056,
+      "remainTimeSec": 7162
+    },
+    {
+      "t": 2010,
+      "speedKph": 101.4,
+      "remainDistanceM": 178500,
+      "remainTimeSec": 7140
+    },
+    {
+      "t": 2030,
+      "speedKph": 94.1,
+      "remainDistanceM": 177944,
+      "remainTimeSec": 7118
+    },
+    {
+      "t": 2050,
+      "speedKph": 97.2,
+      "remainDistanceM": 177389,
+      "remainTimeSec": 7096
+    },
+    {
+      "t": 2070,
+      "speedKph": 100.8,
+      "remainDistanceM": 176833,
+      "remainTimeSec": 7073
+    },
+    {
+      "t": 2090,
+      "speedKph": 85.0,
+      "remainDistanceM": 176278,
+      "remainTimeSec": 7051
+    },
+    {
+      "t": 2110,
+      "speedKph": 85.0,
+      "remainDistanceM": 175722,
+      "remainTimeSec": 7029
+    },
+    {
+      "t": 2130,
+      "speedKph": 85.0,
+      "remainDistanceM": 175167,
+      "remainTimeSec": 7007
+    },
+    {
+      "t": 2150,
+      "speedKph": 100.0,
+      "remainDistanceM": 174611,
+      "remainTimeSec": 6984
+    },
+    {
+      "t": 2170,
+      "speedKph": 105.1,
+      "remainDistanceM": 174056,
+      "remainTimeSec": 6962
+    },
+    {
+      "t": 2190,
+      "speedKph": 103.4,
+      "remainDistanceM": 173500,
+      "remainTimeSec": 6940
+    },
+    {
+      "t": 2210,
+      "speedKph": 98.9,
+      "remainDistanceM": 172944,
+      "remainTimeSec": 6918
+    },
+    {
+      "t": 2230,
+      "speedKph": 105.0,
+      "remainDistanceM": 172389,
+      "remainTimeSec": 6896
+    },
+    {
+      "t": 2250,
+      "speedKph": 104.1,
+      "remainDistanceM": 171833,
+      "remainTimeSec": 6873
+    },
+    {
+      "t": 2270,
+      "speedKph": 101.5,
+      "remainDistanceM": 171278,
+      "remainTimeSec": 6851
+    },
+    {
+      "t": 2290,
+      "speedKph": 102.3,
+      "remainDistanceM": 170722,
+      "remainTimeSec": 6829
+    },
+    {
+      "t": 2310,
+      "speedKph": 96.8,
+      "remainDistanceM": 170167,
+      "remainTimeSec": 6807
+    },
+    {
+      "t": 2330,
+      "speedKph": 95.6,
+      "remainDistanceM": 169611,
+      "remainTimeSec": 6784
+    },
+    {
+      "t": 2350,
+      "speedKph": 105.5,
+      "remainDistanceM": 169056,
+      "remainTimeSec": 6762
+    },
+    {
+      "t": 2370,
+      "speedKph": 103.3,
+      "remainDistanceM": 168500,
+      "remainTimeSec": 6740
+    },
+    {
+      "t": 2390,
+      "speedKph": 105.4,
+      "remainDistanceM": 167944,
+      "remainTimeSec": 6718
+    },
+    {
+      "t": 2410,
+      "speedKph": 105.2,
+      "remainDistanceM": 167389,
+      "remainTimeSec": 6696
+    },
+    {
+      "t": 2430,
+      "speedKph": 103.0,
+      "remainDistanceM": 166833,
+      "remainTimeSec": 6673
+    },
+    {
+      "t": 2450,
+      "speedKph": 98.6,
+      "remainDistanceM": 166278,
+      "remainTimeSec": 6651
+    },
+    {
+      "t": 2470,
+      "speedKph": 100.3,
+      "remainDistanceM": 165722,
+      "remainTimeSec": 6629
+    },
+    {
+      "t": 2490,
+      "speedKph": 96.0,
+      "remainDistanceM": 165167,
+      "remainTimeSec": 6607
+    },
+    {
+      "t": 2510,
+      "speedKph": 105.9,
+      "remainDistanceM": 164611,
+      "remainTimeSec": 6584
+    },
+    {
+      "t": 2530,
+      "speedKph": 100.8,
+      "remainDistanceM": 164056,
+      "remainTimeSec": 6562
+    },
+    {
+      "t": 2550,
+      "speedKph": 96.1,
+      "remainDistanceM": 163500,
+      "remainTimeSec": 6540
+    },
+    {
+      "t": 2570,
+      "speedKph": 100.4,
+      "remainDistanceM": 162944,
+      "remainTimeSec": 6518
+    },
+    {
+      "t": 2590,
+      "speedKph": 104.0,
+      "remainDistanceM": 162389,
+      "remainTimeSec": 6496
+    },
+    {
+      "t": 2610,
+      "speedKph": 99.8,
+      "remainDistanceM": 161833,
+      "remainTimeSec": 6473
+    },
+    {
+      "t": 2630,
+      "speedKph": 85.0,
+      "remainDistanceM": 161278,
+      "remainTimeSec": 6451
+    },
+    {
+      "t": 2650,
+      "speedKph": 85.0,
+      "remainDistanceM": 160722,
+      "remainTimeSec": 6429
+    },
+    {
+      "t": 2670,
+      "speedKph": 85.0,
+      "remainDistanceM": 160167,
+      "remainTimeSec": 6407
+    },
+    {
+      "t": 2690,
+      "speedKph": 102.4,
+      "remainDistanceM": 159611,
+      "remainTimeSec": 6384
+    },
+    {
+      "t": 2710,
+      "speedKph": 98.4,
+      "remainDistanceM": 159056,
+      "remainTimeSec": 6362
+    },
+    {
+      "t": 2730,
+      "speedKph": 98.4,
+      "remainDistanceM": 158500,
+      "remainTimeSec": 6340
+    },
+    {
+      "t": 2750,
+      "speedKph": 103.4,
+      "remainDistanceM": 157944,
+      "remainTimeSec": 6318
+    },
+    {
+      "t": 2770,
+      "speedKph": 105.1,
+      "remainDistanceM": 157389,
+      "remainTimeSec": 6296
+    },
+    {
+      "t": 2790,
+      "speedKph": 102.5,
+      "remainDistanceM": 156833,
+      "remainTimeSec": 6273
+    },
+    {
+      "t": 2810,
+      "speedKph": 104.7,
+      "remainDistanceM": 156278,
+      "remainTimeSec": 6251
+    },
+    {
+      "t": 2830,
+      "speedKph": 100.0,
+      "remainDistanceM": 155722,
+      "remainTimeSec": 6229
+    },
+    {
+      "t": 2850,
+      "speedKph": 102.9,
+      "remainDistanceM": 155167,
+      "remainTimeSec": 6207
+    },
+    {
+      "t": 2870,
+      "speedKph": 105.0,
+      "remainDistanceM": 154611,
+      "remainTimeSec": 6184
+    },
+    {
+      "t": 2890,
+      "speedKph": 99.2,
+      "remainDistanceM": 154056,
+      "remainTimeSec": 6162
+    },
+    {
+      "t": 2910,
+      "speedKph": 105.1,
+      "remainDistanceM": 153500,
+      "remainTimeSec": 6140
+    },
+    {
+      "t": 2930,
+      "speedKph": 102.9,
+      "remainDistanceM": 152944,
+      "remainTimeSec": 6118
+    },
+    {
+      "t": 2950,
+      "speedKph": 98.2,
+      "remainDistanceM": 152389,
+      "remainTimeSec": 6096
+    },
+    {
+      "t": 2970,
+      "speedKph": 103.6,
+      "remainDistanceM": 151833,
+      "remainTimeSec": 6073
+    },
+    {
+      "t": 2990,
+      "speedKph": 99.3,
+      "remainDistanceM": 151278,
+      "remainTimeSec": 6051
+    },
+    {
+      "t": 3010,
+      "speedKph": 103.1,
+      "remainDistanceM": 150722,
+      "remainTimeSec": 6029
+    },
+    {
+      "t": 3030,
+      "speedKph": 99.4,
+      "remainDistanceM": 150167,
+      "remainTimeSec": 6007
+    },
+    {
+      "t": 3050,
+      "speedKph": 101.1,
+      "remainDistanceM": 149611,
+      "remainTimeSec": 5984
+    },
+    {
+      "t": 3070,
+      "speedKph": 94.1,
+      "remainDistanceM": 149056,
+      "remainTimeSec": 5962
+    },
+    {
+      "t": 3090,
+      "speedKph": 104.5,
+      "remainDistanceM": 148500,
+      "remainTimeSec": 5940
+    },
+    {
+      "t": 3110,
+      "speedKph": 103.1,
+      "remainDistanceM": 147944,
+      "remainTimeSec": 5918
+    },
+    {
+      "t": 3130,
+      "speedKph": 95.4,
+      "remainDistanceM": 147389,
+      "remainTimeSec": 5896
+    },
+    {
+      "t": 3150,
+      "speedKph": 96.5,
+      "remainDistanceM": 146833,
+      "remainTimeSec": 5873
+    },
+    {
+      "t": 3170,
+      "speedKph": 85.0,
+      "remainDistanceM": 146278,
+      "remainTimeSec": 5851
+    },
+    {
+      "t": 3190,
+      "speedKph": 85.0,
+      "remainDistanceM": 145722,
+      "remainTimeSec": 5829
+    },
+    {
+      "t": 3210,
+      "speedKph": 85.0,
+      "remainDistanceM": 145167,
+      "remainTimeSec": 5807
+    },
+    {
+      "t": 3230,
+      "speedKph": 101.3,
+      "remainDistanceM": 144611,
+      "remainTimeSec": 5784
+    },
+    {
+      "t": 3250,
+      "speedKph": 105.4,
+      "remainDistanceM": 144056,
+      "remainTimeSec": 5762
+    },
+    {
+      "t": 3270,
+      "speedKph": 104.2,
+      "remainDistanceM": 143500,
+      "remainTimeSec": 5740
+    },
+    {
+      "t": 3290,
+      "speedKph": 96.2,
+      "remainDistanceM": 142944,
+      "remainTimeSec": 5718
+    },
+    {
+      "t": 3310,
+      "speedKph": 101.7,
+      "remainDistanceM": 142389,
+      "remainTimeSec": 5696
+    },
+    {
+      "t": 3330,
+      "speedKph": 101.8,
+      "remainDistanceM": 141833,
+      "remainTimeSec": 5673
+    },
+    {
+      "t": 3350,
+      "speedKph": 96.4,
+      "remainDistanceM": 141278,
+      "remainTimeSec": 5651
+    },
+    {
+      "t": 3370,
+      "speedKph": 104.3,
+      "remainDistanceM": 140722,
+      "remainTimeSec": 5629
+    },
+    {
+      "t": 3390,
+      "speedKph": 96.6,
+      "remainDistanceM": 140167,
+      "remainTimeSec": 5607
+    },
+    {
+      "t": 3410,
+      "speedKph": 97.8,
+      "remainDistanceM": 139611,
+      "remainTimeSec": 5584
+    },
+    {
+      "t": 3430,
+      "speedKph": 94.9,
+      "remainDistanceM": 139056,
+      "remainTimeSec": 5562
+    },
+    {
+      "t": 3450,
+      "speedKph": 104.0,
+      "remainDistanceM": 138500,
+      "remainTimeSec": 5540
+    },
+    {
+      "t": 3470,
+      "speedKph": 100.8,
+      "remainDistanceM": 137944,
+      "remainTimeSec": 5518
+    },
+    {
+      "t": 3490,
+      "speedKph": 99.6,
+      "remainDistanceM": 137389,
+      "remainTimeSec": 5496
+    },
+    {
+      "t": 3510,
+      "speedKph": 105.4,
+      "remainDistanceM": 136833,
+      "remainTimeSec": 5473
+    },
+    {
+      "t": 3530,
+      "speedKph": 97.3,
+      "remainDistanceM": 136278,
+      "remainTimeSec": 5451
+    },
+    {
+      "t": 3550,
+      "speedKph": 101.9,
+      "remainDistanceM": 135722,
+      "remainTimeSec": 5429
+    },
+    {
+      "t": 3570,
+      "speedKph": 103.7,
+      "remainDistanceM": 135167,
+      "remainTimeSec": 5407
+    },
+    {
+      "t": 3590,
+      "speedKph": 99.9,
+      "remainDistanceM": 134611,
+      "remainTimeSec": 5384
+    },
+    {
+      "t": 3610,
+      "speedKph": 102.6,
+      "remainDistanceM": 134056,
+      "remainTimeSec": 5362
+    },
+    {
+      "t": 3630,
+      "speedKph": 99.2,
+      "remainDistanceM": 133500,
+      "remainTimeSec": 5340
+    },
+    {
+      "t": 3650,
+      "speedKph": 98.8,
+      "remainDistanceM": 132944,
+      "remainTimeSec": 5318
+    },
+    {
+      "t": 3670,
+      "speedKph": 102.9,
+      "remainDistanceM": 132389,
+      "remainTimeSec": 5296
+    },
+    {
+      "t": 3690,
+      "speedKph": 98.0,
+      "remainDistanceM": 131833,
+      "remainTimeSec": 5273
+    },
+    {
+      "t": 3710,
+      "speedKph": 85.0,
+      "remainDistanceM": 131278,
+      "remainTimeSec": 5251
+    },
+    {
+      "t": 3730,
+      "speedKph": 85.0,
+      "remainDistanceM": 130722,
+      "remainTimeSec": 5229
+    },
+    {
+      "t": 3750,
+      "speedKph": 85.0,
+      "remainDistanceM": 130167,
+      "remainTimeSec": 5207
+    },
+    {
+      "t": 3770,
+      "speedKph": 94.8,
+      "remainDistanceM": 129611,
+      "remainTimeSec": 5184
+    },
+    {
+      "t": 3790,
+      "speedKph": 95.2,
+      "remainDistanceM": 129056,
+      "remainTimeSec": 5162
+    },
+    {
+      "t": 3810,
+      "speedKph": 95.1,
+      "remainDistanceM": 128500,
+      "remainTimeSec": 5140
+    },
+    {
+      "t": 3830,
+      "speedKph": 102.4,
+      "remainDistanceM": 127944,
+      "remainTimeSec": 5118
+    },
+    {
+      "t": 3850,
+      "speedKph": 97.2,
+      "remainDistanceM": 127389,
+      "remainTimeSec": 5096
+    },
+    {
+      "t": 3870,
+      "speedKph": 103.7,
+      "remainDistanceM": 126833,
+      "remainTimeSec": 5073
+    },
+    {
+      "t": 3890,
+      "speedKph": 99.0,
+      "remainDistanceM": 126278,
+      "remainTimeSec": 5051
+    },
+    {
+      "t": 3910,
+      "speedKph": 104.0,
+      "remainDistanceM": 125722,
+      "remainTimeSec": 5029
+    },
+    {
+      "t": 3930,
+      "speedKph": 105.5,
+      "remainDistanceM": 125167,
+      "remainTimeSec": 5007
+    },
+    {
+      "t": 3950,
+      "speedKph": 98.7,
+      "remainDistanceM": 124611,
+      "remainTimeSec": 4984
+    },
+    {
+      "t": 3970,
+      "speedKph": 94.6,
+      "remainDistanceM": 124056,
+      "remainTimeSec": 4962
+    },
+    {
+      "t": 3990,
+      "speedKph": 104.5,
+      "remainDistanceM": 123500,
+      "remainTimeSec": 4940
+    },
+    {
+      "t": 4010,
+      "speedKph": 105.8,
+      "remainDistanceM": 122944,
+      "remainTimeSec": 4918
+    },
+    {
+      "t": 4030,
+      "speedKph": 98.5,
+      "remainDistanceM": 122389,
+      "remainTimeSec": 4896
+    },
+    {
+      "t": 4050,
+      "speedKph": 104.8,
+      "remainDistanceM": 121833,
+      "remainTimeSec": 4873
+    },
+    {
+      "t": 4070,
+      "speedKph": 101.7,
+      "remainDistanceM": 121278,
+      "remainTimeSec": 4851
+    },
+    {
+      "t": 4090,
+      "speedKph": 102.7,
+      "remainDistanceM": 120722,
+      "remainTimeSec": 4829
+    },
+    {
+      "t": 4110,
+      "speedKph": 101.5,
+      "remainDistanceM": 120167,
+      "remainTimeSec": 4807
+    },
+    {
+      "t": 4130,
+      "speedKph": 103.1,
+      "remainDistanceM": 119611,
+      "remainTimeSec": 4784
+    },
+    {
+      "t": 4150,
+      "speedKph": 100.2,
+      "remainDistanceM": 119056,
+      "remainTimeSec": 4762
+    },
+    {
+      "t": 4170,
+      "speedKph": 103.1,
+      "remainDistanceM": 118500,
+      "remainTimeSec": 4740
+    },
+    {
+      "t": 4190,
+      "speedKph": 99.7,
+      "remainDistanceM": 117944,
+      "remainTimeSec": 4718
+    },
+    {
+      "t": 4210,
+      "speedKph": 104.8,
+      "remainDistanceM": 117389,
+      "remainTimeSec": 4696
+    },
+    {
+      "t": 4230,
+      "speedKph": 94.9,
+      "remainDistanceM": 116833,
+      "remainTimeSec": 4673
+    },
+    {
+      "t": 4250,
+      "speedKph": 85.0,
+      "remainDistanceM": 116278,
+      "remainTimeSec": 4651
+    },
+    {
+      "t": 4270,
+      "speedKph": 85.0,
+      "remainDistanceM": 115722,
+      "remainTimeSec": 4629
+    },
+    {
+      "t": 4290,
+      "speedKph": 85.0,
+      "remainDistanceM": 115167,
+      "remainTimeSec": 4607
+    },
+    {
+      "t": 4310,
+      "speedKph": 96.4,
+      "remainDistanceM": 114611,
+      "remainTimeSec": 4584
+    },
+    {
+      "t": 4330,
+      "speedKph": 103.9,
+      "remainDistanceM": 114056,
+      "remainTimeSec": 4562
+    },
+    {
+      "t": 4350,
+      "speedKph": 98.2,
+      "remainDistanceM": 113500,
+      "remainTimeSec": 4540
+    },
+    {
+      "t": 4370,
+      "speedKph": 102.5,
+      "remainDistanceM": 112944,
+      "remainTimeSec": 4518
+    },
+    {
+      "t": 4390,
+      "speedKph": 96.1,
+      "remainDistanceM": 112389,
+      "remainTimeSec": 4496
+    },
+    {
+      "t": 4410,
+      "speedKph": 103.6,
+      "remainDistanceM": 111833,
+      "remainTimeSec": 4473
+    },
+    {
+      "t": 4430,
+      "speedKph": 97.5,
+      "remainDistanceM": 111278,
+      "remainTimeSec": 4451
+    },
+    {
+      "t": 4450,
+      "speedKph": 94.2,
+      "remainDistanceM": 110722,
+      "remainTimeSec": 4429
+    },
+    {
+      "t": 4470,
+      "speedKph": 97.2,
+      "remainDistanceM": 110167,
+      "remainTimeSec": 4407
+    },
+    {
+      "t": 4490,
+      "speedKph": 100.6,
+      "remainDistanceM": 109611,
+      "remainTimeSec": 4384
+    },
+    {
+      "t": 4510,
+      "speedKph": 103.5,
+      "remainDistanceM": 109056,
+      "remainTimeSec": 4362
+    },
+    {
+      "t": 4530,
+      "speedKph": 96.8,
+      "remainDistanceM": 108500,
+      "remainTimeSec": 4340
+    },
+    {
+      "t": 4550,
+      "speedKph": 94.7,
+      "remainDistanceM": 107944,
+      "remainTimeSec": 4318
+    },
+    {
+      "t": 4570,
+      "speedKph": 94.4,
+      "remainDistanceM": 107389,
+      "remainTimeSec": 4296
+    },
+    {
+      "t": 4590,
+      "speedKph": 95.3,
+      "remainDistanceM": 106833,
+      "remainTimeSec": 4273
+    },
+    {
+      "t": 4610,
+      "speedKph": 98.3,
+      "remainDistanceM": 106278,
+      "remainTimeSec": 4251
+    },
+    {
+      "t": 4630,
+      "speedKph": 105.7,
+      "remainDistanceM": 105722,
+      "remainTimeSec": 4229
+    },
+    {
+      "t": 4650,
+      "speedKph": 95.1,
+      "remainDistanceM": 105167,
+      "remainTimeSec": 4207
+    },
+    {
+      "t": 4670,
+      "speedKph": 105.1,
+      "remainDistanceM": 104611,
+      "remainTimeSec": 4184
+    },
+    {
+      "t": 4690,
+      "speedKph": 104.8,
+      "remainDistanceM": 104056,
+      "remainTimeSec": 4162
+    },
+    {
+      "t": 4710,
+      "speedKph": 102.2,
+      "remainDistanceM": 103500,
+      "remainTimeSec": 4140
+    },
+    {
+      "t": 4730,
+      "speedKph": 94.9,
+      "remainDistanceM": 102944,
+      "remainTimeSec": 4118
+    },
+    {
+      "t": 4750,
+      "speedKph": 97.4,
+      "remainDistanceM": 102389,
+      "remainTimeSec": 4096
+    },
+    {
+      "t": 4770,
+      "speedKph": 101.2,
+      "remainDistanceM": 101833,
+      "remainTimeSec": 4073
+    },
+    {
+      "t": 4790,
+      "speedKph": 85.0,
+      "remainDistanceM": 101278,
+      "remainTimeSec": 4051
+    },
+    {
+      "t": 4810,
+      "speedKph": 85.0,
+      "remainDistanceM": 100722,
+      "remainTimeSec": 4029
+    },
+    {
+      "t": 4830,
+      "speedKph": 85.0,
+      "remainDistanceM": 100167,
+      "remainTimeSec": 4007
+    },
+    {
+      "t": 4850,
+      "speedKph": 101.0,
+      "remainDistanceM": 99611,
+      "remainTimeSec": 3984
+    },
+    {
+      "t": 4870,
+      "speedKph": 106.0,
+      "remainDistanceM": 99056,
+      "remainTimeSec": 3962
+    },
+    {
+      "t": 4890,
+      "speedKph": 98.7,
+      "remainDistanceM": 98500,
+      "remainTimeSec": 3940
+    },
+    {
+      "t": 4910,
+      "speedKph": 94.1,
+      "remainDistanceM": 97944,
+      "remainTimeSec": 3918
+    },
+    {
+      "t": 4930,
+      "speedKph": 100.8,
+      "remainDistanceM": 97389,
+      "remainTimeSec": 3896
+    },
+    {
+      "t": 4950,
+      "speedKph": 97.2,
+      "remainDistanceM": 96833,
+      "remainTimeSec": 3873
+    },
+    {
+      "t": 4970,
+      "speedKph": 96.7,
+      "remainDistanceM": 96278,
+      "remainTimeSec": 3851
+    },
+    {
+      "t": 4990,
+      "speedKph": 105.7,
+      "remainDistanceM": 95722,
+      "remainTimeSec": 3829
+    },
+    {
+      "t": 5010,
+      "speedKph": 97.0,
+      "remainDistanceM": 95167,
+      "remainTimeSec": 3807
+    },
+    {
+      "t": 5030,
+      "speedKph": 104.0,
+      "remainDistanceM": 94611,
+      "remainTimeSec": 3784
+    },
+    {
+      "t": 5050,
+      "speedKph": 102.3,
+      "remainDistanceM": 94056,
+      "remainTimeSec": 3762
+    },
+    {
+      "t": 5070,
+      "speedKph": 101.9,
+      "remainDistanceM": 93500,
+      "remainTimeSec": 3740
+    },
+    {
+      "t": 5090,
+      "speedKph": 104.5,
+      "remainDistanceM": 92944,
+      "remainTimeSec": 3718
+    },
+    {
+      "t": 5110,
+      "speedKph": 97.4,
+      "remainDistanceM": 92389,
+      "remainTimeSec": 3696
+    },
+    {
+      "t": 5130,
+      "speedKph": 95.6,
+      "remainDistanceM": 91833,
+      "remainTimeSec": 3673
+    },
+    {
       "t": 5160,
       "speedKph": 100,
       "socPercent": 58,
@@ -153,6 +1629,7 @@
       "t": 5532,
       "label": "wait",
       "hvacTempC": 24,
+      "speedKph": 0,
       "remainDistanceM": 90000,
       "remainTimeSec": 3600
     },
@@ -160,6 +1637,7 @@
       "t": 6432,
       "label": "대기 끝",
       "hvacTempC": 25,
+      "speedKph": 0,
       "remainDistanceM": 90000,
       "remainTimeSec": 3600
     },
@@ -177,6 +1655,678 @@
       "speedKph": 100,
       "remainDistanceM": 89000,
       "remainTimeSec": 3560
+    },
+    {
+      "t": 6572,
+      "speedKph": 101.3,
+      "remainDistanceM": 88444,
+      "remainTimeSec": 3538
+    },
+    {
+      "t": 6592,
+      "speedKph": 96.8,
+      "remainDistanceM": 87889,
+      "remainTimeSec": 3516
+    },
+    {
+      "t": 6612,
+      "speedKph": 100.8,
+      "remainDistanceM": 87333,
+      "remainTimeSec": 3493
+    },
+    {
+      "t": 6632,
+      "speedKph": 102.8,
+      "remainDistanceM": 86778,
+      "remainTimeSec": 3471
+    },
+    {
+      "t": 6652,
+      "speedKph": 98.1,
+      "remainDistanceM": 86222,
+      "remainTimeSec": 3449
+    },
+    {
+      "t": 6672,
+      "speedKph": 103.1,
+      "remainDistanceM": 85667,
+      "remainTimeSec": 3427
+    },
+    {
+      "t": 6692,
+      "speedKph": 100.5,
+      "remainDistanceM": 85111,
+      "remainTimeSec": 3404
+    },
+    {
+      "t": 6712,
+      "speedKph": 99.4,
+      "remainDistanceM": 84556,
+      "remainTimeSec": 3382
+    },
+    {
+      "t": 6732,
+      "speedKph": 104.6,
+      "remainDistanceM": 84000,
+      "remainTimeSec": 3360
+    },
+    {
+      "t": 6752,
+      "speedKph": 96.8,
+      "remainDistanceM": 83444,
+      "remainTimeSec": 3338
+    },
+    {
+      "t": 6772,
+      "speedKph": 94.1,
+      "remainDistanceM": 82889,
+      "remainTimeSec": 3316
+    },
+    {
+      "t": 6792,
+      "speedKph": 97.3,
+      "remainDistanceM": 82333,
+      "remainTimeSec": 3293
+    },
+    {
+      "t": 6812,
+      "speedKph": 85.0,
+      "remainDistanceM": 81778,
+      "remainTimeSec": 3271
+    },
+    {
+      "t": 6832,
+      "speedKph": 85.0,
+      "remainDistanceM": 81222,
+      "remainTimeSec": 3249
+    },
+    {
+      "t": 6852,
+      "speedKph": 85.0,
+      "remainDistanceM": 80667,
+      "remainTimeSec": 3227
+    },
+    {
+      "t": 6872,
+      "speedKph": 94.5,
+      "remainDistanceM": 80111,
+      "remainTimeSec": 3204
+    },
+    {
+      "t": 6892,
+      "speedKph": 101.1,
+      "remainDistanceM": 79556,
+      "remainTimeSec": 3182
+    },
+    {
+      "t": 6912,
+      "speedKph": 97.6,
+      "remainDistanceM": 79000,
+      "remainTimeSec": 3160
+    },
+    {
+      "t": 6932,
+      "speedKph": 95.5,
+      "remainDistanceM": 78444,
+      "remainTimeSec": 3138
+    },
+    {
+      "t": 6952,
+      "speedKph": 97.3,
+      "remainDistanceM": 77889,
+      "remainTimeSec": 3116
+    },
+    {
+      "t": 6972,
+      "speedKph": 97.1,
+      "remainDistanceM": 77333,
+      "remainTimeSec": 3093
+    },
+    {
+      "t": 6992,
+      "speedKph": 103.5,
+      "remainDistanceM": 76778,
+      "remainTimeSec": 3071
+    },
+    {
+      "t": 7012,
+      "speedKph": 103.2,
+      "remainDistanceM": 76222,
+      "remainTimeSec": 3049
+    },
+    {
+      "t": 7032,
+      "speedKph": 97.0,
+      "remainDistanceM": 75667,
+      "remainTimeSec": 3027
+    },
+    {
+      "t": 7052,
+      "speedKph": 104.4,
+      "remainDistanceM": 75111,
+      "remainTimeSec": 3004
+    },
+    {
+      "t": 7072,
+      "speedKph": 103.7,
+      "remainDistanceM": 74556,
+      "remainTimeSec": 2982
+    },
+    {
+      "t": 7092,
+      "speedKph": 101.7,
+      "remainDistanceM": 74000,
+      "remainTimeSec": 2960
+    },
+    {
+      "t": 7112,
+      "speedKph": 104.0,
+      "remainDistanceM": 73444,
+      "remainTimeSec": 2938
+    },
+    {
+      "t": 7132,
+      "speedKph": 104.2,
+      "remainDistanceM": 72889,
+      "remainTimeSec": 2916
+    },
+    {
+      "t": 7152,
+      "speedKph": 103.4,
+      "remainDistanceM": 72333,
+      "remainTimeSec": 2893
+    },
+    {
+      "t": 7172,
+      "speedKph": 94.1,
+      "remainDistanceM": 71778,
+      "remainTimeSec": 2871
+    },
+    {
+      "t": 7192,
+      "speedKph": 96.7,
+      "remainDistanceM": 71222,
+      "remainTimeSec": 2849
+    },
+    {
+      "t": 7212,
+      "speedKph": 98.6,
+      "remainDistanceM": 70667,
+      "remainTimeSec": 2827
+    },
+    {
+      "t": 7232,
+      "speedKph": 104.9,
+      "remainDistanceM": 70111,
+      "remainTimeSec": 2804
+    },
+    {
+      "t": 7252,
+      "speedKph": 104.9,
+      "remainDistanceM": 69556,
+      "remainTimeSec": 2782
+    },
+    {
+      "t": 7272,
+      "speedKph": 101.1,
+      "remainDistanceM": 69000,
+      "remainTimeSec": 2760
+    },
+    {
+      "t": 7292,
+      "speedKph": 98.9,
+      "remainDistanceM": 68444,
+      "remainTimeSec": 2738
+    },
+    {
+      "t": 7312,
+      "speedKph": 97.0,
+      "remainDistanceM": 67889,
+      "remainTimeSec": 2716
+    },
+    {
+      "t": 7332,
+      "speedKph": 103.6,
+      "remainDistanceM": 67333,
+      "remainTimeSec": 2693
+    },
+    {
+      "t": 7352,
+      "speedKph": 85.0,
+      "remainDistanceM": 66778,
+      "remainTimeSec": 2671
+    },
+    {
+      "t": 7372,
+      "speedKph": 85.0,
+      "remainDistanceM": 66222,
+      "remainTimeSec": 2649
+    },
+    {
+      "t": 7392,
+      "speedKph": 85.0,
+      "remainDistanceM": 65667,
+      "remainTimeSec": 2627
+    },
+    {
+      "t": 7412,
+      "speedKph": 101.2,
+      "remainDistanceM": 65111,
+      "remainTimeSec": 2604
+    },
+    {
+      "t": 7432,
+      "speedKph": 101.8,
+      "remainDistanceM": 64556,
+      "remainTimeSec": 2582
+    },
+    {
+      "t": 7452,
+      "speedKph": 96.8,
+      "remainDistanceM": 64000,
+      "remainTimeSec": 2560
+    },
+    {
+      "t": 7472,
+      "speedKph": 103.3,
+      "remainDistanceM": 63444,
+      "remainTimeSec": 2538
+    },
+    {
+      "t": 7492,
+      "speedKph": 98.0,
+      "remainDistanceM": 62889,
+      "remainTimeSec": 2516
+    },
+    {
+      "t": 7512,
+      "speedKph": 103.6,
+      "remainDistanceM": 62333,
+      "remainTimeSec": 2493
+    },
+    {
+      "t": 7532,
+      "speedKph": 102.2,
+      "remainDistanceM": 61778,
+      "remainTimeSec": 2471
+    },
+    {
+      "t": 7552,
+      "speedKph": 97.3,
+      "remainDistanceM": 61222,
+      "remainTimeSec": 2449
+    },
+    {
+      "t": 7572,
+      "speedKph": 97.6,
+      "remainDistanceM": 60667,
+      "remainTimeSec": 2427
+    },
+    {
+      "t": 7592,
+      "speedKph": 94.4,
+      "remainDistanceM": 60111,
+      "remainTimeSec": 2404
+    },
+    {
+      "t": 7612,
+      "speedKph": 97.1,
+      "remainDistanceM": 59556,
+      "remainTimeSec": 2382
+    },
+    {
+      "t": 7632,
+      "speedKph": 100.6,
+      "remainDistanceM": 59000,
+      "remainTimeSec": 2360
+    },
+    {
+      "t": 7652,
+      "speedKph": 104.8,
+      "remainDistanceM": 58444,
+      "remainTimeSec": 2338
+    },
+    {
+      "t": 7672,
+      "speedKph": 96.7,
+      "remainDistanceM": 57889,
+      "remainTimeSec": 2316
+    },
+    {
+      "t": 7692,
+      "speedKph": 97.4,
+      "remainDistanceM": 57333,
+      "remainTimeSec": 2293
+    },
+    {
+      "t": 7712,
+      "speedKph": 102.2,
+      "remainDistanceM": 56778,
+      "remainTimeSec": 2271
+    },
+    {
+      "t": 7732,
+      "speedKph": 96.7,
+      "remainDistanceM": 56222,
+      "remainTimeSec": 2249
+    },
+    {
+      "t": 7752,
+      "speedKph": 102.8,
+      "remainDistanceM": 55667,
+      "remainTimeSec": 2227
+    },
+    {
+      "t": 7772,
+      "speedKph": 97.5,
+      "remainDistanceM": 55111,
+      "remainTimeSec": 2204
+    },
+    {
+      "t": 7792,
+      "speedKph": 94.2,
+      "remainDistanceM": 54556,
+      "remainTimeSec": 2182
+    },
+    {
+      "t": 7812,
+      "speedKph": 99.8,
+      "remainDistanceM": 54000,
+      "remainTimeSec": 2160
+    },
+    {
+      "t": 7832,
+      "speedKph": 104.5,
+      "remainDistanceM": 53444,
+      "remainTimeSec": 2138
+    },
+    {
+      "t": 7852,
+      "speedKph": 105.8,
+      "remainDistanceM": 52889,
+      "remainTimeSec": 2116
+    },
+    {
+      "t": 7872,
+      "speedKph": 95.3,
+      "remainDistanceM": 52333,
+      "remainTimeSec": 2093
+    },
+    {
+      "t": 7892,
+      "speedKph": 85.0,
+      "remainDistanceM": 51778,
+      "remainTimeSec": 2071
+    },
+    {
+      "t": 7912,
+      "speedKph": 85.0,
+      "remainDistanceM": 51222,
+      "remainTimeSec": 2049
+    },
+    {
+      "t": 7932,
+      "speedKph": 85.0,
+      "remainDistanceM": 50667,
+      "remainTimeSec": 2027
+    },
+    {
+      "t": 7952,
+      "speedKph": 97.8,
+      "remainDistanceM": 50111,
+      "remainTimeSec": 2004
+    },
+    {
+      "t": 7972,
+      "speedKph": 97.5,
+      "remainDistanceM": 49556,
+      "remainTimeSec": 1982
+    },
+    {
+      "t": 7992,
+      "speedKph": 95.4,
+      "remainDistanceM": 49000,
+      "remainTimeSec": 1960
+    },
+    {
+      "t": 8012,
+      "speedKph": 105.6,
+      "remainDistanceM": 48444,
+      "remainTimeSec": 1938
+    },
+    {
+      "t": 8032,
+      "speedKph": 102.8,
+      "remainDistanceM": 47889,
+      "remainTimeSec": 1916
+    },
+    {
+      "t": 8052,
+      "speedKph": 95.8,
+      "remainDistanceM": 47333,
+      "remainTimeSec": 1893
+    },
+    {
+      "t": 8072,
+      "speedKph": 97.1,
+      "remainDistanceM": 46778,
+      "remainTimeSec": 1871
+    },
+    {
+      "t": 8092,
+      "speedKph": 97.3,
+      "remainDistanceM": 46222,
+      "remainTimeSec": 1849
+    },
+    {
+      "t": 8112,
+      "speedKph": 97.4,
+      "remainDistanceM": 45667,
+      "remainTimeSec": 1827
+    },
+    {
+      "t": 8132,
+      "speedKph": 102.0,
+      "remainDistanceM": 45111,
+      "remainTimeSec": 1804
+    },
+    {
+      "t": 8152,
+      "speedKph": 95.4,
+      "remainDistanceM": 44556,
+      "remainTimeSec": 1782
+    },
+    {
+      "t": 8172,
+      "speedKph": 104.4,
+      "remainDistanceM": 44000,
+      "remainTimeSec": 1760
+    },
+    {
+      "t": 8192,
+      "speedKph": 103.1,
+      "remainDistanceM": 43444,
+      "remainTimeSec": 1738
+    },
+    {
+      "t": 8212,
+      "speedKph": 97.0,
+      "remainDistanceM": 42889,
+      "remainTimeSec": 1716
+    },
+    {
+      "t": 8232,
+      "speedKph": 101.3,
+      "remainDistanceM": 42333,
+      "remainTimeSec": 1693
+    },
+    {
+      "t": 8252,
+      "speedKph": 95.3,
+      "remainDistanceM": 41778,
+      "remainTimeSec": 1671
+    },
+    {
+      "t": 8272,
+      "speedKph": 99.1,
+      "remainDistanceM": 41222,
+      "remainTimeSec": 1649
+    },
+    {
+      "t": 8292,
+      "speedKph": 105.2,
+      "remainDistanceM": 40667,
+      "remainTimeSec": 1627
+    },
+    {
+      "t": 8312,
+      "speedKph": 94.5,
+      "remainDistanceM": 40111,
+      "remainTimeSec": 1604
+    },
+    {
+      "t": 8332,
+      "speedKph": 99.1,
+      "remainDistanceM": 39556,
+      "remainTimeSec": 1582
+    },
+    {
+      "t": 8352,
+      "speedKph": 103.7,
+      "remainDistanceM": 39000,
+      "remainTimeSec": 1560
+    },
+    {
+      "t": 8372,
+      "speedKph": 95.8,
+      "remainDistanceM": 38444,
+      "remainTimeSec": 1538
+    },
+    {
+      "t": 8392,
+      "speedKph": 94.9,
+      "remainDistanceM": 37889,
+      "remainTimeSec": 1516
+    },
+    {
+      "t": 8412,
+      "speedKph": 105.8,
+      "remainDistanceM": 37333,
+      "remainTimeSec": 1493
+    },
+    {
+      "t": 8432,
+      "speedKph": 85.0,
+      "remainDistanceM": 36778,
+      "remainTimeSec": 1471
+    },
+    {
+      "t": 8452,
+      "speedKph": 85.0,
+      "remainDistanceM": 36222,
+      "remainTimeSec": 1449
+    },
+    {
+      "t": 8472,
+      "speedKph": 85.0,
+      "remainDistanceM": 35667,
+      "remainTimeSec": 1427
+    },
+    {
+      "t": 8492,
+      "speedKph": 104.0,
+      "remainDistanceM": 35111,
+      "remainTimeSec": 1404
+    },
+    {
+      "t": 8512,
+      "speedKph": 104.3,
+      "remainDistanceM": 34556,
+      "remainTimeSec": 1382
+    },
+    {
+      "t": 8532,
+      "speedKph": 102.4,
+      "remainDistanceM": 34000,
+      "remainTimeSec": 1360
+    },
+    {
+      "t": 8552,
+      "speedKph": 104.9,
+      "remainDistanceM": 33444,
+      "remainTimeSec": 1338
+    },
+    {
+      "t": 8572,
+      "speedKph": 102.6,
+      "remainDistanceM": 32889,
+      "remainTimeSec": 1316
+    },
+    {
+      "t": 8592,
+      "speedKph": 99.5,
+      "remainDistanceM": 32333,
+      "remainTimeSec": 1293
+    },
+    {
+      "t": 8612,
+      "speedKph": 97.6,
+      "remainDistanceM": 31778,
+      "remainTimeSec": 1271
+    },
+    {
+      "t": 8632,
+      "speedKph": 102.8,
+      "remainDistanceM": 31222,
+      "remainTimeSec": 1249
+    },
+    {
+      "t": 8652,
+      "speedKph": 101.0,
+      "remainDistanceM": 30667,
+      "remainTimeSec": 1227
+    },
+    {
+      "t": 8672,
+      "speedKph": 97.1,
+      "remainDistanceM": 30111,
+      "remainTimeSec": 1204
+    },
+    {
+      "t": 8692,
+      "speedKph": 97.7,
+      "remainDistanceM": 29556,
+      "remainTimeSec": 1182
+    },
+    {
+      "t": 8712,
+      "speedKph": 97.4,
+      "remainDistanceM": 29000,
+      "remainTimeSec": 1160
+    },
+    {
+      "t": 8732,
+      "speedKph": 101.0,
+      "remainDistanceM": 28444,
+      "remainTimeSec": 1138
+    },
+    {
+      "t": 8752,
+      "speedKph": 96.0,
+      "remainDistanceM": 27889,
+      "remainTimeSec": 1116
+    },
+    {
+      "t": 8772,
+      "speedKph": 103.8,
+      "remainDistanceM": 27333,
+      "remainTimeSec": 1093
+    },
+    {
+      "t": 8792,
+      "speedKph": 103.0,
+      "remainDistanceM": 26778,
+      "remainTimeSec": 1071
     },
     {
       "t": 8820,

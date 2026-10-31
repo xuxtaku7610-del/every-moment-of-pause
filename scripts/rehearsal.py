@@ -98,7 +98,7 @@ def main() -> int:
         return None
 
     def highway():
-        start(seek=210, action="play", speed=1)
+        start(seek=1800, action="play", speed=1)
         if not wait_for("멀미 지수", 20):
             return "막힘: 주행 화면이 안 뜸"
         shot("02-highway")
@@ -112,7 +112,7 @@ def main() -> int:
     def compare():
         # PT 1: 고갯길 예보 → 고갯길 비교 크게 (55 → 30, +7분 12초)
         start(seek=8748, action="play", speed=1)
-        if not wait_for("굽은 길", 40):
+        if not wait_for("예상 최고", 40):
             return "막힘: 예보가 40초 안에 안 나옴"
         shot("03-forecast")
         # 비교 화면은 정차 중에만 열린다 → 출발 전(0초, P단)으로 돌아가 연다
@@ -260,7 +260,7 @@ def main() -> int:
 
     def forecast():
         start(seek=8748, action="play", speed=1)
-        if not wait_for("굽은 길", 40):
+        if not wait_for("예상 최고", 40):
             return "막힘: 예보가 40초 안에 안 나옴"
         shot("07-forecast")
         start(demo=True)
@@ -284,7 +284,7 @@ def main() -> int:
             return "막힘: 도착 체크가 100초 안에 안 나옴"
         shot("10-arrival")
         tap(xy)
-        if not wait_for("오늘의 이동 기록", 15):
+        if not wait_for("멀미 지수 추이", 15):
             return "막힘: 이동 기록이 안 뜸"
         time.sleep(3)
         shot("11-triplog")

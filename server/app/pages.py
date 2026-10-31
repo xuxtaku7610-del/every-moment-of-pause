@@ -38,6 +38,15 @@ font:inherit;font-size:16px;font-weight:600;margin-top:16px;cursor:pointer}
 .kicker{font-size:14px;color:var(--sub);margin:0 0 4px}
 .btn.alt{background:var(--surface);color:var(--text);border:1px solid var(--border)}
 form{margin:0}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px}
+.chip{display:inline-block;border-radius:8px;padding:2px 10px;font-size:13px;font-weight:600;background:var(--warning-soft);color:var(--warning-ink)}
+.snd{min-height:44px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;font-size:14px;
+font-weight:600;padding:0 14px;cursor:pointer}
+.snd[aria-pressed=true]{border-color:var(--primary);color:var(--primary)}
+.changed{border-color:var(--warning);box-shadow:inset 6px 0 0 var(--warning)}
+.changed .tag{display:inline-block}
+.tag{display:none;margin-left:6px;border-radius:8px;padding:0 8px;font-size:13px;font-weight:600;background:var(--warning-soft);color:var(--warning-ink)}
+.demo{font-size:12px;color:var(--sub);text-align:center;margin-top:24px}
 """
 
 LOGO = (
@@ -62,11 +71,15 @@ DOG = (
 )
 
 
-def page(title: str, body: str, refresh_sec: int | None = None) -> str:
+def page(title: str, body: str, refresh_sec: int | None = None, script: str = "") -> str:
+    """[script]가 있으면 그 스크립트가 새로 고침을 맡고, 새로 고침 meta는 스크립트가 꺼진 브라우저용(noscript)으로만 둔다."""
     meta = f"<meta http-equiv='refresh' content='{refresh_sec}'>" if refresh_sec else ""
+    if script and meta:
+        meta = f"<noscript>{meta}</noscript>"
+    tail = f"<script>{script}</script>" if script else ""
     return (
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'><meta name='robots' content='noindex,nofollow'>"
         f"<meta name='color-scheme' content='light dark'>{meta}<title>{html.escape(title)} · 같이가개</title><style>{CSS}</style></head>"
-        f"<body><main><header>{LOGO}<span>같이가개</span></header>{body}</main></body></html>"
+        f"<body><main><header>{LOGO}<span>같이가개</span></header>{body}</main>{tail}</body></html>"
     )

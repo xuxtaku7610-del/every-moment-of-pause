@@ -139,10 +139,12 @@ object UiMapper {
                 title = MotionPhrases.title(forecast),
                 coach = MotionPhrases.coach(forecast, name),
                 now = t.motion.index,
-                peak = max(t.motion.index, forecast.predictedIndex),
+                // 예상 최고 = 그래프에 그리는 20분 곡선의 최고 (곡선이 없을 때만 구간 끝 예상)
+                peak = forecast.trajectory.maxOrNull() ?: max(t.motion.index, forecast.predictedIndex),
                 startMin = (forecast.startInM / 1000.0 / (t.kmPerMin.takeIf { it > 0 } ?: (60.0 / 60))).roundToInt(),
                 durationMin = max(1, (forecast.durationSec / 60.0).roundToInt()),
                 startM = forecast.startInM.roundToInt(),
+                series = forecast.trajectory,
             )
             t.heading != null -> DriveContent.Heading(minutesTo(t.heading, t), t.heading.name)
             else -> DriveContent.Calm(
@@ -168,6 +170,9 @@ object UiMapper {
             nextStopName = nextPlanned(t)?.name,
             nextStopMin = nextPlanned(t)?.let { minutesTo(it, t) },
             roadAhead = t.roadAhead,
+            // 이미 굽은 길 구간 안(100m 안쪽·지난 시작점)이면 "지금"
+            nextCurve = t.nextCurveM?.let { if (it < NOW_CURVE_M) NOW_CURVE else km(it / 1000.0) },
+            recentMotion = t.motionRecent,
         )
     }
 
@@ -283,6 +288,9 @@ object UiMapper {
     // ───────────── 장소·병원 (F4·F5) ─────────────
 
     private val categoryKo = mapOf("restaurant" to "식당", "cafe" to "카페", "lodging" to "숙소", "tour" to "관광지", "walk" to "산책로")
+
+    const val NOW_CURVE = "지금"
+    private const val NOW_CURVE_M = 100.0
 
     fun km(v: Double) = if (v >= 10) "${v.roundToInt()}km" else String.format(Locale.US, "%.1fkm", v)
 

@@ -53,6 +53,8 @@ data class MotionForecast(
     val predictedIndex: Int,
     /** 구간 최대 곡률에서 편안한 횡가속([MotionConstants.A_COMFORT])이 되는 속도. */
     val recommendedKph: Int,
+    /** 지금부터 1분 간격 예상 지수([MotionConstants.FORECAST_MIN]+1개, 0번 = 지금). 화면 그래프는 이 점을 그대로 잇는다. */
+    val trajectory: List<Int> = emptyList(),
 )
 
 /**
@@ -140,12 +142,41 @@ class MotionComfortEngine private constructor(
         val v = speedKph / 3.6
         if (v < MIN_FORECAST_SPEED_MPS) return null
         val end = minOf(sh.lengthM, atM + v * MotionConstants.FORECAST_MIN * 60)
+        val (start, segEnd, kMax) = segment(sh, atM, end, v) ?: return null
+        val length = max(RouteShape.STEP_M, segEnd - start)
+        // 계획은 20분 범위와 구간 끝 중 먼 쪽까지 (그 뒤는 지금 속도로 직선)
+        val plan = naturalPlan(sh, atM, max(end, segEnd), start, segEnd, v)
+        val (predicted, traj) = simulate(plan, atM, segEnd)
+        return MotionForecast(
+            startInM = start - atM,
+            lengthM = length,
+            durationSec = travelSec(plan, atM, start, segEnd).roundToInt(),
+            predictedIndex = predicted,
+            recommendedKph = (sqrt(MotionConstants.A_COMFORT / kMax) * 3.6).roundToInt(),
+            trajectory = traj,
+        )
+    }
+
+    /**
+     * 20분 범위와 상관없이 형상이 아는 데까지 본 다음 굽은 길(예보와 같은 기준)까지 거리(m). 없으면 null.
+     * 주행 화면 상태 패널 "다음 굽은 길까지"에 쓴다.
+     */
+    fun nextCurveInM(atM: Double, speedKph: Float): Double? {
+        val sh = shape ?: return null
+        val v = speedKph / 3.6
+        if (v < MIN_FORECAST_SPEED_MPS) return null
+        val from = max(atM, 0.0)
+        return segment(sh, from, sh.lengthM, v)?.let { it.first - atM }
+    }
+
+    /** [from]~[end]에서 v²·|κ| ≥ A_RISK인 첫 구간 (시작, 끝, 최대 곡률). 굽이 한두 개짜리(짧은) 구간은 건너뛴다. */
+    private fun segment(sh: RouteShapeProvider, from: Double, end: Double, v: Double): Triple<Double, Double, Double>? {
         // 구간 사이 간격이 지금 속도로 MERGE_GAP_SEC초 안(최소 MERGE_GAP_M)이면 한 구간 — 고속으로 다가가면 굽이 사이 직선도 금방 지난다.
         val mergeGap = max(MotionConstants.MERGE_GAP_M, v * MotionConstants.MERGE_GAP_SEC)
         var segStart: Double? = null
         var segEnd = 0.0
         var kMax = 0.0
-        var d = atM
+        var d = from
         while (d <= end) {
             val k = abs(sh.curvatureAt(d))
             if (v * v * k >= MotionConstants.A_RISK) {
@@ -163,46 +194,72 @@ class MotionComfortEngine private constructor(
         }
         val start = segStart ?: return null
         if (segEnd - start < MotionConstants.MIN_SEGMENT_M) return null
-        val length = max(RouteShape.STEP_M, segEnd - start)
-        return MotionForecast(
-            startInM = start - atM,
-            lengthM = length,
-            durationSec = travelSec(sh, start, segEnd, v).roundToInt(),
-            predictedIndex = simulate(atM, segEnd, v),
-            recommendedKph = (sqrt(MotionConstants.A_COMFORT / kMax) * 3.6).roundToInt(),
-        )
+        return Triple(start, segEnd, kMax)
     }
 
-    /** 위치 [s]에서 "안내 없이" 운전자의 속도: 지금 속도, 단 굽이에서는 [MotionConstants.A_DRIVER_MAX] 이하. */
-    private fun naturalSpeed(sh: RouteShapeProvider, s: Double, v: Double): Double {
-        val k = abs(sh.curvatureAt(s))
-        return if (k < 1e-6) v else min(v, sqrt(MotionConstants.A_DRIVER_MAX / k))
+    /**
+     * "안내 없이" 운전자의 속도 계획(10m 격자, [fromM]부터). 굽은 길 구간([segStart]~[segEnd])에서는 그 길의 보통 굽이(곡률 중앙값)가
+     * [MotionConstants.A_DRIVER_MAX] 이하가 되는 속도로 달리고(고속도로 속도 그대로 들어가지 않는다), 더 급한 굽이에서는 더 줄인다.
+     * 속도 변화는 [MotionConstants.DRIVER_DECEL_MPS2]·[MotionConstants.DRIVER_ACCEL_MPS2] 안에서만 — 순간 감속 없음.
+     */
+    private fun naturalPlan(sh: RouteShapeProvider, fromM: Double, toM: Double, segStart: Double, segEnd: Double, v: Double): DoubleArray {
+        val step = RouteShape.STEP_M
+        val n = ((toM - fromM) / step).toInt() + 2
+        val ks = generateSequence(segStart) { it + step }.takeWhile { it <= segEnd }.map { abs(sh.curvatureAt(it)) }.sorted().toList()
+        val typical = ks.getOrNull(ks.size / 2) ?: 0.0
+        val cruise = if (typical < 1e-6) v else min(v, sqrt(MotionConstants.A_DRIVER_MAX / typical))
+        val plan = DoubleArray(n) { i ->
+            val s = fromM + i * step
+            val k = abs(sh.curvatureAt(s))
+            val base = if (s >= segStart && s <= segEnd) cruise else v
+            if (k < 1e-6) base else min(base, sqrt(MotionConstants.A_DRIVER_MAX / k))
+        }
+        for (i in n - 2 downTo 0) plan[i] = min(plan[i], sqrt(plan[i + 1] * plan[i + 1] + 2 * MotionConstants.DRIVER_DECEL_MPS2 * step))
+        for (i in 1 until n) plan[i] = min(plan[i], sqrt(plan[i - 1] * plan[i - 1] + 2 * MotionConstants.DRIVER_ACCEL_MPS2 * step))
+        return plan
     }
 
-    private fun travelSec(sh: RouteShapeProvider, from: Double, to: Double, v: Double): Double {
+    private fun speedAt(plan: DoubleArray, fromM: Double, s: Double): Double {
+        val x = ((s - fromM) / RouteShape.STEP_M).coerceIn(0.0, (plan.size - 1).toDouble())
+        val i = x.toInt().coerceAtMost(plan.size - 2)
+        return max(1.0, plan[i] + (plan[i + 1] - plan[i]) * (x - i))
+    }
+
+    private fun travelSec(plan: DoubleArray, fromM: Double, a: Double, b: Double): Double {
         var t = 0.0
-        var s = from
-        while (s < to) {
-            t += RouteShape.STEP_M / max(1.0, naturalSpeed(sh, s, v))
+        var s = a
+        while (s < b) {
+            t += RouteShape.STEP_M / speedAt(plan, fromM, s)
             s += RouteShape.STEP_M
         }
         return t
     }
 
-    /** 지금 상태를 복사해 [fromM]→[toM]을 "안내 없이" 달린 뒤의 지수. 원래 상태는 건드리지 않는다. */
-    private fun simulate(fromM: Double, toM: Double, v: Double): Int {
-        val sh = shape ?: return state.index
+    /**
+     * 지금 상태를 복사해 "안내 없이" 계획대로 달린다. 1분마다 지수를 찍고(앞으로 [MotionConstants.FORECAST_MIN]분),
+     * 구간 끝([segEnd])에 닿았을 때 지수를 함께 돌려준다. 원래 상태는 건드리지 않는다.
+     */
+    private fun simulate(plan: DoubleArray, fromM: Double, segEnd: Double): Pair<Int, List<Int>> {
         val copy = fork()
         val dt = 1.0 / sampleHz
+        val perMin = (60 * sampleHz).roundToInt()
+        val horizon = MotionConstants.FORECAST_MIN * perMin
+        val lastM = fromM + (plan.size - 1) * RouteShape.STEP_M
+        val traj = mutableListOf(state.index)
+        var atEnd: Int? = null
         var s = fromM
         var t = (lastMs ?: 0L)
-        while (s <= toM) {
-            val vs = naturalSpeed(sh, s, v)
+        var n = 0
+        while ((n < horizon || atEnd == null) && n < MAX_SIM_STEPS) {
+            val vs = if (s < lastM) speedAt(plan, fromM, s) else plan.last()
             s += vs * dt
             t += (dt * 1000).toLong()
+            n++
             copy.update(MotionInput(t, (vs * 3.6).toFloat(), routeM = s))
+            if (atEnd == null && s >= segEnd) atEnd = copy.state.index
+            if (n <= horizon && n % perMin == 0) traj += copy.state.index
         }
-        return copy.state.index
+        return (atEnd ?: copy.state.index) to traj
     }
 
     /** 예보용 복사본: 방위 대신 경로 형상으로 이어서 계산한다. */
@@ -220,6 +277,9 @@ class MotionComfortEngine private constructor(
     companion object {
         /** 이보다 느리면(정차·서행) 예보하지 않는다 (m/s, 18km/h). */
         const val MIN_FORECAST_SPEED_MPS = 5.0
+
+        /** 예보 미리 돌리기 상한(단계, 1Hz면 2시간). */
+        private const val MAX_SIM_STEPS = 7_200
 
         /** 방위 차이를 −180~180도로 접는다. */
         fun wrap180(d: Double): Double {

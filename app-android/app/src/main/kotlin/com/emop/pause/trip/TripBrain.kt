@@ -69,6 +69,10 @@ data class BrainState(
     val speakForecast: MotionForecast? = null,
     /** 앞 1km 곡률(1/m, [ROAD_STEP_M] 간격) — 주행 화면 도로 그림. 형상이 없으면 빈 목록. */
     val roadAhead: List<Float> = emptyList(),
+    /** 다음 굽은 길까지(m, 예보와 같은 기준, 20분 밖도). 모르면 null. */
+    val nextCurveM: Double? = null,
+    /** 최근 30분 멀미 지수 (1분 간격, 오래된 것부터). */
+    val motionRecent: List<Int> = emptyList(),
 )
 
 /**
@@ -105,6 +109,9 @@ class TripBrain(
         private set
 
     private var boostUntilMs: Long? = null
+    private val recent = ArrayDeque<Int>()
+    private var lastRecentMs: Long? = null
+    private var lastCurveMs: Long? = null
 
     /** "콩이가 이상해요"(불안·멀미 초기) 뒤 [minutes]분 동안 멀미 예보 민감도를 [factor]배로 (UPGRADE 7). */
     fun boost(factor: Double, nowMs: Long, minutes: Int = BOOST_MIN) {
@@ -156,7 +163,22 @@ class TripBrain(
             if (d !is PlanDecision.NoNeed) pending = d
         }
         val road = routeM?.let { at -> motion.shape?.let { sh -> List(ROAD_SAMPLES) { k -> sh.curvatureAt(at + k * ROAD_STEP_M).toFloat() } } }.orEmpty()
-        state = BrainState(f, n, pending, heading, traveledKm, m, forecast, speak, road)
+        // 다음 굽은 길: 형상 전체를 훑으므로 10초마다만 (점프 따라잡기 1만 프레임에서도 가볍게)
+        val nextCurve = when {
+            i.mode != AppMode.DRIVING || routeM == null -> null
+            lastCurveMs.let { it == null || i.nowMs - it >= EVAL_INTERVAL_MS } -> {
+                lastCurveMs = i.nowMs
+                i.sample.speedKph?.let { motion.nextCurveInM(routeM, it) }
+            }
+            else -> state.nextCurveM?.let { it - (traveledKm - state.traveledKm) * 1000 }
+        }
+        // 최근 30분 멀미 (1분 간격, 주행 상태 패널 미니 그래프)
+        if (lastRecentMs.let { it == null || i.nowMs - it >= 60_000L }) {
+            lastRecentMs = i.nowMs
+            recent.addLast(m.index)
+            while (recent.size > RECENT_MIN + 1) recent.removeFirst()
+        }
+        state = BrainState(f, n, pending, heading, traveledKm, m, forecast, speak, road, nextCurve, recent.toList())
         return state
     }
 
@@ -238,5 +260,6 @@ class TripBrain(
         const val GUIDE_MS = 10_000L
         const val BOOST_MIN = 30
         const val ROAD_SAMPLES = 21
+        const val RECENT_MIN = 30
     }
 }

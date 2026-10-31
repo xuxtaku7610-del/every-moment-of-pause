@@ -460,11 +460,11 @@ fun StatusIcon(asset: String, @DrawableRes fallback: Int, size: Dp, modifier: Mo
 
 /**
  * 멀미 예보 그래프 (v6): 가로 = 앞으로 20분, 세로 = 지수 0~100.
- * 선 = 엔진 값 이어 그리기 — 지금([now])에서 굽은 길 시작([startMin])까지 그대로, 굽은 길 동안([durationMin]) 예상 최고([peak])까지 오르고 그 뒤 유지.
- * 지어낸 곡선 모양을 쓰지 않는다(엔진은 지금 값과 구간 끝 예상 값만 준다). 주의 이상(40~100) 띠와 굽은 길 시간대를 연하게 칠한다.
+ * 선 = 엔진 예측 점([series], 1분 간격, 0번 = 지금)을 그대로 이은 것 — 화면에서 모양을 만들지 않는다. 점이 2개 미만이면 지금 점만.
+ * 주의 이상(40~100) 띠, 굽은 길 시간대([startMin]부터 [durationMin]분), 지금 점(네이비)·예상 최고 점(앰버).
  */
 @Composable
-fun ForecastChart(now: Int, peak: Int, startMin: Int?, durationMin: Int?, modifier: Modifier = Modifier, windowMin: Int = 20) {
+fun ForecastChart(series: List<Int>, now: Int, startMin: Int?, durationMin: Int?, modifier: Modifier = Modifier, windowMin: Int = 20) {
     val c = Pause.colors
     val t = Pause.type
     val measurer = rememberTextMeasurer()
@@ -476,16 +476,13 @@ fun ForecastChart(now: Int, peak: Int, startMin: Int?, durationMin: Int?, modifi
         val plotH = size.height - bottom
         fun x(m: Float) = left + plotW * (m / windowMin).coerceIn(0f, 1f)
         fun y(v: Int) = plotH * (1f - v.coerceIn(0, 100) / 100f)
-        // 주의 이상 띠 (40~100)
         drawRect(c.warningSoft, Offset(left, 0f), Size(plotW, y(40)))
-        // 굽은 길 시간대
-        val s0 = (startMin ?: 0).toFloat()
-        val s1 = s0 + (durationMin ?: 0)
-        if (startMin != null && durationMin != null && s0 < windowMin) {
+        if (startMin != null && durationMin != null && startMin < windowMin) {
+            val s0 = startMin.toFloat()
+            val s1 = s0 + durationMin
             drawRect(c.warning.copy(alpha = 0.16f), Offset(x(s0), 0f), Size(x(s1) - x(s0), plotH))
             drawLine(c.warning, Offset(x(s0), 0f), Offset(x(s0), plotH), strokeWidth = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
         }
-        // 눈금
         listOf(0, 40, 70, 100).forEach { g ->
             drawLine(if (g == 0) c.sub.copy(alpha = 0.5f) else c.border, Offset(left, y(g)), Offset(size.width, y(g)), strokeWidth = if (g == 0) 2f else 1.5f)
             if (g > 0) label(measurer, "$g", axisStyle, Offset(left - 8.dp.toPx(), y(g)), alignRight = true)
@@ -493,33 +490,50 @@ fun ForecastChart(now: Int, peak: Int, startMin: Int?, durationMin: Int?, modifi
         listOf(0, 5, 10, 15, 20).forEach { m ->
             label(measurer, if (m == 0) "지금" else "${m}분", axisStyle, Offset(x(m.toFloat()), plotH + 16.dp.toPx()), center = true)
         }
-        // 선
-        val pts = buildList {
-            add(Offset(x(0f), y(now)))
-            if (startMin != null && durationMin != null) {
-                add(Offset(x(s0), y(now)))
-                add(Offset(x(s1), y(peak)))
-                add(Offset(x(windowMin.toFloat()), y(peak)))
-            } else add(Offset(x(windowMin.toFloat()), y(peak)))
+        val nowAt = Offset(x(0f), y(now))
+        if (series.size >= 2) {
+            val pts = series.take(windowMin + 1).mapIndexed { i, v -> Offset(x(i.toFloat()), y(v)) }
+            val p = Path().apply { pts.forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
+            drawPath(p, c.navy, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            val pk = forecastPeakMin(series)
+            drawCircle(c.surface, 9.dp.toPx(), pts[pk])
+            drawCircle(c.warning, 6.dp.toPx(), pts[pk])
         }
-        val p = Path().apply { pts.forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
-        drawPath(p, c.navy, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-        // 지금 점 · 예상 최고 점
-        drawCircle(c.surface, 9.dp.toPx(), pts.first())
-        drawCircle(c.navy, 6.dp.toPx(), pts.first())
-        val peakAt = if (startMin != null && durationMin != null && s1 <= windowMin) Offset(x(s1), y(peak)) else pts.last()
-        drawCircle(c.surface, 9.dp.toPx(), peakAt)
-        drawCircle(c.warning, 6.dp.toPx(), peakAt)
+        drawCircle(c.surface, 9.dp.toPx(), nowAt)
+        drawCircle(c.navy, 6.dp.toPx(), nowAt)
     }
 }
 
-/** [minute]분 뒤 [ForecastChart] 선의 값 (그래프 옆 "20분 뒤" 수치와 같은 계산). */
-fun forecastAt(minute: Int, now: Int, peak: Int, startMin: Int?, durationMin: Int?): Int {
-    if (startMin == null || durationMin == null) return peak
-    return when {
-        minute <= startMin -> now
-        minute >= startMin + durationMin -> peak
-        else -> now + (peak - now) * (minute - startMin) / durationMin
+/** 예측 곡선에서 가장 높은 점의 분 (같으면 먼저 닿는 분). */
+fun forecastPeakMin(series: List<Int>, windowMin: Int = 20): Int {
+    val w = series.take(windowMin + 1)
+    return w.indices.maxByOrNull { w[it] * 1000 - it } ?: 0
+}
+
+/**
+ * 최근 30분 멀미 (v6 주행 상태 패널, 1분 간격 엔진 값). 가로 = 30분 전~지금, 세로 = 0~100, 주의(40) 선만. 점 2개 미만이면 축만.
+ */
+@Composable
+fun RecentChart(series: List<Int>, modifier: Modifier = Modifier, windowMin: Int = 30) {
+    val c = Pause.colors
+    val measurer = rememberTextMeasurer()
+    val axisStyle = Pause.type.caption.copy(color = c.sub)
+    Canvas(modifier) {
+        val bottom = 24.dp.toPx()
+        val plotH = size.height - bottom
+        fun x(m: Float) = size.width * (m / windowMin).coerceIn(0f, 1f)
+        fun y(v: Int) = plotH * (1f - v.coerceIn(0, 100) / 100f)
+        drawRect(c.warningSoft, Offset(0f, 0f), Size(size.width, y(40)))
+        drawLine(c.sub.copy(alpha = 0.5f), Offset(0f, plotH), Offset(size.width, plotH), strokeWidth = 2f)
+        label(measurer, "30분 전", axisStyle, Offset(0f, plotH + 12.dp.toPx()))
+        label(measurer, "지금", axisStyle, Offset(size.width, plotH + 12.dp.toPx()), alignRight = true)
+        if (series.size < 2) return@Canvas
+        val tail = series.takeLast(windowMin + 1)
+        val off = windowMin - (tail.size - 1)
+        val pts = tail.mapIndexed { i, v -> Offset(x((off + i).toFloat()), y(v)) }
+        val p = Path().apply { pts.forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
+        drawPath(p, c.primary, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawCircle(c.primary, 5.dp.toPx(), pts.last())
     }
 }
 
@@ -547,7 +561,9 @@ fun TrendChart(series: List<Int>, modifier: Modifier = Modifier, sampleMin: Int 
             drawLine(if (g == 0) c.sub.copy(alpha = 0.5f) else c.border, Offset(left, y(g)), Offset(size.width, y(g)), strokeWidth = if (g == 0) 2f else 1.5f)
             if (g > 0) label(measurer, "$g", axisStyle, Offset(left - 8.dp.toPx(), y(g)), alignRight = true)
         }
-        val tick = if (total > 180) 60 else 30
+        // 눈금 글자가 겹치지 않게: 글자 하나에 약 64dp를 두고 30분·1시간·2시간 중 고른다
+        val maxLabels = maxOf(2, (plotW / 64.dp.toPx()).toInt())
+        val tick = listOf(30, 60, 120).firstOrNull { total / it + 1 <= maxLabels } ?: 120
         var m = 0
         while (m <= total) {
             val txt = if (m == 0) "출발" else if (m % 60 == 0) "${m / 60}시간" else "${m / 60}:${"%02d".format(m % 60)}"

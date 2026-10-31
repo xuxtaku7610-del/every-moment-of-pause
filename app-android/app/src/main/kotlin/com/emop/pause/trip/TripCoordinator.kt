@@ -19,6 +19,7 @@ import com.emop.pause.engine.pet.DistressSignals
 import com.emop.pause.engine.pet.PetDistress
 import com.emop.pause.engine.planner.StopType
 import com.emop.pause.data.Vet
+import com.emop.pause.presentation.DemoScenes
 import com.emop.pause.presentation.UiMapper
 import kotlin.math.roundToInt
 import com.emop.pause.engine.pet.ArrivalInput
@@ -63,7 +64,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -104,6 +107,9 @@ data class TripUi(
     val forecast: MotionForecast? = null,
     /** 앞 1km 곡률 (주행 화면 도로 그림). */
     val roadAhead: List<Float> = emptyList(),
+    /** 다음 굽은 길까지(m), 최근 30분 멀미(1분 간격) — 주행 상태 패널. */
+    val nextCurveM: Double? = null,
+    val motionRecent: List<Int> = emptyList(),
     /** 잠깐 대기 모드 (F3). */
     val wait: WaitStatus = WaitStatus(),
     /** 출발 전 체크한 항목 (F6). */
@@ -124,6 +130,9 @@ data class TripUi(
     /** 이번 여행 증상 기록: (이름, 출발 뒤 주행 분) — 이동 기록·도착 예정 공유·개인 보정 질문에 쓴다. */
     val distressEvents: List<Pair<String, Int>> = emptyList(),
 )
+
+/** 점프로 따라잡은 1초 한 장: 그 시각 신호 + 엔진 결과 (이동 기록을 실제로 달린 것과 같게 채운다). */
+data class ReplayTick(val s: Snapshot, val ui: TripUi)
 
 /** "콩이가 이상해요" 한 건: 안내 문구·행동과 고른 정차 장소(또는 병원). */
 data class DistressState(
@@ -264,6 +273,22 @@ class TripCoordinator @Inject constructor(
 
     // ───────────── "콩이가 이상해요" (UPGRADE 7) ─────────────
 
+    /** 점프로 지나간 발표 장면의 "콩이가 이상해요"(DemoScenes `say`): 안내·음성·장소 없이 증상 기록과 잠시 오른 민감도만 남긴다. */
+    private fun replayDistress(kind: DistressKind, cabinTempC: Float?, s: Snapshot) {
+        val t = _ui.value
+        val drivingMin = (t.motion.drivingSec / 60).toInt()
+        val signals = DistressSignals(
+            cabinTempC = cabinTempC ?: s.sample.hvacTempC,
+            month = java.time.LocalDate.now().monthValue,
+            drivingMin = drivingMin,
+            motionIndex = t.motion.index,
+            motionRising = t.motion.index >= MotionConstants.CAUTION || (t.forecast?.predictedIndex ?: 0) > t.motion.index,
+        )
+        val advice = PetDistress.advise(kind, signals)
+        if (advice.boost > 1.0) brain?.boost(advice.boost, s.nowMs)
+        _ui.update { it.copy(distressEvents = it.distressEvents + (PetDistress.label(kind) to drivingMin)) }
+    }
+
     /** 발표 장면용 실내 온도(시뮬레이터 여름 장면). 실차에서는 쓰지 않는다 — 측정값만. */
     @Volatile var demoCabinTempC: Float? = null
 
@@ -386,11 +411,24 @@ class TripCoordinator @Inject constructor(
         scope.launch { say(line, if (prompt.strong) SpeechPriority.SAFETY else SpeechPriority.SUGGESTION) }
     }
 
-    /** 발표 모드 점프: 건너뛴 구간을 음성 없이 따라잡는다. 그 사이 제안은 없었던 것으로 본다. */
+    private val _replayed = MutableSharedFlow<List<ReplayTick>>(extraBufferCapacity = 1)
+
+    /** 점프로 따라잡은 결과 (1초마다). ViewModel이 이동 기록을 이것으로 다시 쌓는다 — 멀미·휴식·증상이 실제로 달린 것과 같다. */
+    val replayed: SharedFlow<List<ReplayTick>> = _replayed
+
+    /**
+     * 발표 모드 점프: 건너뛴 구간을 음성 없이 따라잡는다. 그 사이 제안은 없었던 것으로 보고,
+     * 지나간 발표 장면의 증상(DemoScenes `say`, 예: 2,400초 "콩이가 헥헥거려")은 그 시각에 있었던 것으로 기록한다.
+     */
     private fun replay(frames: List<Snapshot>) {
         voiceJob?.cancel()
         scope.launch { speech.clear() }
+        val started = android.os.SystemClock.elapsedRealtime()
         reset()
+        val scripted = if (frames.firstOrNull()?.scenarioName == DemoScenes.SCENARIO) {
+            DemoScenes.JUMPS.mapNotNull { j -> j.say?.let(PetDistress::classify)?.let { j.tSec to (it to j.cabinTempC) } }.toMap()
+        } else emptyMap()
+        val ticks = ArrayList<ReplayTick>(frames.size)
         frames.forEach { s ->
             onSnapshot(s, silent = true)
             brain?.let { b ->
@@ -399,8 +437,12 @@ class TripCoordinator @Inject constructor(
                     b.onDeclined(s.nowMs)
                 }
             }
+            scripted[s.simTimeSec.toInt()]?.let { (kind, cabin) -> if (brain != null) replayDistress(kind, cabin, s) }
+            ticks += ReplayTick(s, _ui.value)
         }
         brain?.policy?.onAccepted()
+        android.util.Log.i("PauseReplay", "frames=${frames.size} ms=${android.os.SystemClock.elapsedRealtime() - started}")
+        _replayed.tryEmit(ticks)
     }
 
     private fun onSnapshot(s: Snapshot) = onSnapshot(s, silent = false)
@@ -423,7 +465,8 @@ class TripCoordinator @Inject constructor(
         }
         val b = brain ?: startTrip(s)
         // 경로가 바뀌면(목적지 변경·경로 이탈 후 재탐색) 휴게소 후보를 다시 받는다 (COMMERCIAL_READINESS B P0).
-        val rk = routeKey(s.route)
+        // 점프 따라잡기(silent)에서는 경로 키를 만들지 않는다 — 프레임마다 문자열 포맷이 1만 번이면 에뮬레이터에서 수 초(10/31)
+        val rk = if (silent) null else routeKey(s.route)
         if (!silent && rk != null && stopsRouteKey != null && rk != stopsRouteKey && !reloading) {
             reloading = true
             scope.launch {
@@ -463,6 +506,8 @@ class TripCoordinator @Inject constructor(
                 motion = state.motion,
                 forecast = state.forecast,
                 roadAhead = state.roadAhead,
+                nextCurveM = state.nextCurveM,
+                motionRecent = state.motionRecent,
             )
         }
         // 멀미 예보는 제안·질문 중이 아닐 때 한 줄로 말한다 (F1-10: 같은 구간은 다시 말하지 않음).

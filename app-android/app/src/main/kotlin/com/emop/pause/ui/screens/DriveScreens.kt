@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.emop.pause.R
+import com.emop.pause.presentation.UiMapper
 import com.emop.pause.ui.components.AlertStrip
 import com.emop.pause.ui.components.ButtonKind
 import com.emop.pause.ui.components.Divider
@@ -43,7 +44,8 @@ import com.emop.pause.ui.components.PetPhoto
 import com.emop.pause.ui.components.RoadIllustration
 import com.emop.pause.ui.components.StatusChip
 import com.emop.pause.ui.components.StatusIcon
-import com.emop.pause.ui.components.forecastAt
+import com.emop.pause.ui.components.forecastPeakMin
+import com.emop.pause.ui.components.RecentChart
 import com.emop.pause.ui.components.toneInk
 import com.emop.pause.ui.components.toneWord
 import com.emop.pause.ui.theme.Pause
@@ -73,15 +75,20 @@ fun DriveScreen(ui: DriveUi, on: On) {
                 wc == WidthClass.THIRD -> ThirdDrive(ui, on)
                 else -> {
                     val forecast = ui.content as? DriveContent.Forecast
-                    // 예보일 때는 그래프가 읽히도록 상태 패널을 넓힌다(경로 보기 45%)
+                    val half = wc == WidthClass.HALF
+                    // 예보일 때는 그래프가 읽히도록 상태 패널을 넓힌다(경로 보기 45%). 1/2 창은 상태 패널이 글자를 다 담도록 경로 보기 36%
                     val routeWeight = when {
-                        wc == WidthClass.HALF -> 0.48f
+                        half -> 0.36f
                         forecast != null -> 0.45f
                         else -> 0.58f
                     }
-                    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(Pause.dimens.gap)) {
-                        RouteView(ui, Modifier.weight(routeWeight).fillMaxHeight())
-                        Box(Modifier.weight(1f - routeWeight).fillMaxHeight()) { SidePanel(ui, on, forecast) }
+                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(Pause.dimens.gap)) {
+                        // 1/2 창: 경고 띠를 경로 보기 안이 아니라 위 전체 폭에 (제목이 잘리지 않게, 줄 수는 그대로 2줄)
+                        if (half && forecast != null) ForecastStrip(ui, forecast, Modifier.fillMaxWidth())
+                        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(Pause.dimens.gap)) {
+                            RouteView(ui, Modifier.weight(routeWeight).fillMaxHeight(), strip = !half)
+                            Box(Modifier.weight(1f - routeWeight).fillMaxHeight()) { SidePanel(ui, on, forecast, compact = half) }
+                        }
                     }
                 }
             }
@@ -93,36 +100,40 @@ fun DriveScreen(ui: DriveUi, on: On) {
 // ───────────── 경로 보기 (지도 대신 경로 일러스트) ─────────────
 
 @Composable
-private fun RouteView(ui: DriveUi, modifier: Modifier) {
+private fun RouteView(ui: DriveUi, modifier: Modifier, strip: Boolean = true) {
     val d = Pause.dimens
     val c = Pause.colors
     val f = ui.content as? DriveContent.Forecast
     Box(modifier.clip(RoundedCornerShape(d.cardRadius)).background(c.land)) {
         RoadIllustration(ui.roadAhead, Modifier.fillMaxSize(), cautionFromM = f?.startM?.toFloat())
         Column(Modifier.fillMaxWidth().padding(d.gap), verticalArrangement = Arrangement.spacedBy(d.gapS)) {
-            if (f == null) Text("앞 1km 경로", style = Pause.type.caption, color = c.sub)
-            if (f != null) {
-                // 1) 어디서·얼마나 2) 누가·얼마나 3) 운전 안내 — 띠는 내용 높이만, 글자는 20/16
-                AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_warning, iconAsset = "ic_warning", soft = c.surface) {
-                    Text(f.title ?: f.line, style = Pause.type.h1, color = c.text, maxLines = if (f.title != null) 1 else 2, overflow = TextOverflow.Ellipsis)
-                    // 문자열 제한(LIMIT_STRING_LENGTH)이면 코칭이 빠진다 → 누가·얼마나만 짧게
-                    val second = f.coach ?: f.peak?.let { "${ui.pet.ifEmpty { "반려견" }} ${toneWord(motionTone(it))} 예보" }
-                    second?.let { Text(it, style = Pause.type.bodyStrong, color = c.warningInk, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                }
-            }
+            if (f == null || !strip) Text("앞 1km 경로", style = Pause.type.caption, color = c.sub)
+            if (f != null && strip) ForecastStrip(ui, f, Modifier.fillMaxWidth())
         }
+    }
+}
+
+/** 예보 경고 띠: 1) 어디서·얼마나 2) 누가·얼마나(또는 운전 안내) — 내용 높이만, 글자 20/16. */
+@Composable
+private fun ForecastStrip(ui: DriveUi, f: DriveContent.Forecast, modifier: Modifier) {
+    val c = Pause.colors
+    AlertStrip(modifier, icon = R.drawable.fe_warning, iconAsset = "ic_warning", soft = c.surface) {
+        Text(f.title ?: f.line, style = Pause.type.h1, color = c.text, maxLines = if (f.title != null) 1 else 2, overflow = TextOverflow.Ellipsis)
+        // 문자열 제한(LIMIT_STRING_LENGTH)이면 코칭이 빠진다 → 누가·얼마나만 짧게
+        val second = f.coach ?: f.peak?.let { "${ui.pet.ifEmpty { "반려견" }} ${toneWord(motionTone(it))} 예보" }
+        second?.let { Text(it, style = Pause.type.bodyStrong, color = c.warningInk, maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
 }
 
 // ───────────── 오른쪽 상태 패널 ─────────────
 
 @Composable
-private fun SidePanel(ui: DriveUi, on: On, forecast: DriveContent.Forecast?) {
+private fun SidePanel(ui: DriveUi, on: On, forecast: DriveContent.Forecast?, compact: Boolean = false) {
     when (val ct = ui.content) {
         is DriveContent.Distress -> DistressPanel(ui, ct, on)
         is DriveContent.Suggest -> SuggestPanel(ui, ct, on, buttons = ui.voice == null)
         is DriveContent.Vet -> VetPanel(ui, ct)
-        else -> StatusPanel(ui, forecast)
+        else -> StatusPanel(ui, forecast, compact)
     }
 }
 
@@ -146,7 +157,7 @@ private fun PetHeader(ui: DriveUi, photo: Float = 64f) {
  * 예보면 아래가 20분 그래프로 바뀐다: 지금 지수 · 20분 뒤 · 예상 최고와 위험 구간.
  */
 @Composable
-private fun StatusPanel(ui: DriveUi, forecast: DriveContent.Forecast?) {
+private fun StatusPanel(ui: DriveUi, forecast: DriveContent.Forecast?, compact: Boolean = false) {
     val c = Pause.colors
     val d = Pause.dimens
     val m = ui.motion
@@ -157,16 +168,17 @@ private fun StatusPanel(ui: DriveUi, forecast: DriveContent.Forecast?) {
         Divider()
         Row(verticalAlignment = Alignment.Bottom) {
             Metric("멀미 지수", "$index", unit = "/ 100", color = toneInk(tone), modifier = Modifier.weight(1f))
-            if (forecast?.now != null && forecast.peak != null) {
-                val at20 = forecastAt(20, forecast.now!!, forecast.peak!!, forecast.startMin, forecast.durationMin)
-                Metric("20분 뒤 예상", "$at20", color = if (at20 >= 40) c.warningInk else c.comfort, small = true, align = Alignment.End)
+            // 20분 뒤 = 엔진 예측 곡선의 마지막 점 (곡선이 없으면 표시하지 않는다)
+            forecast?.series?.takeIf { it.size >= 2 }?.let { sr ->
+                val at20 = sr.take(21).last()
+                Metric("${sr.take(21).size - 1}분 뒤 예상", "$at20", color = if (at20 >= 40) c.warningInk else c.comfort, small = true, align = Alignment.End)
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(d.u(6f))) {
+        // 1/2 창 예보: 게이지 대신 그래프에 높이를 준다 (지수·단계는 위 수치와 알약에 있다)
+        if (!(compact && forecast != null)) Column(verticalArrangement = Arrangement.spacedBy(d.u(6f))) {
             IndexGauge(index, tone, Modifier.fillMaxWidth().height(d.u(8f)))
             GaugeScale()
         }
-        if (forecast == null) Spacer(Modifier.weight(1f))
         if (forecast?.now != null && forecast.peak != null) {
             ForecastBlock(forecast)
         } else {
@@ -182,7 +194,21 @@ private fun StatusPanel(ui: DriveUi, forecast: DriveContent.Forecast?) {
                     else -> Metric("다음 쉼표", "계획 없음", small = true, color = c.sub, modifier = Modifier.weight(1f))
                 }
             }
-            Spacer(Modifier.weight(1f))
+            Divider()
+            // 가운데 빈자리: 최근 30분 멀미(엔진 1분 값) + 다음 굽은 길까지 (예보와 같은 기준)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("최근 30분", style = Pause.type.metricLabel, color = c.sub)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    when (val nc = ui.nextCurve) {
+                        null -> "앞 경로 굽은 길 정보 없음"
+                        UiMapper.NOW_CURVE -> "지금 굽은 길 구간"
+                        else -> "다음 굽은 길 $nc 앞"
+                    },
+                    style = Pause.type.bodyStrong, color = if (ui.nextCurve != null) c.text else c.sub, maxLines = 1,
+                )
+            }
+            RecentChart(ui.recentMotion, Modifier.fillMaxWidth().weight(1f))
             // 다음 쉼표 문장은 위 수치와 같으므로 쉼표 계획이 없을 때의 한 줄만
             (ui.content as? DriveContent.Calm)?.takeIf { ui.nextStopMin == null }?.let {
                 Divider()
@@ -196,16 +222,17 @@ private fun StatusPanel(ui: DriveUi, forecast: DriveContent.Forecast?) {
 private fun ColumnScope.ForecastBlock(f: DriveContent.Forecast) {
     val c = Pause.colors
     val d = Pause.dimens
-    val peakAt = f.startMin?.let { s -> f.durationMin?.let { s + it } }
+    // 예상 최고와 그 시각은 그래프에 그린 예측 곡선에서 (같은 점)
+    val peakMin = f.series.takeIf { it.size >= 2 }?.let(::forecastPeakMin)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text("앞으로 20분", style = Pause.type.section, color = c.text)
         Spacer(Modifier.weight(1f))
         Text(
-            "예상 최고 ${f.peak}" + (peakAt?.let { if (it <= 20) " · ${it}분 뒤" else " · 20분 뒤 이후" } ?: ""),
+            "예상 최고 ${f.peak}" + (peakMin?.let { if (it == 0) " · 지금" else " · ${it}분 뒤" } ?: ""),
             style = Pause.type.bodyStrong, color = c.warningInk, maxLines = 1,
         )
     }
-    ForecastChart(f.now!!, f.peak!!, f.startMin, f.durationMin, Modifier.fillMaxWidth().weight(1f))
+    ForecastChart(f.series, f.now!!, f.startMin, f.durationMin, Modifier.fillMaxWidth().weight(1f))
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(d.u(10f)).clip(RoundedCornerShape(d.u(2f))).background(c.warning.copy(alpha = 0.35f)))
         Spacer(Modifier.width(d.u(6f)))

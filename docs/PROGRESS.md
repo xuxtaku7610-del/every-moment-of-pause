@@ -8,6 +8,26 @@
 2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
 3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
 
+## 숫자 맞추기·분할 창·다크 (2026-10-31, 사용자 결정 1~3 + 캡처 검수)
+- 결정 1: 장면 점프로 건너뛴 구간을 엔진이 1초씩 따라잡은 값(`TripCoordinator.replayed`)으로 이동 기록을 다시 쌓는다. 지나간 발표 장면의 증상(DemoScenes `say`)도 그 시각에 기록하고, 정차 이름은 휴게소 목록이 오면 채운다. 기록기는 5분 점을 그 안의 최고값으로 찍고, 멀미 주의는 1초 값과 히스테리시스로 센다(`TripRecorder.cautionCount`). 한 줄 문장은 `PetTripLog.insight`로 이번 여행 값을 먼저 본다.
+- 결정 2: 병원 접수함에 새 접수·변경 강조, 사용자가 켜는 알림 소리, 시연용 표시를 넣었다(`render_clinic` + `CLINIC_JS`, F5-11).
+- 결정 3: 실차 문자열 길이는 대체 문구 유지, BLOCKED에 "실차 확인 예정".
+- 주행 기본: 시나리오 고속도로에 교통 흐름(`gen_demo_data.py --scenario-only`), 장면 210 → 1800초, 상태 패널 빈자리에 최근 30분 그래프 + 다음 굽은 길(`MotionComfortEngine.nextCurveInM`).
+- 멀미 예보: "안내 없이" 순항 속도 = 굽은 길 곡률 중앙값 기준, 감속·가속 한계(motion_model §6). 엔진 1분 간격 21점 예측(`MotionForecast.trajectory` → `Forecast.series`)만 그래프로 잇는다. 8748초 예보 57 ↔ 실제 55 ↔ 비교 55.
+- 이동 기록: 세 칸(그래프 · 관찰 · 병원 요약) 한 화면, "기록 확인"은 앱 바, 시간 축 눈금은 폭에 맞춰 30분/1시간/2시간.
+- 분할 창 1/2·1/3, 다크 캡처·수정(`ui_capture.py --split/--dark`). 점프 따라잡기 10.6 → 3.8초(silent에서 경로 키 생략).
+- 버그: 분할 창 전환(런처 relaunch)·다크 전환으로 화면이 다시 만들어질 때 첫 실행 adb 명령(seek 등)을 또 적용해 "콩이 내렸나요?"가 다시 떴다 → `MainActivity`는 처음 만들 때만 적용.
+- 문서: docs/demo_numbers.md(장면·화면·엔진·대본 숫자), demo_script·motion_model·BLOCKED·test_plan(DM-06·DM-07·F5-11)·STYLE_V6.
+- 검증: `./gradlew test` 종료 0 (실패 0), pytest 통과, PT 리허설 5장면 OK 61초.
+
+## 커밋 대기열 (같이가개 7차 — 숫자 맞추기·접수함 알림·분할 창, 10/31) — 6차 다음에
+1. `[UP] 예보 순항 속도·예측 곡선, 다음 굽은 길` — `app-android/engine/motion scenarios/pet-trip.json scripts/gen_demo_data.py docs/plan/motion_model.md`
+2. `[UP] 장면 점프 기록 채우기, 이동 기록 숫자 일치` — `app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/engine/pet app-android/core/uistate app-android/app/src/test test_plan.md`
+3. `[UP] 병원 접수함 알림·시연용 표시` — `server/app/api/eta.py server/app/pages.py server/tests/test_clinic.py`
+4. `[UI] 주행 빈자리·예보 그래프·이동 기록 세 칸, 분할 창·다크` — `app-android/app/src/main/kotlin/com/emop/pause/ui docs/design/v6/STYLE_V6.md scripts/ui_capture.py`
+5. `[DOC] 발표 숫자 표, 리허설` — `docs/demo_numbers.md docs/demo_script.md scripts/rehearsal.py docs/BLOCKED.md docs/PROGRESS.md`
+(2번과 4번이 같은 파일(TripCoordinator·ScreenStates 등)을 건드리므로 `git add -A` 한 번으로 묶는 편이 안전하다.)
+
 ## UI 전면 재설계 v6 (2026-10-30 낮, 사용자 "전체 UI 전면 재설계" 지시)
 - 기준 문서 `docs/design/v6/STYLE_V6.md` (STYLE_V5는 "대체됨"). 색·글자는 지시 값(#F5F6F8·#3478E5·#E99532·#16866C·네이비 #1C3150, 수치 36·제목 24·섹션 18·본문 16·보조 14·캡션 12)이 v5보다 우선. 앰버 글자는 대비 때문에 #9A5A10.
 - 토큰 `ui/theme/{Color,Type,Dimens}.kt`(모서리 16→14, 칩 8, 앱 바 48) → 부품 `Kit.kt` 새로(Panel·Divider·SectionHeader·Metric·KeyValue·IndexGauge·AlertStrip·QUIET 버튼, ForecastChart·TrendChart는 축·눈금·주의 이상 면·굽은 길 시간대·최고 값 표시) → 화면 `ScreenFrame.kt`·`DriveScreens.kt`·`PetScreens.kt`로 나눠 전부 다시 그림. 경로 일러스트는 무채색 바탕·비율 고정·굽은 길 앰버 구간(지도 타일 없음).
