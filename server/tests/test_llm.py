@@ -146,17 +146,17 @@ def summary(db_engine, ollama: OllamaClient, facts: dict = TRIP) -> httpx.Respon
 
 def test_f7_04_trip_summary_ok(db_engine):
     seen: list = []
-    r = summary(db_engine, ollama_replying("3시간 10분 동안 두 번 쉬었고 멀미 주의 예보 최고값은 62였어요.", seen))
+    r = summary(db_engine, ollama_replying("3시간 10분 동안 두 번 쉬었고 주행 자극 최고값은 62였어요.", seen))
     assert r.status_code == 200 and r.json()["source"] == "ollama"
-    assert "멀미 주의 예보 최고값(0~100): 62" in seen[0]["messages"][1]["content"]
+    assert "주행 자극 최고값(0~100, 차량 흔들림): 62" in seen[0]["messages"][1]["content"]
     assert "3시간 10분" in seen[0]["messages"][1]["content"]
 
 
-@pytest.mark.parametrize("text", ["멀미 62로 진단됩니다.", "두 번 쉬었어요.", ""])
+@pytest.mark.parametrize("text", ["멀미 62로 진단됩니다.", "콩이가 멀미를 했어요. 3시간 10분 62", "두 번 쉬었어요.", ""])
 def test_f7_04_trip_summary_falls_back_to_template(db_engine, text):
     r = summary(db_engine, ollama_replying(text))
     assert r.status_code == 503
-    assert r.json()["fallback"] == "이번 이동은 3시간 10분, 휴식 2번, 멀미 주의 예보 최고 62였어요. 평소 한계는 약 1시간 10분이에요."
+    assert r.json()["fallback"] == "이번 이동은 3시간 10분, 휴식 2번, 주행 자극 최고 62였어요. 지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요."
 
 
 def test_f7_04_trip_summary_rejects_names_and_bad_facts(db_engine):

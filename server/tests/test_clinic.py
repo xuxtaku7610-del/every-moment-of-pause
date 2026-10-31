@@ -15,7 +15,7 @@ from tests.conftest import make_client, register
 
 V1 = "/api/v1"
 BODY = {"petName": "콩이", "vetName": "여주동물병원", "etaMinutes": 14, "symptoms": ["축 처짐"], "memo": "숨이 빨라요",
-        "tripLine": "이동 40분 · 멀미 주의 1회(최고 46)", "intake": True}
+        "tripLine": "이동 40분 · 주행 자극 최고 46 · 관찰 신고 축 처짐 1회", "intake": True}
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def test_f5_07_intake_makes_separate_clinic_link(client, db_engine):
     assert res["clinicUrl"] == f"/clinic/{ct}" and ct != res["token"] and len(ct) >= 20
     page = client.get(f"/clinic/{ct}")
     assert page.status_code == 200 and page.headers["cache-control"] == "no-store"
-    for text in ("사전 접수", "콩이", "축 처짐", "숨이 빨라요", "멀미 주의 1회", "14분"):
+    for text in ("사전 접수", "콩이", "축 처짐", "숨이 빨라요", "주행 자극 최고 46", "14분"):
         assert text in page.text
     # 병원 접수함에만 응답 버튼이 있다. 보호자 링크로는 응답할 수 없다.
     assert "/reply?r=ready" in page.text and "/reply?r=" not in client.get(f"/eta/{res['token']}").text

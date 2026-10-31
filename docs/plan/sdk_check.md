@@ -4,10 +4,15 @@
 대상: `ai.pleos.playground:Vehicle:2.3.2`(+ `vehicle-data 1.1.11`), `NaviHelper:3.0.5`(+ `navi-data 3.0.4`). 여기 없는 이름은 코드에 쓰지 않는다.
 
 ## 결론
-- **경로 좌표열(폴리라인)은 여전히 없다.** 멀미 예보에 필요한 "앞 구간 곡률"은 SDK만으로 바로 얻을 수 없다.
+- **경로 좌표열(폴리라인)은 여전히 없다.** 주행 자극 예보에 필요한 "앞 구간 곡률"은 SDK만으로 바로 얻을 수 없다.
 - 대신 쓸 수 있는 것이 새로 보인다: ① `onTBTInfo`의 회전 종류·남은 거리 목록(앞쪽 커브 힌트), ② `RouteStateInfo.trafficStatus`의 정체 구간(시작 오프셋·길이·평균 속도 → 급제동 예보), ③ `CurrentLocationInfo.heading`(1초 간격 방위 변화 = 실제 요 레이트 → a_y = v·ψ̇), ④ Vehicle `SteeringWheel.registerSteeringWheelAngle`(조향각 → 횡가속 보조), ⑤ `onCautionPointInfo`(급커브는 없지만 낙석·내리막·좁은 길 등 주의 지점과 남은 거리).
 - 그래서 F1은 **"현재 = 측정(속도 Δv + 방위 변화), 앞 구간 = 형상 소스"**로 나눈다. 형상 소스 우선순위: (1) 시연 GPX(경로 고정 시연) → (2) TBT 회전 목록으로 만든 근사 커브 → (3) 없음(현재 측정값만으로 누적, 예보는 "정보 없음"). 실차에서 (2)는 에뮬레이터로 값이 오는지 아직 확인 못 함 → `TODO(pleos-sdk)`. **구현(10/29 저녁):** `RouteShapeProvider` — (1) `RouteShape`(OSM GPX), (2) `TbtRouteShape`(회전 안내 원호 + 지나온 1.5km 방위 무늬 반복). 실차 모드에서 GPX가 없으면 (2)를 쓴다. 비교: [shape_compare.md](shape_compare.md).
 - 속도는 Pleos SDK에 없고 AAOS `PERF_VEHICLE_SPEED`(이미 사용 중)로 받는다.
+
+## 2026-10-31 분할 창에서 NaviHelper 수신 확인
+- 런처 분할 창(앱 영역 오른쪽 끝 손잡이를 끌어 나눔: `adb shell input swipe 2547 720 1700 720 800`)에서 **기본 내비 앱이 앞에 있는 동안** 같이가개가 `onTBTInfo`(32건)와 `onDestinationInfo`·`onWayPointInfo`를 받았다. 전체 화면에서 내비가 앞이면 앱 프로세스가 내려가 콜백이 끊기던 문제(10/30)는 분할 창에서는 생기지 않는다.
+- 주행 화면의 다음 회전 카드는 `TBTInfo` **첫 항목**의 `type`(아이콘)·`distance`(남은 거리)·`description`(방면)을 쓴다(`NextGuide` → `NaviSource.guide()` → `Snapshot.guide`). 남은 거리·도착은 `DestinationInfo.remainDistance·remainTime`. 값이 없으면 "다음 회전 안내를 기다리는 중", 시뮬레이터 값은 "시연" 표시.
+- **결정:** 지도·길 안내는 Pleos 기본 내비 + NaviHelper SDK를 쓴다. 앱 안 내비·외부 내비(카카오 등)는 쓰지 않는다. 같이가개는 주행 중 분할 창에서 NaviHelper 실제 값과 반려견 정보만 보여 준다.
 
 ## 항목별
 

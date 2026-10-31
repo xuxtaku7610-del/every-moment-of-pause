@@ -1,5 +1,6 @@
 package com.emop.pause.trip
 
+import com.emop.pause.core.model.RouteTurn
 import com.emop.pause.core.model.TripPhase
 import com.emop.pause.core.model.PetProfile
 import com.emop.pause.data.pet.PetStore
@@ -10,6 +11,7 @@ import com.emop.pause.data.PetPlaceRepository
 import com.emop.pause.core.model.LatLng
 import com.emop.pause.engine.motion.RouteShape
 import com.emop.pause.engine.motion.TbtRouteShape
+import com.emop.pause.engine.motion.CalibrationSample
 import com.emop.pause.engine.motion.GuidanceFromShape
 import com.emop.pause.engine.motion.MotionConstants
 import com.emop.pause.engine.pet.DistressAction
@@ -70,7 +72,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -127,8 +132,23 @@ data class TripUi(
     val distress: DistressState? = null,
     /** 정차하면 보여 줄 체크리스트 (content/care/care_ID.md). 괜찮아졌어요·여행 끝이면 null. */
     val careId: String? = null,
-    /** 이번 여행 증상 기록: (이름, 출발 뒤 주행 분) — 이동 기록·도착 예정 공유·개인 보정 질문에 쓴다. */
-    val distressEvents: List<Pair<String, Int>> = emptyList(),
+    /** 이번 여행 관찰 신고 (보호자 음성 "콩이 토했어" 등) — 콩이 관찰 상태·기록 리포트·병원 공유·개인 보정의 유일한 입력. */
+    val distressEvents: List<DistressRecord> = emptyList(),
+    /** 시뮬레이터 주행 화면 "다음 회전" (시연 데이터). 실차는 Snapshot.guide. */
+    val demoTurn: RouteTurn? = null,
+)
+
+/**
+ * 관찰 신고 한 건과 그때의 주행 정보 (재정비 상태 5). [drivingMin]은 출발 뒤 주행 분(정차 제외), [clockMinute]은 하루 중 분(신호 시계),
+ * [speedKph]·[stimulus]는 신고 순간 값(없으면 null) — 병원 공유·리포트에 그대로 쓰고 지어내지 않는다.
+ */
+data class DistressRecord(
+    val label: String,
+    val drivingMin: Int,
+    val kind: DistressKind? = null,
+    val clockMinute: Int? = null,
+    val speedKph: Float? = null,
+    val stimulus: Int? = null,
 )
 
 /** 점프로 따라잡은 1초 한 장: 그 시각 신호 + 엔진 결과 (이동 기록을 실제로 달린 것과 같게 채운다). */
@@ -286,8 +306,18 @@ class TripCoordinator @Inject constructor(
         )
         val advice = PetDistress.advise(kind, signals)
         if (advice.boost > 1.0) brain?.boost(advice.boost, s.nowMs)
-        _ui.update { it.copy(distressEvents = it.distressEvents + (PetDistress.label(kind) to drivingMin)) }
+        _ui.update { it.copy(distressEvents = it.distressEvents + record(kind, drivingMin, s, t)) }
+        // 점프로 지나간 장면의 신고는 개인 보정에 넣지 않는다 (발표 점프를 반복할 때마다 표본이 쌓여 숫자가 바뀌지 않게)
+        auto.onReport(kind, t.motionRecent.maxOrNull() ?: t.motion.index)
     }
+
+    private fun record(kind: DistressKind, drivingMin: Int, s: Snapshot, t: TripUi) =
+        DistressRecord(PetDistress.label(kind), drivingMin, kind, s.clockMinute, s.sample.speedKph, t.motion.index)
+
+    /** 개인 보정 자동 표본 (신고·높음 구간 뒤 조용함). ViewModel이 받아 기기에 저장한다. */
+    private val auto = AutoCalibration()
+    private val _calibration = MutableSharedFlow<CalibrationSample>(extraBufferCapacity = 8)
+    val calibrationSamples: SharedFlow<CalibrationSample> = _calibration
 
     /** 발표 장면용 실내 온도(시뮬레이터 여름 장면). 실차에서는 쓰지 않는다 — 측정값만. */
     @Volatile var demoCabinTempC: Float? = null
@@ -310,7 +340,10 @@ class TripCoordinator @Inject constructor(
         )
         val advice = PetDistress.advise(kind, signals)
         val stop = DistressStops.pick(advice.action, t.stops, t.traveledKm)
-        val vet = if (advice.action == DistressAction.VET) here(s)?.let { runCatching { petPlaces.vetsNear(it).items.firstOrNull() }.getOrNull() } else null
+        // 응급이면 가까운 병원 — 시뮬레이터는 시연용 제휴 병원을 맨 앞에(사전 접수 시연), 실차는 실제 병원만(전화·링크)
+        val vet = if (advice.action == DistressAction.VET) here(s)?.let { at ->
+            runCatching { DemoPartner.prepend(petPlaces.vetsNear(at).items, at, s.source == SourceMode.SIMULATION).firstOrNull() }.getOrNull()
+        } else null
         val speed = t.kmPerMin.takeIf { it > 0 } ?: (100.0 / 60)
         val minutes = stop?.let { maxOf(1, ((it.distanceAlongRouteKm - t.traveledKm) / speed).roundToInt()) } ?: vet?.let { UiMapper.vetMinutes(it.distanceKm) }
         if (advice.boost > 1.0) brain?.boost(advice.boost, s.nowMs)
@@ -318,9 +351,10 @@ class TripCoordinator @Inject constructor(
             it.copy(
                 distress = DistressState(kind, advice, stop, vet, minutes),
                 careId = advice.care,
-                distressEvents = it.distressEvents + (PetDistress.label(kind) to drivingMin),
+                distressEvents = it.distressEvents + record(kind, drivingMin, s, t),
             )
         }
+        auto.onReport(kind, t.motionRecent.maxOrNull() ?: t.motion.index)?.let { _calibration.tryEmit(it) }
         val where = (stop?.name ?: vet?.name)?.let { n -> minutes?.let { " ${n}까지 약 ${it}분이에요." } ?: " $n." }.orEmpty()
         val extra = if (advice.action == DistressAction.GENTLE_DRIVE) " 조용한 음악도 좋아요." else ""
         say(advice.line + where + extra, SpeechPriority.SAFETY)
@@ -365,11 +399,21 @@ class TripCoordinator @Inject constructor(
     /** 개인 보정 계수 (CalibrationStore → MotionCalibration.scale). 다음 여행(엔진을 새로 만들 때)부터 반영. */
     @Volatile var motionScale: Double = 1.0
 
-    /** 음성으로 묻고 한 번 듣기 (도착 뒤 "오늘 콩이 멀미했어요?"). 음성 제안을 껐거나 못 들으면 null → 화면 버튼. */
+    /** 음성으로 묻고 한 번 듣기 (병원 전달 동의 등). 음성 제안을 껐거나 못 들으면 null → 화면 버튼. */
     suspend fun ask(question: String): String? {
         if (!voiceEnabled) return null
         say(question)
-        return dictate()
+        while (replies.tryReceive().isSuccess) Unit
+        // 마이크 받아쓰기와 화면·adb 응답(`--es say 네`) 중 먼저 온 것. 받아쓰기가 실패해도 남은 시간 동안 응답을 기다린다.
+        return withTimeoutOrNull(DICTATE_MS + 2_000) {
+            coroutineScope {
+                val heard = async { dictate() }
+                select<String?> {
+                    replies.onReceive { heard.cancel(); it }
+                    heard.onAwait { it ?: replies.receive() }
+                }
+            }
+        }
     }
 
     /** "내 데이터 삭제": 저장한 프로필도 잊는다. */
@@ -508,8 +552,10 @@ class TripCoordinator @Inject constructor(
                 roadAhead = state.roadAhead,
                 nextCurveM = state.nextCurveM,
                 motionRecent = state.motionRecent,
+                demoTurn = if (s.source == SourceMode.SIMULATION) state.demoTurn else null,
             )
         }
+        auto.onTick(s.nowMs / 1000, state.motion.index)?.let { if (!silent) _calibration.tryEmit(it) }
         // 멀미 예보는 제안·질문 중이 아닐 때 한 줄로 말한다 (F1-10: 같은 구간은 다시 말하지 않음).
         state.speakForecast?.let { f ->
             if (silent) {
@@ -532,6 +578,8 @@ class TripCoordinator @Inject constructor(
         // 앞 구간 형상: 시연 GPX가 있으면 그것, 실차는 NaviHelper 회전 안내 + 진행 방위 추정 (docs/plan/sdk_check.md).
         // 시연 "회전 안내" 모드(UPGRADE 5): GPX 대신 GPX에서 만든 가짜 내비 안내 + 진행 방위만으로 예보한다.
         val gpx = s.route?.shape?.takeIf { it.size >= 2 }?.let(RouteShape::fromLatLng)
+        // 시뮬레이터 주행 화면 "다음 회전"(시연 데이터): GPX에서 만든 안내를 표시에만 쓴다
+        val demoGuidance = if (s.source == SourceMode.SIMULATION) gpx?.let(::GuidanceFromShape) else null
         val (shape, guidance) = when {
             gpx != null && shapeMode == ShapeMode.GUIDANCE -> TbtRouteShape() to GuidanceFromShape(gpx)
             gpx != null -> gpx to null
@@ -546,7 +594,7 @@ class TripCoordinator @Inject constructor(
         }
         _ui.update { it.copy(shapeSource = shapeLabel) }
         // 개인 보정 계수(UPGRADE 4)를 반려견 프로필에 실어 멀미 엔진 민감도에 곱한다
-        val b = TripBrain(setup.copy(pet = setup.pet.copy(motionScale = motionScale)), shape, s.route?.shapeStartM ?: 0, guidance) { stops }
+        val b = TripBrain(setup.copy(pet = setup.pet.copy(motionScale = motionScale)), shape, s.route?.shapeStartM ?: 0, guidance, demoGuidance) { stops }
         brain = b
         _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours, pet = setup.pet) }
         // 출발 준비에서 받아 둔 휴게소가 있으면 그대로 쓰고, 계획만 이번 설정으로 다시 잡는다.
@@ -675,6 +723,7 @@ class TripCoordinator @Inject constructor(
         previewFor = null
         waitMode.stop()
         boarding.reset()
+        auto.reset()
         _ui.value = TripUi(pet = savedPet ?: PetProfile.DEFAULT, share = share.state.value, profileSaved = _ui.value.profileSaved)
     }
 

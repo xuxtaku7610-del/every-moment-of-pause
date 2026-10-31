@@ -1,6 +1,7 @@
 package com.emop.pause.core.navi
 
 import com.emop.pause.core.model.EtaInfo
+import com.emop.pause.core.model.NextGuide
 import com.emop.pause.core.model.RouteInfo
 import com.emop.pause.core.model.RouteTurn
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,9 @@ interface NaviSource {
 
     /** 앞쪽 회전 안내 목록 (멀미 예보 앞 구간 형상 추정). 모르면 빈 목록. */
     fun turns(): Flow<List<RouteTurn>> = flowOf(emptyList())
+
+    /** 바로 다음 길 안내 (주행 화면 카드). 실제 안내가 없으면 null — 지어내지 않는다. */
+    fun guide(): Flow<NextGuide?> = flowOf(null)
 
     /** 위도, 경도 순서 (NaviHelper 3.0.5 `RequestWaypointInfo`와 같은 순서). */
     suspend fun addWaypoint(lat: Double, lng: Double, name: String): Result<Unit>

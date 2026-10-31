@@ -2,49 +2,37 @@ package com.emop.pause.uistate
 
 /**
  * 미리보기·발표 모드 "장면 고정"용 상태. 이름(콩이)과 장소는 시연 시나리오(pet-trip)의 예시이고,
- * 실제 화면은 사용자가 입력한 이름과 엔진 값을 쓴다. 숫자는 시안 v5(docs/design/v5)와 맞췄다.
+ * 실제 화면은 사용자가 입력한 이름과 엔진 값을 쓴다. 장면 고정은 발표 모드에서만 열리고 화면에 "시연 데이터"가 붙는다.
  */
 object Fixtures {
-    private val motionCaution = MotionUi(45, MotionTone.CAUTION, "콩이 멀미 주의 45")
-    private val motionCalm = MotionUi(24, MotionTone.CALM, "콩이 컨디션 편안 24")
-
-    /** 시연 고갯길처럼 좌우로 굽는 앞 1km (곡률 1/m, 50m 간격). */
-    private val bends = List(21) { k -> (if (k < 6) 0.0 else kotlin.math.sin((k - 6) / 3.0) / 120).toFloat() }
+    private val observed = ObservationUi("신고 1건 · 헐떡임(출발 39분 뒤)", 1)
 
     val drive = DriveUi(
         meta = "강릉까지 2시간 10분",
-        motion = motionCalm,
         content = DriveContent.Calm("다음 쉼표는 52분 뒤 횡성휴게소예요."),
         pet = "콩이",
         sinceRest = "마지막 휴식 후 52분",
         nextStop = "약 72km",
         nextStopName = "횡성휴게소",
         nextStopMin = 46,
-        roadAhead = List(21) { k -> (k / 20.0 / 900).toFloat() },
-        nextCurve = "62km",
-        recentMotion = List(31) { k -> 30 + k / 4 },
+        nextStopFacilities = listOf("반려견 놀이터"),
+        guide = GuideUi(GuideIconUi.KEEP_RIGHT, "1.2km", "강릉·속초 방면"),
+        remain = "143km · 2시간 10분",
+        arrive = "오전 11:40",
+        voiceHint = "“콩이 토했어”처럼 말하면 기록해요",
     )
 
     val forecast = drive.copy(
         meta = "강릉까지 25분",
-        motion = MotionUi(38, MotionTone.CALM, "콩이 컨디션 편안 38"),
-        content = DriveContent.Forecast(
-            "3km 뒤 굽은 길 8분, 콩이 멀미 주의 — 조금 일찍 감속해 주세요.",
-            title = "3km 뒤 굽은 길 · 8분",
-            coach = "콩이 멀미 주의 — 조금 일찍 감속해요",
-            now = 38,
-            peak = 71,
-            startMin = 3,
-            durationMin = 8,
-            startM = 3000,
-            series = listOf(38, 38, 38, 40, 46, 53, 59, 64, 68, 70, 71, 71, 71, 70, 70, 70, 69, 69, 69, 68, 68),
-        ),
-        roadAhead = bends,
+        content = DriveContent.Forecast("3km 뒤 굽은 길 · 8분", "천천히 가면 덜 흔들려요", MotionTone.CAUTION, "경로 형상: 시연 경로 (OSM GPX) · 지금 속도 기준"),
+        guide = GuideUi(GuideIconUi.LEFT, "3km", "대관령 방면", demo = true),
+        remain = "18km · 25분",
+        arrive = "오후 12:05",
+        observation = observed,
     )
 
     val suggest = drive.copy(
-        motion = motionCaution,
-        content = DriveContent.Suggest(9, "횡성휴게소", listOf("굽은 길 전에 쉬어 가요", "반려견 놀이터"), distance = "8km", direction = "강릉 방향"),
+        content = DriveContent.Suggest(9, "횡성휴게소", listOf("흔들리는 길을 오래 달렸어요", "반려견 놀이터"), distance = "8km", direction = "강릉 방향"),
     )
 
     val urgent = drive.copy(content = DriveContent.Suggest(6, "둔내 졸음쉼터", listOf("졸음 위험"), urgent = true, distance = "5km"))
@@ -57,6 +45,7 @@ object Fixtures {
         meta = "강릉까지 1시간 50분",
         content = DriveContent.Distress("에어컨을 낮추고, 다음 안전한 곳에서 멈춰요", "둔내 졸음쉼터", 6),
         nextStop = null,
+        observation = observed,
     )
 
     val restCare = RestUi(
@@ -65,7 +54,6 @@ object Fixtures {
         minutes = 15,
         restChoice = 15,
         activities = emptyList(),
-        motion = MotionUi(22, MotionTone.CALM, "콩이 컨디션 편안 22"),
         waitLimitMin = 10,
         care = CareUi(
             "헐떡임 — 덥거나 여름",
@@ -77,13 +65,15 @@ object Fixtures {
             reviewed = false,
         ),
         distressChips = listOf("헐떡임", "구토", "침 흘림·하품", "낑낑·떨림", "축 처짐"),
+        observation = observed,
+        stimulusAvailable = true,
     )
 
-    val vetDrive = drive.copy(meta = "동물병원까지 15분", motion = motionCaution, content = DriveContent.Vet("강릉동물병원", "2.3km", 15), nextStop = null)
+    val vetDrive = drive.copy(meta = "동물병원까지 15분", content = DriveContent.Vet("시연용 제휴 동물병원", "2.3km", 15, "병원: 도착하면 바로 볼게요"), nextStop = null, observation = observed)
 
     val depart = DepartUi(
         meta = "강릉까지 예상 2시간 50분",
-        pet = PetSummaryUi("콩이", "소형 · 9살 · 멀미 성향 높음 · 배변 90분"),
+        pet = PetSummaryUi("콩이", "소형 · 9살 · 흔들림에 예민한 편(보호자 응답) · 배변 90분"),
         checks = listOf(
             CheckUi(CheckKind.HARNESS, "하네스·켄넬", true),
             CheckUi(CheckKind.WATER, "물", true),
@@ -95,7 +85,7 @@ object Fixtures {
             PlanStopUi("강릉휴게소", "반려견 놀이터", "2시간 30분 뒤"),
         ),
         rationale = "콩이 배변 간격(90분)에 맞춰 쉬어 가요.",
-        limitLine = "콩이는 약 1시간 10분이 한계예요. (기록 2번 기준)",
+        limitLine = "지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요. (기록 2번 기준)",
         route = "강릉까지",
         duration = "2시간 50분",
     )
@@ -110,9 +100,17 @@ object Fixtures {
             ActivityUi(ActivityKind.PET_CARE, "콩이", "물·배변 5분", "물은 조금씩, 배변봉투를 챙겨 주세요.", false),
             ActivityUi(ActivityKind.STRETCH, "운전자", "스트레칭 5분", "목, 어깨, 허리 순서로 천천히 풀어요.", false),
         ),
-        motion = MotionUi(22, MotionTone.CALM, "콩이 컨디션 편안 22"),
         waitLimitMin = 10,
         battery = "배터리 57%",
+        stimulusAvailable = true,
+    )
+
+    val stimulus = StimulusUi(
+        now = MotionUi(22, MotionTone.CALM, "주행 자극 낮음 22"),
+        recent = List(31) { k -> 30 - k / 2 },
+        peak = 46,
+        forecast = "18km 뒤 굽은 길 · 12분 — 천천히 가면 덜 흔들려요",
+        basis = "경로 형상: 시연 경로 (OSM GPX) · 지금 속도 기준",
     )
 
     val wait = WaitUi(
@@ -140,6 +138,7 @@ object Fixtures {
 
     val vets = VetsUi(
         items = listOf(
+            VetUi("demo-partner", "시연용 제휴 동물병원", "1.0km", "시연용 가상 병원 — 실제 병원이 아니에요", null, true, minutes = 4, partner = true),
             VetUi("vs_1", "[샘플] 강릉시 동물병원 A", "2.3km", "강원특별자치도 강릉시 (샘플)", null, true, minutes = 7),
             VetUi("vs_2", "[샘플] 강릉시 동물병원 B", "3.1km", "강원특별자치도 강릉시 (샘플)", null, true, minutes = 8),
         ),
@@ -147,7 +146,22 @@ object Fixtures {
         memo = listOf("구토", "설사", "헐떡임", "축 처짐", "떨림", "기타").map { SymptomUi(it, it == "구토") },
         memoText = "구토 두 번, 물은 조금 마셨어요",
         memoInclude = true,
-        tripLine = "이동 2시간 10분 · 멀미 주의 1회(최고 46)",
+        tripLine = "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회",
+        preview = listOf(
+            VetRowUi("반려견", "콩이"),
+            VetRowUi("증상", "구토"),
+            VetRowUi("메모", "구토 두 번, 물은 조금 마셨어요"),
+            VetRowUi("오늘 요약", "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회"),
+            VetRowUi("도착 예정", "약 4분 뒤 (자동 갱신)"),
+            VetRowUi("보내지 않음", "위치·경로·사진"),
+        ),
+    )
+
+    /** 제휴가 없는 실제 병원만 있을 때 (실차): 전화·도착 예정 링크만. */
+    val vetsCall = vets.copy(
+        items = listOf(VetUi("v1", "강릉 ○○동물병원", "1.5km", "강원특별자치도 강릉시", "033-000-0000", false, minutes = 5, status = "영업 중")),
+        note = "지방행정 인허가 데이터(동물병원) · 영업시간은 데이터에 없어요. 가기 전에 전화로 확인해 주세요.",
+        preview = emptyList(),
     )
 
     val arrival = ArrivalUi("콩이 내렸나요?", strong = false, detail = "내린 뒤 확인을 눌러 주세요.")
@@ -156,27 +170,33 @@ object Fixtures {
 
     val tripLog = TripLogUi(
         meta = "10월 31일, 강릉까지",
-        summary = "이번 이동은 2시간 58분, 휴식 2번, 멀미 주의 예보 최고 46이었어요.",
-        durationMin = 178,
-        stops = 2,
-        motionPeak = 46,
-        motionSeries = listOf(0, 3, 6, 9, 12, 14, 15, 9, 7, 10, 13, 15, 17, 30, 41, 46, 44, 30, 22),
-        limitLine = "콩이는 1시간 10분쯤이 한계예요",
-        vetSummary = listOf("콩이 이동 기록", "이동 시간 2시간 58분 · 휴식 2번", "멀미 주의 예보 최고 46 (0~100, 진단 아님)"),
-        symptoms = listOf(SymptomUi("침 흘림", true), SymptomUi("헐떡임", false), SymptomUi("구토", false), SymptomUi("낑낑거림", false), SymptomUi("괜찮았어요", false)),
-        warnings = 1,
-        history = listOf(HistoryUi("10월 26일", "강릉 · 2시간 58분 · 멀미 주의 1번"), HistoryUi("10월 19일", "속초 · 2시간 16분 · 편안")),
         petName = "콩이",
-        status = PetStatusUi.CAUTION,
-        statusReason = "침 흘림 1번 · 멀미 주의 1번",
-        arrivalIndex = 22,
-        marks = listOf(TrendMarkUi(TrendMarkKind.STOP, 35, "휴식", 20), TrendMarkUi(TrendMarkKind.STOP, 60, "휴식", 15), TrendMarkUi(TrendMarkKind.SYMPTOM, 70, "침 흘림")),
-        vetRows = listOf(
-            VetRowUi("관찰 증상", "침 흘림"),
-            VetRowUi("멀미 지수", "최고 46 · 도착 시점 22 (0~100, 진단 아님)"),
-            VetRowUi("주의 도달", "출발 1시간 10분 뒤 · 1번"),
-            VetRowUi("주행", "2시간 58분 · 휴식 2번"),
+        totalMin = 178,
+        distance = "194km",
+        stops = 1,
+        reports = 1,
+        timeline = listOf(
+            TimelineUi(TimelineKind.START, "0:00", "출발", "오전 9:00 · 서울", 0),
+            TimelineUi(TimelineKind.REPORT, "0:39", "헐떡임 신고", "주행 중 · 시속 98km", 39),
+            TimelineUi(TimelineKind.REST, "1:31", "횡성휴게소 15분", "반려견 산책", 91),
+            TimelineUi(TimelineKind.STIMULUS, "2:20", "흔들림 많은 구간 18분", "주행 자극 보통 · 최고 55", 140),
+            TimelineUi(TimelineKind.ARRIVE, "2:58", "도착", "강릉", 178),
         ),
+        stimulusSeries = listOf(0, 3, 6, 9, 12, 14, 15, 9, 7, 10, 13, 15, 17, 30, 41, 46, 44, 30, 22, 18, 30, 45, 52, 55, 50, 41, 30, 22, 18, 15, 12, 10, 8, 8, 6, 5),
+        marks = listOf(
+            TrendMarkUi(TrendMarkKind.SYMPTOM, 39, "헐떡임"),
+            TrendMarkUi(TrendMarkKind.STOP, 91, "휴식", 15),
+            TrendMarkUi(TrendMarkKind.HIGH, 140, "흔들림 많음", 18),
+        ),
+        insight = "이번엔 출발 2시간 20분 뒤 주행 자극이 보통 이상이 됐어요.",
+        summary = "이번 이동은 2시간 58분, 휴식 1번, 주행 자극 최고 55였어요.",
+        share = listOf(
+            VetRowUi("관찰 신고", "헐떡임 1회 (출발 39분 뒤, 주행 중)"),
+            VetRowUi("주행", "2시간 43분 · 194km · 휴식 1번"),
+            VetRowUi("주행 자극", "최고 55 (차량 흔들림 기준 · 반려견 측정 아님)"),
+        ),
+        history = listOf(HistoryUi("10월 26일", "강릉 · 2시간 58분 · 신고 없음"), HistoryUi("10월 19일", "속초 · 2시간 16분 · 신고 1건")),
+        calibration = "콩이 맞춤 정도: 기록 4회, 민감도 보통 → 조금 높음",
     )
 
     val pet = PetEditUi("콩이", SizeUi.SMALL, 9, TendencyUi.HIGH, 90, true, emptyList(), firstRun = false)
@@ -185,7 +205,7 @@ object Fixtures {
         signals = listOf(
             SignalRowUi("주행 제한 상태", true, "CarUxRestrictions"),
             SignalRowUi("속도와 기어", true, "AAOS 차량 속성 · Pleos Vehicle SDK"),
-            SignalRowUi("방위(멀미 예보)", false),
+            SignalRowUi("방위(주행 자극 예보)", false),
         ),
         version = "1.0.0",
         shapeSource = "시연 경로 (OSM GPX)",
@@ -202,6 +222,7 @@ object Fixtures {
     fun screen(scene: Scene): Screen = when (scene) {
         Scene.DEPART -> Screen.Depart(depart)
         Scene.DRIVE -> Screen.Drive(drive)
+        Scene.STIMULUS -> Screen.Stimulus(stimulus)
         Scene.FORECAST -> Screen.Drive(forecast)
         Scene.SUGGEST -> Screen.Drive(suggest)
         Scene.URGENT -> Screen.Drive(urgent)
@@ -214,6 +235,7 @@ object Fixtures {
         Scene.WAIT_OVERDUE -> Screen.Wait(waitOverdue)
         Scene.PLACES -> Screen.Places(places)
         Scene.VETS -> Screen.Vets(vets)
+        Scene.VETS_CALL -> Screen.Vets(vetsCall)
         Scene.ARRIVAL -> Screen.Arrival(arrival)
         Scene.ARRIVAL_HOT -> Screen.Arrival(arrivalHot)
         Scene.TRIPLOG -> Screen.TripLog(tripLog)

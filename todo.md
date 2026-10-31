@@ -14,12 +14,12 @@
 ## 1. 도메인·엔진 (테스트 먼저)
 - [x] (CC) PetProfile(core:model) + Room `pet.db` 저장(서버 전송 안 함)
 - [x] (CC) `engine:motion` MotionComfortEngine (F1-01~F1-10), 상수·근거 [docs/plan/motion_model.md](docs/plan/motion_model.md) — 대역 하한 0.02Hz 결정
-- [x] (CC) PetRestPlanner: 멀미 누적·반려견 시설 가중치 (F2-01~F2-04·F2-06)
+- [x] (CC) PetRestPlanner: 주행 자극 누적·반려견 시설 가중치 (F2-01~F2-04·F2-06)
 - [x] (CC) WaitMode (F3-01~F3-06)
 - [x] (CC) BoardingCheck (F6-01~F6-04)
-- [x] (CC) PetTripLog 패턴(한계 시간)·TripRecorder 멀미 추이 (F7-01~F7-03)
+- [x] (CC) PetTripLog 패턴(주행 자극이 보통 이상이 된 시각)·TripRecorder 주행 자극 추이 (F7-01~F7-03)
 - [x] (CC) TripBrain·TripCoordinator에 묶기 (예보 음성·대기·도착 체크)
-- [x] (CC) 이동 기록 저장(PetStore.saveTrip)과 한계 시간 표시
+- [x] (CC) 여행 기록 저장(PetStore.saveTrip) — 화면은 2026-10-31부터 도착 후 기록 리포트
 
 ## 2. 서버
 - [x] (CC) 마이그레이션 0003: pet_places·vet_clinics·wait_sessions — PG 테스트 3개 통과(10/29 저녁)
@@ -52,6 +52,15 @@
 - [x] (CC) 1/2·1/3 실제 창(`am task resize`) 캡처
 - [x] (CC) 시연 리허설 자동 실행(scripts/rehearsal.py, 118초), 녹화 순서 docs/recording.md
 - [ ] (나) TourAPI 키 재발급 → server/.env 교체
+
+## 4-1. 재정비 (2026-10-31, docs/states.md · docs/wording.md)
+- [x] (CC) 엔진 값 이름 "주행 자극"(낮음 < 40 ≤ 보통 < 70 ≤ 높음), 반려견은 "콩이 관찰 상태"(음성 신고만, 없으면 "관찰 기록 없음")
+- [x] (CC) 주행 중 숫자·그래프 없이 예보 한 줄, 숫자는 정차 중 "주행 자극 보기"·리포트·발표 비교만
+- [x] (CC) 관찰 체크 칸·"오늘 멀미했어요?" 질문·주행 화면 도로 그림 삭제, 개인 보정은 음성 신고에서 자동
+- [x] (CC) 길 안내는 Pleos 기본 내비 + 분할 창 다음 회전 카드(NaviHelper `onTBTInfo` 첫 항목)
+- [x] (CC) 병원 사전 접수는 시연용 제휴 동물병원만 + 전달 동의, 실제 병원은 전화·도착 예정 링크
+- [x] (CC) 이동 기록 화면 → 도착 후 기록 리포트(시간순 타임라인, 위치 없이 거리만)
+- [ ] (CC) v6 화면 캡처 다시 찍기(docs/screens/v6는 재정비 전)
 
 ## 5. 마무리
 - [x] (CC) README 심사 대응표·실행 방법·공공데이터 출처

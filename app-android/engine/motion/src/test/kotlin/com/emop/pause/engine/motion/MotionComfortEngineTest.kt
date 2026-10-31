@@ -6,6 +6,7 @@ import com.emop.pause.core.model.PetSize
 import com.emop.pause.core.model.SignalSample
 import com.emop.pause.core.model.SignalSmoother
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -206,14 +207,16 @@ class MotionComfortEngineTest {
 
 class MotionPhrasesTest {
     @Test
-    fun `F1-10 예보 문구 - 숫자 먼저, 단계별, 한 줄`() {
+    fun `F1-10 예보 문구 - 거리·시간 먼저, 단계별 운전 안내 한 줄, 반려견 상태로 말하지 않음`() {
         val caution = MotionForecast(3000.0, 2400.0, 480, 45, 39)
-        assertEquals("3km 뒤 굽은 길 8분, 콩이 멀미 주의 — 조금 일찍 감속해 주세요.", MotionPhrases.forecast(caution, "콩이"))
-        assertEquals("800m 뒤 굽은 길 2분, 천천히 가면 콩이 편해요.", MotionPhrases.forecast(MotionForecast(780.0, 500.0, 100, 12, 50), "콩이"))
-        assertEquals("2.5km 뒤 굽은 길 3분, 콩이 멀미 걱정 — 39km/h 아래로 천천히요.", MotionPhrases.forecast(MotionForecast(2500.0, 2000.0, 170, 80, 39), "콩이"))
-        // 이름이 길면 이름을 빼서 2줄(48자) 안에
+        assertEquals("3km 뒤 굽은 길 8분, 천천히 가면 덜 흔들려요.", MotionPhrases.forecast(caution, "콩이"))
+        assertEquals("800m 뒤 굽은 길 2분, 지금처럼 부드럽게 가요.", MotionPhrases.forecast(MotionForecast(780.0, 500.0, 100, 12, 50), "콩이"))
+        assertEquals("2.5km 뒤 굽은 길 3분, 39km/h 아래로 천천히 가요.", MotionPhrases.forecast(MotionForecast(2500.0, 2000.0, 170, 80, 39), "콩이"))
+        // 이름은 넣지 않는다 (반려견 상태처럼 들리지 않게), 2줄(48자) 안
         val long = MotionPhrases.forecast(caution, "아주아주긴이름을가진우리집강아지")
         assertTrue(long.length <= MotionPhrases.MAX_CHARS, long)
-        assertEquals("3km 뒤 굽은 길 8분, 멀미 주의 — 조금 일찍 감속해 주세요.", long)
+        assertFalse("멀미" in long || "강아지" in long, long)
+        assertEquals("3km 뒤 굽은 길 · 8분", MotionPhrases.title(caution))
+        assertEquals("주행 자극 보통 45", MotionPhrases.now(MotionState(index = 45, level = MotionLevel.CAUTION)))
     }
 }

@@ -1,6 +1,6 @@
 # 쉼표 → 같이가개 재사용 지도
 
-기준: [CONCEPT.md](CONCEPT.md) (F1~F7). 작성 2026-10-29.
+기준: [CONCEPT.md](CONCEPT.md) (F1~F7). 작성 2026-10-29. 2026-10-31 재정비로 엔진 값 이름이 "주행 자극"(예전 멀미 지수)으로, 이동 기록 화면이 "도착 후 기록 리포트"로 바뀌었다([../wording.md](../wording.md)). 클래스 이름은 그대로다.
 **재사용** = 거의 그대로 · **수정** = 같은 자리에서 고치거나 확장 · **삭제** = 코드에서 뺌 · **신규** = 새로 만듦.
 applicationId·패키지(`com.emop.pause`)·모듈 이름은 빌드 위험 때문에 그대로 둔다(PIVOT 0-5).
 
@@ -18,11 +18,11 @@ applicationId·패키지(`com.emop.pause`)·모듈 이름은 빌드 위험 때�
 | `core:uistate` `DrivingRules`·`UxPolicy` | 재사용 | 주행 중 2줄·버튼 2개 규칙 |
 | `engine:fatigue` `FatigueEngine` | 재사용 | F2 안의 운전자 피로 요인 |
 | `engine:needs` `NeedsEngine` | 수정 | 반려견 배변 간격을 프로필 값으로 (F2). 아이 니즈는 남겨도 무해하지만 입력에서 뺌 |
-| `engine:planner` `RestPlanner`·`ScoringPolicy`·`SuggestionPolicy`·`RestPhrases` | 수정 → `PetRestPlanner` | 점수에 멀미 누적·반려견 시설 가중치 추가. 히스테리시스·쿨다운·이유 문장 유지 (F2) |
+| `engine:planner` `RestPlanner`·`ScoringPolicy`·`SuggestionPolicy`·`RestPhrases` | 수정 → `PetRestPlanner` | 점수에 주행 자극 누적·반려견 시설 가중치 추가. 히스테리시스·쿨다운·이유 문장 유지 (F2) |
 | `engine:planner` `TripPlanPreview` | 재사용 | 출발 체크 화면의 "오늘의 쉼표" |
 | `engine:pause` `PauseCurator` | 수정 | 파워냅·원정대·집중 제거, 반려견 산책·물·배변 위주로 |
 | `engine:content` (`Content`·`Expedition`·`Playlist`) | **삭제** | 라디오·원정대 기능 제외 (CONCEPT "뺀 것") |
-| 신규 `engine:motion` `MotionComfortEngine` | 신규 | F1 멀미 예보 (CONCEPT 4장) |
+| 신규 `engine:motion` `MotionComfortEngine` | 신규 | F1 주행 자극 예보 (CONCEPT 4장) |
 | 신규 `core:model` `PetProfile` · `engine:pet` `WaitMode`·`BoardingCheck`·`PetTripLog`·`Josa` | 신규 | 프로필은 모든 엔진이 쓰므로 `core:model`, F3·F6·F7 도메인은 `engine:pet` |
 | 신규 `data` `PetDatabase`(`pet.db`)·`RoomPetStore` | 신규 | 개인 데이터는 캐시 DB(`pause.db`, 스키마 바뀌면 지움)와 분리 |
 | `voice` `SpeechQueue`·`Speech`·`ReplyIntent`·`KoreanNumber`·`AudioFocus`·`PhraseProvider` | 재사용 | 음성 제안 "여기서 쉴게요"·안전 우선 큐 |
@@ -35,7 +35,7 @@ applicationId·패키지(`com.emop.pause`)·모듈 이름은 빌드 위험 때�
 | `app` `SignalRuntime` | 재사용 | 시뮬레이터·실차 신호 합류, 점프 |
 | `app` `TripBrain` | 수정 | MotionComfortEngine·PetRestPlanner·WaitMode를 묶음 |
 | `app` `TripCoordinator` | 수정 | 라디오·원정대·ETA 응답 제거, 음성 제안 흐름 유지 |
-| `app` `TripRecorder`·`TripResume` | 수정 | F7 이동 기록(멀미 지수 추이) |
+| `app` `TripRecorder`·`TripResume` | 수정 | F7 도착 후 기록 리포트(주행 자극 추이·관찰 신고·타임라인 구간) |
 | `app` `RadioDirector`·`ContentRepository` | **삭제** | 라디오·콘텐츠 제외 |
 | `app` `NapAlarm` (+ `USE_EXACT_ALARM`) | **삭제** | 파워냅 제외 |
 | `app` `PresetStore` | 수정 → 반려견 프로필은 Room(`PetProfile`) | 아이·교대 운전자 프리셋 제거 |
@@ -54,7 +54,7 @@ applicationId·패키지(`com.emop.pause`)·모듈 이름은 빌드 위험 때�
 | `api/llm` `/llm/kid-answer` | **삭제** | 아이 응답 제외 |
 | `api/content`·`content.py`·`jobs/load_content` | **삭제** | 라디오·미션 제외 |
 | 모델 `content_episodes`·`missions`·`playlists`·`playlist_items` | **삭제**(마이그레이션 0002에서 drop) | 같은 이유 |
-| `api/trips`·`jobs/cleanup` | 재사용 | 이동 기록 서버 보관(선택)·보관 기간 정리 |
+| `api/trips`·`jobs/cleanup` | 재사용 | 여행 기록 서버 보관(선택)·보관 기간 정리 |
 | 신규 `api/places`·`jobs/ingest_pet_places` | 신규 | F4 TourAPI 반려동물 동반여행 |
 | 신규 `api/vets`·`jobs/load_vets` | 신규 | F5 동물병원 인허가 |
 | 신규 `api/wait` | 신규 | F3 보호자 폰 웹페이지 |

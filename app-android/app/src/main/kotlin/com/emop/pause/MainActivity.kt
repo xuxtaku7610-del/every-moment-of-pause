@@ -36,6 +36,8 @@ import com.emop.pause.ui.screens.SettingsScreen
 import com.emop.pause.ui.screens.OnboardingScreen
 import com.emop.pause.ui.screens.CompareScreen
 import com.emop.pause.uistate.CompareChart
+import com.emop.pause.ui.screens.LocalDemoData
+import com.emop.pause.ui.screens.StimulusScreen
 import com.emop.pause.ui.screens.TripLogScreen
 import com.emop.pause.ui.screens.VetsScreen
 import com.emop.pause.ui.screens.WaitScreen
@@ -68,7 +70,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             PauseTheme(scale = designScale(screenWidthDp())) {
                 val ui by viewModel.ui.collectAsStateWithLifecycle()
-                CompositionLocalProvider(LocalMotionAllowed provides ui.motionAllowed) {
+                CompositionLocalProvider(LocalMotionAllowed provides ui.motionAllowed, LocalDemoData provides ui.demoData) {
                     val w = forceWidth
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
                         Box(if (w > 0) Modifier.width(w.dp).fillMaxHeight() else Modifier.fillMaxSize()) {
@@ -183,6 +185,7 @@ fun PauseRoot(ui: AppUiState, licenses: String, on: (UiEvent) -> Unit) {
         is Screen.Vets -> VetsScreen(sc.ui, on)
         is Screen.Arrival -> ArrivalScreen(sc.ui, on)
         is Screen.TripLog -> TripLogScreen(sc.ui, on)
+        is Screen.Stimulus -> StimulusScreen(sc.ui, on)
         is Screen.PetProfile -> PetProfileScreen(sc.ui, on)
         is Screen.Settings -> SettingsScreen(sc.ui, on, licenses)
         is Screen.Onboarding -> OnboardingScreen(sc.ui, on)

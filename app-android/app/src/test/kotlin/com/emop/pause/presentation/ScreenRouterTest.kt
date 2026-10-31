@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** test_plan DS-01·DS-04, F3-04, F6-04: 화면 선택 규칙. */
+/** test_plan DS-01·DS-04, F3-04, F6-04, ST-02: 화면 선택 규칙. */
 class ScreenRouterTest {
     private fun route(i: Input) = ScreenRouter.route(i)
     private val p = DriveState.PARKED
@@ -28,6 +28,12 @@ class ScreenRouterTest {
         assertEquals(Route.SCENE, route(Input(DriveState.DRIVING, AppMode.DRIVING, simulation = true, sceneLocked = true)))
         assertEquals(Route.DRIVE, route(Input(DriveState.DRIVING, AppMode.DRIVING, simulation = false, sceneLocked = true)))
         assertEquals(Route.SCENE, route(Input(p, AppMode.PREPARE, simulation = false, sceneLocked = true)))
+    }
+
+    @Test
+    fun `ST-02 주행 자극 보기는 정차 중에만, 주행이면 주행 화면(숫자 없음)이 앞선다`() {
+        assertEquals(Route.STIMULUS, route(Input(p, AppMode.PAUSE, false, overlay = Overlay.STIMULUS)))
+        assertEquals(Route.DRIVE, route(Input(DriveState.DRIVING, AppMode.DRIVING, false, overlay = Overlay.STIMULUS)))
     }
 
     @Test

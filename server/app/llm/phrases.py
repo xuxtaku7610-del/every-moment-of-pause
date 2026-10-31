@@ -5,7 +5,7 @@ FACILITY_KO = {
     "nursing_room": "수유실", "kids_zone": "키즈존", "pet_zone": "반려견 놀이터", "ev_fast": "급속충전기",
     "ev_slow": "완속충전기", "shower": "샤워실", "accessible_toilet": "장애인 화장실", "sleep_room": "수면실",
     # 같이가개 반려견 이유 (앱 PhraseProvider: Reason.Motion → motion, Reason.PottyDue → potty)
-    "motion": "반려견 멀미가 쌓임", "potty": "반려견 배변·산책 시간",
+    "motion": "흔들리는 길을 오래 달림", "potty": "반려견 배변·산책 시간",
 }
 MAX_CHARS = 50
 # 과장·단정·공포 조장 표현. 운전 중 문장에 쓰지 않는다.
@@ -35,11 +35,12 @@ def rest_fallback(facts: dict) -> str:
 
 SYSTEM_SUMMARY = (
     "너는 반려견 보호자에게 오늘 차 이동 기록을 요약해 주는 비서다. 한국어 2문장 이내, 60자 이내. "
-    "주어진 숫자만 쓰고 지어내지 않는다. 멀미 지수는 진단이 아니라 주의 예보라는 점을 지키고, 병명·치료를 말하지 않는다. 문장만 출력한다."
+    "주어진 숫자만 쓰고 지어내지 않는다. 주행 자극은 차량 흔들림 값이지 반려견을 잰 값이 아니다 — "
+    "반려견의 몸 상태·병명·치료를 말하지 않는다. 문장만 출력한다."
 )
 SUMMARY_MAX_CHARS = 60
-# 기록 요약은 "최고값"을 말해야 하므로 "최고"는 뺀다.
-SUMMARY_BANNED = tuple(b for b in BANNED if b != "최고") + ("진단", "질병", "병에", "치료", "약을")
+# 기록 요약은 "최고값"을 말해야 하므로 "최고"는 뺀다. 주행 자극을 반려견 상태로 말하지 않게 "멀미"도 막는다 (2026-10-31 재정비).
+SUMMARY_BANNED = tuple(b for b in BANNED if b != "최고") + ("진단", "질병", "병에", "치료", "약을", "멀미")
 
 
 def duration_ko(minutes: int) -> str:
@@ -51,13 +52,13 @@ def summary_user_prompt(facts: dict) -> str:
     limit = duration_ko(facts["limitMin"]) if facts.get("limitMin") else "아직 모름"
     return (
         f"이동 시간: {duration_ko(facts['durationMin'])}\n휴식: {facts['stops']}번\n"
-        f"멀미 주의 예보 최고값(0~100): {facts['motionPeak']}\n평소 한계 시간: {limit}"
+        f"주행 자극 최고값(0~100, 차량 흔들림): {facts['motionPeak']}\n지난 여행 보통 도달 시간: {limit}"
     )
 
 
 def summary_fallback(facts: dict) -> str:
-    base = f"이번 이동은 {duration_ko(facts['durationMin'])}, 휴식 {facts['stops']}번, 멀미 주의 예보 최고 {facts['motionPeak']}였어요."
-    return base + (f" 평소 한계는 약 {duration_ko(facts['limitMin'])}이에요." if facts.get("limitMin") else "")
+    base = f"이번 이동은 {duration_ko(facts['durationMin'])}, 휴식 {facts['stops']}번, 주행 자극 최고 {facts['motionPeak']}였어요."
+    return base + (f" 지난 여행들은 출발 약 {duration_ko(facts['limitMin'])} 뒤 주행 자극이 보통 이상이 됐어요." if facts.get("limitMin") else "")
 
 
 def check_summary(text: str, facts: dict, max_sentences: int) -> str | None:

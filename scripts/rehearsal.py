@@ -99,7 +99,7 @@ def main() -> int:
 
     def highway():
         start(seek=1800, action="play", speed=1)
-        if not wait_for("멀미 지수", 20):
+        if not wait_for("다음 쉼표", 20):
             return "막힘: 주행 화면이 안 뜸"
         shot("02-highway")
         return None
@@ -112,7 +112,7 @@ def main() -> int:
     def compare():
         # PT 1: 고갯길 예보 → 고갯길 비교 크게 (55 → 30, +7분 12초)
         start(seek=8748, action="play", speed=1)
-        if not wait_for("예상 최고", 40):
+        if not wait_for("덜 흔들려요", 40):
             return "막힘: 예보가 40초 안에 안 나옴"
         shot("03-forecast")
         # 비교 화면은 정차 중에만 열린다 → 출발 전(0초, P단)으로 돌아가 연다
@@ -129,7 +129,7 @@ def main() -> int:
         # PT 2: "콩이가 축 처졌어" → 동물병원으로 → 사전 접수 → 접수함 실시간 도착 → 병원 응답이 차 화면·음성으로
         adb("logcat", "-c")
         start(seek=2400, action="play", speed=1, cabin=24)
-        if not wait_for("멀미 지수", 20):
+        if not wait_for("다음 쉼표", 20):
             return "막힘: 주행 화면이 안 뜸"
         start(say="콩이가 축 처졌어")
         if not wait_for("괜찮아졌어요", 15):
@@ -139,8 +139,16 @@ def main() -> int:
         if not xy:
             return "막힘: 동물병원으로 버튼 없음"
         tap(xy)
-        if not wait_for("사전 접수", 15):
-            return "막힘: 사전 접수 표시 없음"
+        # 전달 동의 (재정비 상태 7): 앱이 음성으로 "…보낼까요?"를 묻는 동안 "네"를 넣는다 (질문 전에 넣은 답은 버려지므로 몇 번)
+        sent = False
+        for _ in range(8):
+            time.sleep(2)
+            start(say="네")
+            if wait_for("사전 접수 보냄", 3) or wait_for("접수함을 열어", 1):
+                sent = True
+                break
+        if not sent:
+            return "막힘: 전달 동의 뒤 사전 접수 표시 없음"
         shot("06-going-vet")
         url = None
         for _ in range(10):
@@ -183,22 +191,24 @@ def main() -> int:
             b.close()
 
     def calibrate():
-        # PT 3: 쓸수록 맞춰짐 — 지난 여행 답 3개(시연용으로 미리 넣음) + 오늘 "네" → 4회째, 민감도 보통 → 조금 높음
+        # PT 3: 쓸수록 맞춰짐 — 지난 여행 표본 3개(시연용으로 미리 넣음) + 오늘 음성 신고 "콩이 토했어"(질문 없이 자동으로 "예")
+        # → 기록 4회, 민감도 보통 → 높음. 도착 리포트(타임라인)에 신고와 맞춤 정도가 보인다.
         start(calib="yes,yes,little")
+        start(seek=2400, action="play", speed=1, cabin=24)
+        if not wait_for("관찰 상태", 20):
+            return "막힘: 주행 화면이 안 뜸"
+        start(say="콩이 토했어")
+        if not wait_for("구토", 10):
+            return "막힘: 신고가 안 들어감"
+        shot("10-report-voice")
         start(seek=10843, action="play", speed=1)
         xy = wait_for("내렸어요", 100)
         if not xy:
             return "막힘: 도착 체크가 100초 안에 안 나옴"
         shot("09-arrival")
         tap(xy)
-        if not wait_for("멀미했어요", 15):
-            return "막힘: 멀미 질문이 안 뜸"
-        shot("10-ask-motion")
-        yes = next((xy for t, xy in nodes() if t == "네"), None)
-        if yes:
-            tap(yes)
-        if not wait_for("맞춤 정도", 10):
-            return "막힘: 맞춤 정도 줄이 안 뜸"
+        if not wait_for("맞춤 정도", 15):
+            return "막힘: 리포트에 맞춤 정도 줄이 안 뜸"
         time.sleep(2)
         shot("11-calibrated")
         start(calib="reset")
@@ -207,7 +217,7 @@ def main() -> int:
     def distress():
         # UPGRADE 7: 고속도로 중 "콩이가 헥헥거려" + 여름 실내 31℃(장면 값) → 1줄 안내 + 가장 가까운 정차 장소
         start(seek=2400, action="play", speed=1, cabin=31)
-        if not wait_for("멀미 지수", 20):
+        if not wait_for("다음 쉼표", 20):
             return "막힘: 주행 화면이 안 뜸"
         start(say="콩이가 헥헥거려")
         if not wait_for("괜찮아졌어요", 15):
@@ -260,7 +270,7 @@ def main() -> int:
 
     def forecast():
         start(seek=8748, action="play", speed=1)
-        if not wait_for("예상 최고", 40):
+        if not wait_for("덜 흔들려요", 40):
             return "막힘: 예보가 40초 안에 안 나옴"
         shot("07-forecast")
         start(demo=True)
@@ -284,7 +294,7 @@ def main() -> int:
             return "막힘: 도착 체크가 100초 안에 안 나옴"
         shot("10-arrival")
         tap(xy)
-        if not wait_for("멀미 지수 추이", 15):
+        if not wait_for("병원에 보여 줄 내용", 15):
             return "막힘: 이동 기록이 안 뜸"
         time.sleep(3)
         shot("11-triplog")

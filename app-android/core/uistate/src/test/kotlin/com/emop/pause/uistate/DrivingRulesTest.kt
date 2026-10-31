@@ -25,7 +25,7 @@ class DrivingRulesTest {
 
     @Test
     fun `DS-02 긴 문장·긴 장소 이름·이유 3개는 위반으로 잡는다`() {
-        val long = Fixtures.drive.copy(content = DriveContent.Forecast("가".repeat(60)))
+        val long = Fixtures.drive.copy(content = DriveContent.Forecast("가".repeat(30), "천천히 가요"))
         assertEquals(1, DrivingRules.violations(long).size)
         val many = Fixtures.drive.copy(content = DriveContent.Suggest(10, "아주아주긴휴게소이름입니다정말로", listOf("a", "b", "c")))
         assertEquals(2, DrivingRules.violations(many).size, DrivingRules.violations(many).toString())

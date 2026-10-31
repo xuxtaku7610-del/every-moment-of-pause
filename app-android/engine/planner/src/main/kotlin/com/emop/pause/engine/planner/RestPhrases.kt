@@ -20,12 +20,12 @@ object RestPhrases {
 
     /**
      * 반려견 맞춤 쉼표 제안 (F2). 2문장 이내, 숫자·장소 먼저. 반려견 이유(멀미·배변)가 있으면 앞 문장에 둔다.
-     * 예: "콩이 멀미가 쌓였어요. 18분 뒤 반려견 놀이터가 있는 안성휴게소에서 쉬어 갈까요?"
+     * 예: "흔들리는 길을 오래 달렸어요. 18분 뒤 반려견 놀이터가 있는 안성휴게소에서 쉬어 갈까요?" (주행 자극은 차량 흔들림 — 반려견 상태로 말하지 않는다)
      */
     fun petSuggestion(d: PlanDecision.Suggest, petName: String): String {
         if (d.fatigueFirst) return suggestion(d)
         val pet = when {
-            Reason.Motion in d.reasons -> "$petName 멀미가 쌓였어요."
+            Reason.Motion in d.reasons -> "흔들리는 길을 오래 달렸어요."
             Reason.PottyDue in d.reasons -> "$petName 산책 시간이에요."
             else -> null
         }

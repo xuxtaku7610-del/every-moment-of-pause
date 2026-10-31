@@ -10,10 +10,10 @@ class VetMemoTest {
     @Test
     fun `F5-06 체크하면 고른 증상·메모·오늘 요약을 공유, 안 하면 아무것도`() {
         val memo = VetMemo(chips = setOf("구토", "헐떡임"), text = "  아침에 사료를 반만 먹었어요  ", include = true)
-        val out = VetMemo.share(memo, tripLine = "이동 2시간 10분 · 멀미 주의 1회(최고 46)")
+        val out = VetMemo.share(memo, tripLine = "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 없음")
         assertEquals(listOf("구토", "헐떡임"), out.symptoms)
         assertEquals("아침에 사료를 반만 먹었어요", out.memo)
-        assertEquals("이동 2시간 10분 · 멀미 주의 1회(최고 46)", out.tripLine)
+        assertEquals("이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 없음", out.tripLine)
         val off = VetMemo.share(memo.copy(include = false), tripLine = "x")
         assertTrue(off.symptoms.isEmpty())
         assertNull(off.memo)
@@ -31,8 +31,8 @@ class VetMemoTest {
 
     @Test
     fun `F5-06 오늘 요약 한 줄 - 이동 시간·멀미 주의 횟수·최고·증상 이벤트`() {
-        assertEquals("이동 2시간 10분 · 멀미 주의 1회(최고 46)", VetMemo.tripLine(130, cautionCount = 1, peak = 46, events = emptyList()))
-        assertEquals("이동 45분 · 멀미 주의 없음 · 헐떡임 1회", VetMemo.tripLine(45, cautionCount = 0, peak = 20, events = listOf("헐떡임")))
+        assertEquals("이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 없음", VetMemo.tripLine(130, cautionCount = 1, peak = 46, events = emptyList()))
+        assertEquals("이동 45분 · 주행 자극 최고 20 · 관찰 신고 헐떡임 1회", VetMemo.tripLine(45, cautionCount = 0, peak = 20, events = listOf("헐떡임")))
         assertNull(VetMemo.tripLine(0, 0, 0, emptyList()))
     }
 }

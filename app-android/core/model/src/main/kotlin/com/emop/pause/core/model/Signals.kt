@@ -65,6 +65,15 @@ data class RouteTurn(val kind: TurnKind, val distanceM: Double) {
 /** SDK `TurnType`을 멀미 예보에 필요한 만큼만 줄인 종류 (매핑은 core:navi `PleosNaviSource`). */
 enum class TurnKind { LEFT, RIGHT, SHARP_LEFT, SHARP_RIGHT, KEEP_LEFT, KEEP_RIGHT, UTURN, RAMP_LEFT, RAMP_RIGHT, ROUNDABOUT, STRAIGHT }
 
+/**
+ * 바로 다음 길 안내 한 건 (주행 화면 "다음 회전" 카드). NaviHelper `onTBTInfo` 목록의 첫 항목 그대로 —
+ * [distanceM]은 지금 위치에서 그 지점까지(첫 항목의 구간 거리), [description]은 내비가 준 방면 글("기업지원허브 방면", 없으면 빈 글).
+ * 굽이가 아닌 안내(톨게이트·휴게소·도착)도 들어온다. 직접 만들지 않는다 — 실제 안내가 없으면 null.
+ */
+data class NextGuide(val icon: GuideIcon, val distanceM: Double, val description: String = "")
+
+enum class GuideIcon { LEFT, RIGHT, KEEP_LEFT, KEEP_RIGHT, UTURN, STRAIGHT, ROUNDABOUT, TOLL, REST_AREA, ARRIVE, OTHER }
+
 /** 목적지·다음 경유지까지 남은 거리(m)와 시간(초). NaviHelper `remainDistance/remainTime`. */
 data class EtaInfo(
     val remainDistanceM: Int,

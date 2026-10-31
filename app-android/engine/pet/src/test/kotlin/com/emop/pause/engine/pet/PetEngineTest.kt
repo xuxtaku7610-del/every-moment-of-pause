@@ -151,26 +151,26 @@ class PetTripLogTest {
         val e = PetTripLog.limit(listOf(trip(1, 60), trip(2, 80), trip(3, null), trip(4, 70)))!!
         assertEquals(70, e.minutes)
         assertEquals(3, e.basedOn)
-        assertEquals("콩이는 약 1시간 10분이 한계예요.", PetTripLog.limitPhrase("콩이", e))
+        assertEquals("지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요.", PetTripLog.limitPhrase("콩이", e))
     }
 
     @Test
     fun `F7-02 짝수 개면 가운데 둘의 평균, 근거가 적으면 표시`() {
         val e = PetTripLog.limit(listOf(trip(1, 60), trip(2, 80)))!!
         assertEquals(70, e.minutes)
-        assertEquals("밤은 약 1시간 10분이 한계예요. (기록 2번 기준)", PetTripLog.limitPhrase("밤", e))
+        assertEquals("지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요. (기록 2번 기준)", PetTripLog.limitPhrase("밤", e))
         assertNull(PetTripLog.limit(listOf(trip(1, null))))
-        assertEquals("콩이는 아직 멀미 주의 단계에 닿은 적이 없어요.", PetTripLog.limitPhrase("콩이", null))
+        assertEquals("지난 여행에서 주행 자극이 보통 단계에 닿은 적은 없어요.", PetTripLog.limitPhrase("콩이", null))
     }
 
     @Test
     fun `F7-02 이동 기록 한 줄은 이번 여행 값을 먼저 본다 (주의 n번과 어긋나지 않게)`() {
         val reached = trip(1, 151)
-        assertEquals("이번엔 출발 2시간 31분 뒤 멀미 주의에 닿았어요. 기록이 쌓이면 평소 한계를 알려 드려요.", PetTripLog.insight("콩이", reached, null))
+        assertEquals("이번엔 출발 2시간 31분 뒤 주행 자극이 보통 이상이 됐어요.", PetTripLog.insight("콩이", reached, null))
         val e = LimitEstimate(70, 3)
-        assertEquals("이번엔 출발 2시간 31분 뒤 멀미 주의에 닿았어요. 콩이는 약 1시간 10분이 한계예요.", PetTripLog.insight("콩이", reached, e))
-        assertEquals("이번엔 멀미 주의 없이 도착했어요. 콩이는 약 1시간 10분이 한계예요.", PetTripLog.insight("콩이", trip(2, null), e))
-        assertEquals("콩이는 아직 멀미 주의 단계에 닿은 적이 없어요.", PetTripLog.insight("콩이", trip(2, null), null))
+        assertEquals("이번엔 출발 2시간 31분 뒤 주행 자극이 보통 이상이 됐어요. 지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요.", PetTripLog.insight("콩이", reached, e))
+        assertEquals("이번엔 주행 자극이 낮은 채로 도착했어요. 지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요.", PetTripLog.insight("콩이", trip(2, null), e))
+        assertEquals("지난 여행에서 주행 자극이 보통 단계에 닿은 적은 없어요.", PetTripLog.insight("콩이", trip(2, null), null))
     }
 
     @Test
@@ -181,12 +181,12 @@ class PetTripLogTest {
     }
 
     @Test
-    fun `F7-03 병원용 요약 - 진단 아님 표기와 증상 메모`() {
+    fun `F7-03 병원용 요약 - 반려견 측정 아님 표기와 관찰 신고`() {
         val t = PetTripRecord(0, 130, 75, 62, 2, "출발 1시간쯤 침을 많이 흘림")
         val lines = PetTripLog.vetSummary("콩이", t, LimitEstimate(70, 3))
         assertEquals("이동 시간 2시간 10분 · 휴식 2번", lines[1])
-        assertTrue(lines.any { "진단 아님" in it })
-        assertTrue(lines.last().startsWith("증상 메모: 출발 1시간쯤"))
+        assertTrue(lines.any { "반려견 측정 아님" in it })
+        assertTrue(lines.last().startsWith("관찰 신고: 출발 1시간쯤"))
     }
 
     @Test

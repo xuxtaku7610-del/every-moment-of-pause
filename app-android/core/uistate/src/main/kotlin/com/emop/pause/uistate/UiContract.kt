@@ -16,10 +16,13 @@ sealed interface Screen {
     data class Places(val ui: PlacesUi) : Screen
     data class Vets(val ui: VetsUi) : Screen
     data class Arrival(val ui: ArrivalUi) : Screen
+    /** 도착 후 기록 리포트 (타임라인). */
     data class TripLog(val ui: TripLogUi) : Screen
+    /** 정차 중 "주행 자극 보기". */
+    data class Stimulus(val ui: StimulusUi) : Screen
     data class PetProfile(val ui: PetEditUi) : Screen
     data class Settings(val ui: SettingsUi) : Screen
-    /** 첫 실행 3단계 (반려견 프로필 → 차량 연동 → 멀미 민감도 진단). */
+    /** 첫 실행 3단계 (반려견 프로필 → 차량 연동 → 흔들림에 예민한 정도). */
     data class Onboarding(val ui: OnboardingUi) : Screen
 }
 
@@ -33,10 +36,30 @@ data class AppUiState(
     val demoOpen: Boolean = false,
     /** 발표 모드 "장면 고정" 중인 장면. */
     val scene: Scene? = null,
+    /** 지금 서비스 상태 (8개, docs/states.md) — 발표 모드 표시용. */
+    val state: ServiceState = ServiceState.STOPPED,
+    /** 시뮬레이터·장면 고정 값: 앱 바에 "시연 데이터" (재정비 원칙 5). 실차는 false. */
+    val demoData: Boolean = false,
 )
 
+/**
+ * 같이가개 8개 상태 (2026-10-31 재정비, docs/states.md). [no]는 문서 번호. [STOPPED]는 8개 밖의 정차 화면
+ * (쉼표·주행 자극 보기·장소·프로필·설정).
+ */
+enum class ServiceState(val no: Int, val title: String) {
+    DEPART(1, "출발 전"),
+    DRIVING(2, "일반 주행"),
+    FORECAST(3, "주행 자극 예보"),
+    SUGGEST(4, "쉼표 추천"),
+    DISTRESS(5, "콩이가 이상해요"),
+    WAIT(6, "대기 모드"),
+    VET(7, "병원 이동"),
+    REPORT(8, "도착 후 기록 리포트"),
+    STOPPED(0, "정차"),
+}
+
 /** 발표 모드에서 고정 장면을 보여 줄 때 (화면 검증·PT 예비용). [Fixtures.screen]이 상태를 만든다. */
-enum class Scene { DEPART, DRIVE, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, DISTRESS, REST_CARE, REST, WAIT, WAIT_OVERDUE, PLACES, VETS, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
+enum class Scene { DEPART, DRIVE, STIMULUS, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, DISTRESS, REST_CARE, REST, WAIT, WAIT_OVERDUE, PLACES, VETS, VETS_CALL, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
 
 /** 화면 → ViewModel. 화면은 이 이벤트만 보내고, 무엇이 일어나는지는 ViewModel이 정한다. */
 sealed interface UiEvent {
@@ -62,6 +85,8 @@ sealed interface UiEvent {
     data object OpenSettings : UiEvent
     data object OpenPlaces : UiEvent
     data object OpenVets : UiEvent
+    /** 정차 중 "주행 자극 보기". */
+    data object OpenStimulus : UiEvent
     data object Close : UiEvent
 
     // 쉼표 (정차)
@@ -88,10 +113,9 @@ sealed interface UiEvent {
 
     // 도착·기록 (F6·F7)
     data object ConfirmLeft : UiEvent
-    data class ToggleSymptom(val label: String) : UiEvent
     data object FinishTrip : UiEvent
-    /** 도착 뒤 "오늘 멀미했어요?" 답. null = 건너뛰기. */
-    data class AnswerMotion(val answer: MotionAnswerUi?) : UiEvent
+    /** 기록 리포트 "병원에 공유": 동물병원 화면으로 (공유 내용 미리보기·동의 후 전달). */
+    data object ShareReport : UiEvent
     /** 프로필: 개인 맞춤 보정 기록 지우기. */
     data object ResetCalibration : UiEvent
 

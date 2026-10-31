@@ -43,7 +43,7 @@ class PetDistressTest {
         assertTrue(early.boost > 1.0)
         // 침·하품 + 멀미 지수 상승 → 창문, 다음 쉼표 앞당김
         val nausea = PetDistress.advise(DistressKind.NAUSEA, cool.copy(motionIndex = 45, motionRising = true))
-        assertEquals("멀미 초기일 수 있어요. 창문을 조금 열어요", nausea.line)
+        assertEquals("속이 불편할 수 있어요. 창문을 조금 열어요", nausea.line)
         assertEquals(DistressAction.EARLIER_REST, nausea.action)
         // 구토 → 다음 쉼터
         val vomit = PetDistress.advise(DistressKind.VOMIT, cool)

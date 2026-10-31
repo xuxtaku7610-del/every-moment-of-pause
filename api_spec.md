@@ -237,15 +237,16 @@ PUT·GET 상태 응답에 `returning`(보호자가 폰에서 "돌아가는 중"�
 ### 2.8-1 동물병원 도착 예정 공유 (F5)
 **POST `/eta`** (기기 토큰 필요) — 보호자 폰으로 보낼 링크를 만든다. 앱·서버가 병원에 자동으로 보내지 않는다.
 ```json
-{"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"], "memo": "구토 두 번, 물은 조금", "tripLine": "이동 2시간 10분 · 멀미 주의 1회(최고 46)"}
+{"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"], "memo": "구토 두 번, 물은 조금", "tripLine": "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 구토 1회"}
 ```
-`symptoms`·`memo`·`tripLine`은 앱에서 사용자가 "증상 메모와 오늘 요약 넣기"를 체크했을 때만 온다. 응답 `201` `{"token": "...", "pageUrl": "/eta/...", "expiresAt": "..."}`. 정의되지 않은 필드(위치 등) `422`. 토큰 128비트, 해시만 저장, 2시간 만료.
+`symptoms`·`memo`·`tripLine`은 앱에서 사용자가 "증상 메모와 오늘 요약 넣기"를 체크했을 때만 온다. `tripLine`의 주행 자극은 차량 흔들림 기준(반려견 측정 아님)이고, 반려견 상태는 보호자 관찰 신고만 적는다. 응답 `201` `{"token": "...", "pageUrl": "/eta/...", "expiresAt": "..."}`. 정의되지 않은 필드(위치 등) `422`. 토큰 128비트, 해시만 저장, 2시간 만료.
 
 **GET `/eta/{token}`** (인증 없음, HTML) → "콩이 · 동물병원으로 가는 중 / 12분 뒤 도착", 병원·도착 예정 시각(KST)·증상 메모, 병원 응답이 있으면 그 줄. 만료 `410`.
 
 ### 2.8-2 동물병원 사전 접수 + 실시간 도착 알림 (UPGRADE 3, F5-07~10)
 `POST /eta`에 `"intake": true`를 더하면 병원 접수함 링크를 함께 만든다 → 응답에 `clinicToken`, `clinicUrl` (`/clinic/...`, 보호자 링크와 **다른 토큰**, 해시만 저장). `intake`가 없으면 둘 다 `null`.
 접수함 링크도 보호자가 병원에 직접 보낸다(문자·전화). 서버는 병원에 아무것도 보내지 않는다.
+앱은 **시연용 제휴 동물병원**(가상 병원 한 곳)에만 `intake: true`를 보내고, 보내기 전에 동의를 받는다(주행 중 음성 "시연용 제휴 동물병원에 증상과 도착 예정을 보낼까요?" → "네", 정차 중 보낼 내용 미리보기 → "동의하고 보내기"). 실제 공공데이터 병원은 `intake` 없이 도착 예정 링크만 만들고 화면은 전화 안내만 한다("접수 완료" 없음).
 
 **PUT `/api/v1/eta/{token}`** (기기 토큰, 만든 기기만 — 아니면 `404`) `{"etaMinutes": 6, "arrived": false}` → `200` `{"etaMinutes", "arrived", "reply", "replyAt", "seen"}`. 위치 필드 `422`. 앱은 도착 예정이 1분 이상 바뀌면 15초 간격, 같으면 60초마다 보낸다. `arrived: true`면 0분·도착.
 **GET `/api/v1/eta/{token}`** (기기 토큰) → 같은 JSON. 앱은 15초마다 병원 응답을 묻는다.
@@ -280,7 +281,7 @@ PUT·GET 상태 응답에 `returning`(보호자가 폰에서 "돌아가는 중"�
 ```
 서버 검사: 2문장 초과·50자 초과·금칙어 포함 시 `fallback` 반환.
 
-`kind`: `rest_suggestion`(F2 제안), `trip_summary`(F7 기록 요약, facts: `durationMin`·`stops`·`motionPeak`·`limitMin`). 안전·멀미 예보·"내렸나요?" 문구는 LLM을 쓰지 않는다.
+`kind`: `rest_suggestion`(F2 제안), `trip_summary`(F7 기록 요약, facts: `durationMin`·`stops`·`motionPeak`·`limitMin`). 안전·주행 자극 예보·관찰 상태·"내렸나요?" 문구는 LLM을 쓰지 않는다. `motionPeak`는 주행 자극 최고값(차량 기준), `limitMin`은 지난 여행들에서 주행 자극이 보통 이상이 된 출발 뒤 시간이다(반려견 한계로 쓰지 않는다).
 
 서버 → Ollama 호출: `POST {OLLAMA_BASE_URL}/api/chat`
 ```json

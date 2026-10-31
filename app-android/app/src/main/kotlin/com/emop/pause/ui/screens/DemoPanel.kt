@@ -112,11 +112,11 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                 Text("경로 형상이 있는 시나리오(pet-trip)에서 계산해요.", style = Pause.type.caption, color = c.sub)
             } else {
                 Text(
-                    "멀미 지수 ${compare.unguidedFinal} → ${compare.guidedFinal}  ·  " +
+                    "주행 자극 ${compare.unguidedFinal} → ${compare.guidedFinal}  ·  " +
                         "${compare.unguidedSec / 60}분 → ${compare.guidedSec / 60}분 (굽이 최저 ${compare.guidedMinKph}km/h)",
                     style = Pause.type.label, color = c.text,
                 )
-                Text("주의 예보 지수(진단 아님), 대관령 옛길(© OpenStreetMap, ODbL), 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.sub)
+                Text("차량 흔들림 기준 · 반려견 측정 아님, 대관령 옛길(© OpenStreetMap, ODbL), 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.sub)
             }
             Choice("고갯길 비교 크게 보기 (정차 중)", false) { a.compareBig() }
             Section("앞 구간 형상 (지금: ${trip.shapeSource ?: "-"}) — 바꾼 뒤 장면 이동부터")

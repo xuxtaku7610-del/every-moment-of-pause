@@ -8,6 +8,42 @@
 2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
 3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
 
+## 서비스 구조 재정비 8단계 (2026-10-31 저녁~, `_private/RESTRUCTURE_PROMPT.md`, 사용자 결정 1~6)
+기준 문서: [docs/states.md](states.md) (8개 상태·전환·데이터 출처). 결정: 위치 기록 없음(거리만), 시연 접수함은 가상 "시연용 제휴 동물병원"만, 개인 보정 = 신고 자동 + 높음 구간 뒤 30분 조용하면 약하게(0.4), 주행 자극 단계 낮음/보통/높음(40·70), 온보딩 "흔들림에 예민한 정도(보호자 응답)", 분할 창은 주행 중만(정차 화면은 전체 창 기준, 좁은 창에서도 버튼 글자 줄임표 금지).
+
+- **2단계 상태·계약 정리 (완료):**
+  - `ServiceState`(8개)와 `ScreenRouter.serviceState`, `Route.STIMULUS`/`Overlay.STIMULUS`("주행 자극 보기"), `AppUiState.state`·`demoData`.
+  - 화면 계약: `DriveUi`의 멀미 숫자·도로 곡률·최근 그래프를 빼고 `guide`·`remain`·`arrive`·`observation`·`nextStopFacilities`·`voiceHint`를 넣음. `Forecast`는 제목+운전 안내 한 줄. `StimulusUi` 새로. `TripLogUi`는 타임라인 리포트로 바꿈. `ToggleSymptom`·`AnswerMotion`·`MotionAnswerUi`·`PetStatusUi` 삭제.
+  - 기록: `DistressRecord`(신고·주행 분·시각·속도·주행 자극), `TripRecorder.segments`(보통 이상 구간)·`elapsedMin`. 개인 보정 자동 `AutoCalibration`(+ `MotionCalibration.QUIET_WEIGHT` 0.4, `CalibrationSample.weight`).
+  - 문구: 예보·쉼표 이유·한계 문장·병원 요약·온보딩·프로필을 "주행 자극"/"관찰 신고"/"흔들림에 예민한 정도(보호자 응답)"로. "멀미 초기일 수 있어요" → "속이 불편할 수 있어요".
+  - 지운 것: 관찰 체크 칸, "오늘 멀미했어요?"(화면·음성·`MotionAnswerParser`), v7 상태 카드. 테스트 `RestructureTest`(10) 새로, `TripLogStatusTest`·`MotionAnswerParserTest` 삭제.
+- **3단계 NaviHelper·분할 창 (완료):**
+  - `NextGuide`(TBT 첫 항목: 아이콘·거리·방면 `description`) → `NaviSource.guide()` → `Snapshot.guide`. 안내 아이콘은 확인된 `TurnType` 상수 + 굽이가 아닌 안내는 상수 이름으로(TOLL·SERVICE/REST·ARRIVE).
+  - 시뮬레이터는 GPX에서 만든 안내를 "시연"으로 표시만(`TripBrain.demoTurn`).
+  - 분할 창: 런처 오른쪽 손잡이 드래그(`input swipe 2547 720 1700 720`)로 같이가개(853~1694) + 기본 내비(1718~2559). 분할 중 `onTBTInfo` 32건·`onDestinationInfo` 수신 확인 → BLOCKED 10/30 "앱이 뒤면 콜백 없음"은 분할 창에서 해결. 캡처 `ui_capture.py --nav`.
+  - 결정: 지도·길 안내는 Pleos 기본 내비, 외부 내비(카카오 등)는 쓰지 않는다.
+- **4단계 일반 주행 (완료):** `DriveScreens.kt` 다시 씀 — 도로 그림·멀미 숫자·게이지·그래프 삭제. 1/3 창: 예보 띠 → 다음 회전 카드(아이콘·거리·방면, 도착·남은 거리) → 지금 할 일(다음 쉼표/추천/이상해요/병원) → 관찰 상태 → 음성 힌트. 1/2·전체 창은 왼쪽(길 안내·관찰) | 오른쪽(지금 할 일). 버튼은 줄임표 없이 2줄까지(`PauseButton`). 앱 바 "시연 데이터".
+  - 캡처: `artifacts/ui/v8/sheet-drive-nav.png` (01 일반·02 예보·07 이상해요·08 병원 = 실제 분할 창, 06 추천 = 1/3 창 `--split third` — 답을 기다리는 제안이 분할하는 10초 사이 끝나서).
+- 검증(4단계 시점): `./gradlew test` 종료 0, 고유 295개 실패 0.
+- **5단계 병원 이동 (완료):** 시연용 제휴 동물병원(`trip/DemoPartner`, 가상 병원·시뮬레이터에서만 목록 맨 앞, `Vet.partner`). 사전 접수(병원 접수함)는 제휴 병원만 — 실제 병원(공공 인허가)은 `ContactPanel`: "사전 접수 연동이 없어요" + 전화번호 + 도착 예정 링크(접수 아님, `intake=false`). 전달 동의: 주행 중 "콩이가 이상해요 → 동물병원으로" 뒤 음성으로 "…보낼까요? 네/아니요"(`DemoPartner.consent`), 정차 중 동물병원 화면은 "병원에 보낼 내용" 미리보기(`UiMapper.vetPreview`, "보내지 않음: 위치·경로·사진") + "동의하고 보내기". 주행 중 병원 패널 한 줄: 제휴 "정차하면 보낼 내용을 확인해요"/보낸 뒤 병원 응답, 비제휴 "정차 후 전화 …". 캡처 `artifacts/ui/v8/sheet-vet.png`.
+- **6단계 정차 화면 (완료):** 출발 전·쉼표·대기는 전체 창이 기준(3칸·2칸), 1/2·1/3 창은 같은 순서로 쌓고 스크롤. 버튼·병원 이름·값(`KeyValue`)은 줄임표 대신 2줄, 앱 바 오른쪽 글은 남는 자리만(버튼을 밀지 않음, 어절 줄바꿈). 목적지가 비면 "까지 0분" 대신 "기본 내비에서 목적지를 정해 주세요". 프로필·온보딩 "흔들림에 예민한 정도 (보호자 응답)", 설정 "주행 자극은 차량 흔들림 기준이며 반려견 측정·진단이 아니에요". 쉼표 화면 "주행 자극 보기"(정차 중만). 캡처 `sheet-stopped.png`.
+- **7단계 도착 후 리포트 (완료):** `TripLogScreen.kt` 타임라인 리포트 — 요약(총 이동 시간·거리·휴식·관찰 신고) → 시간순 타임라인(출발·신고·휴식·흔들림 많은 구간·병원·도착, 아이콘·출발 뒤 시각·한 줄) | 주행 자극 그래프(휴식·신고·흔들림 구간 표시, "차량 흔들림 기준 · 반려견 측정 아님") · 병원에 보여 줄 내용 + "병원에 공유". 한 시계(출발 뒤, 정차 포함)로 통일. 경로선 없음(위치 기록 안 함). 캡처 `sheet-report.png`(전체·1/2·1/3·다크).
+  - 버그: 발표 점프 따라잡기 중 신고가 개인 보정 표본으로 쌓여 실행마다 민감도가 올라가 숫자가 바뀜(55 → 72) → 따라잡기 중에는 표본을 내보내지 않음. adb `--es calib reset`은 모든 반려견 기록을 지움(출발 전 이름이 아직 기본값이라 다른 키를 지우던 문제).
+
+- **8단계 전체 연결·검증 (완료):**
+  - 앱 `./gradlew test` 종료 0 — 고유 298개 실패 0 (새 `RestructureTest` 12개, `ScreenRouterTest` ST-02). 서버 pytest 81 통과.
+  - PT 리허설 `scripts/rehearsal.py` 5장면 OK 66초 — PT2는 음성 동의 "네"를 넣고(`TripCoordinator.ask`가 마이크와 화면·adb 응답 중 먼저 온 것), PT3는 음성 신고 "콩이 토했어" → 리포트 "맞춤 정도: 기록 4회".
+  - 서버 문구: 기록 요약 프롬프트·템플릿·쉼표 이유를 주행 자극으로, LLM 요약 금지어에 "멀미".
+  - 문서: [states.md](states.md)(8개 상태·전환·데이터 출처), [wording.md](wording.md)(옛 표현 → 새 표현), test_plan(F1-11·F5-12·F7-05b·F7-06·F7-08·F7-09·ST-01~03), ui_contract(v8 계약), STYLE_V6(v8 화면), BLOCKED(분할 창 해결, 보정이 주행 자극 숫자를 바꾸는 문제·점프 뒤 실시간 신고·1920), demo_numbers, CLAUDE.md 결정. README·architecture·flowchart·demo_script·motion_model 등은 문구표대로 정리.
+  - 캡처 `artifacts/ui/v8/`: `sheet-drive-nav.png`(주행, 분할 창), `sheet-vet.png`, `sheet-stopped.png`, `sheet-report.png`, `sheet-rehearsal.png`.
+
+## 커밋 대기열 (같이가개 9차 — 서비스 구조 재정비, 10/31 저녁) — 8차 다음에
+1. `[RS] 주행 자극·관찰 상태 분리, 8개 상태, 개인 보정 자동` — `app-android/core app-android/engine app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/kotlin/com/emop/pause/runtime app-android/data app-android/app/src/test`
+2. `[RS] 주행 화면(분할 창)·병원 이동·정차 화면·도착 후 리포트` — `app-android/app/src/main/kotlin/com/emop/pause/ui`
+3. `[RS] 서버 문구` — `server/app/llm/phrases.py server/tests`
+4. `[DOC] 상태·문구표·스타일·테스트 계획, 리허설·캡처 스크립트` — `docs README.md architecture.md flowchart.md api_spec.md todo.md test_plan.md scripts`
+(1·2번은 같은 파일(화면 계약)을 함께 바꾸므로 `git add -A` 한 번으로 묶는 편이 안전하다. 지운 파일: `MotionAnswerParser.kt`, `MotionAnswerParserTest.kt`, `TripLogStatusTest.kt`.)
+
 ## 이동 기록 v7 재설계 (2026-10-31 오후, 사용자 승인 계획 + 결정 1~6)
 - 화면: `ui/screens/TripLogScreen.kt`(새 파일, `PetScreens.kt`에서 분리). 오늘 상태 카드 → 통계 3칸 → 멀미 지수 추이(가장 넓게) → 관찰 기록 | 병원 공유 요약. 기존 기능(멀미 주의 횟수·날짜·기록 확인·질문·맞춤 정도·이전 기록·요약 문장) 모두 유지, 이벤트·저장 구조 그대로.
 - 상태 판정 `UiMapper.petStatus`(결정 1, 규칙 줄마다 테스트), 근거 줄에 멀미 주의 횟수(결정 2), "괜찮았어요" 배타(결정 3), 빨강 = 관찰 필요만(결정 4, STYLE_V6 §2.1, `attention*` 토큰), 표기 "도착 시점 지수"·"오늘 콩이 상태"(결정 6).

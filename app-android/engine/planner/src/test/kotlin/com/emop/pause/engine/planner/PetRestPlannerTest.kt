@@ -69,7 +69,7 @@ class PetRestPlannerTest {
         val plain = plan(listOf(nearPlain), motion = 60) as PlanDecision.Suggest
         assertFalse(plain.reasons.any { it is Reason.HasFacility }, plain.reasons.toString())
         assertEquals(
-            "콩이 멀미가 쌓였어요. 9분 뒤 반려견 놀이터가 있는 가람휴게소에서 쉬어 갈까요?",
+            "흔들리는 길을 오래 달렸어요. 9분 뒤 반려견 놀이터가 있는 가람휴게소에서 쉬어 갈까요?",
             RestPhrases.petSuggestion(d, "콩이"),
         )
     }

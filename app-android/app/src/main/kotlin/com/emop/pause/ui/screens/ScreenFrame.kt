@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,6 +41,9 @@ import com.emop.pause.uistate.UiEvent
 
 internal typealias On = (UiEvent) -> Unit
 
+/** 시뮬레이터·장면 고정 값을 그리는 중 → 앱 바에 "시연 데이터" (재정비 원칙 5, AppUiState.demoData). */
+val LocalDemoData = staticCompositionLocalOf { false }
+
 /** 바깥 틀. 주행 화면은 scroll = false (DS-02). [title]이 있으면 앱 바에 화면 이름(위로 연 화면). */
 @Composable
 internal fun Page(
@@ -57,7 +61,7 @@ internal fun Page(
         // 창 단계는 배율 2 기준 dp로 잰다 — 1920×1080(배율 1.5)에서도 전체 창이 FULL (v7 검수)
         val wc = WidthClass.of(maxWidth * (2f / d.scale))
         Column(Modifier.fillMaxSize()) {
-            AppBar(meta, { on(UiEvent.LogoTap) }, title = title, trailing = trailing)
+            AppBar(meta, { on(UiEvent.LogoTap) }, title = title, trailing = trailing, demo = LocalDemoData.current)
             val body = Modifier.fillMaxWidth().weight(1f).padding(start = d.margin, end = d.margin, bottom = d.margin, top = d.u(4f))
             Column(if (scroll) body.verticalScroll(rememberScrollState()) else body, verticalArrangement = Arrangement.spacedBy(d.gap)) { content(wc) }
         }

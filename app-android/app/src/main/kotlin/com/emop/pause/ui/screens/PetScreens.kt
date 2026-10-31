@@ -104,73 +104,91 @@ import com.emop.pause.uistate.WaitUi
 
 @Composable
 fun DepartScreen(ui: DepartUi, on: On) {
-    val c = Pause.colors
     val d = Pause.dimens
+    // 정차 화면 = 전체 창이 기준(프로필 · 체크 · 경로 3칸). 분할 창으로 볼 때는 같은 순서로 쌓고 스크롤 — 글자를 자르지 않는다.
     Page(ui.meta, on, scroll = false) { wc ->
-        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-            if (wc == WidthClass.FULL) {
-                Panel(Modifier.weight(0.28f).fillMaxHeight(), pad = d.u(24f), spacing = d.gapS) {
-                    PetPhoto(Modifier.size(d.u(120f)).align(Alignment.CenterHorizontally))
-                    Spacer(Modifier.height(d.unit))
-                    Text(ui.pet.name, style = Pause.type.title, color = c.text, modifier = Modifier.align(Alignment.CenterHorizontally))
-                    Text(ui.pet.line, style = Pause.type.sub, color = c.sub, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), maxLines = 2)
-                    if (ui.pet.sample) Text("프로필을 저장하면 맞춤 안내가 시작돼요", style = Pause.type.caption, color = c.sub, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.weight(1f))
-                    ui.limitLine?.let {
-                        Divider()
-                        Text(it, style = Pause.type.bodyStrong, color = c.warningInk)
-                    }
-                    PauseButton("프로필 바꾸기", { on(UiEvent.OpenPet) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, compact = true)
-                }
+        if (wc == WidthClass.FULL) {
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
+                DepartPet(ui, on, Modifier.weight(0.28f).fillMaxHeight(), wide = true)
+                DepartChecks(ui, on, Modifier.weight(0.38f).fillMaxHeight())
+                DepartRoute(ui, on, Modifier.weight(0.34f).fillMaxHeight(), wide = true)
             }
-            Panel(Modifier.weight(0.38f).fillMaxHeight(), pad = d.u(24f), spacing = d.gapS) {
-                SectionHeader("출발 전 체크", trailing = "${ui.checks.count { it.checked }} / ${ui.checks.size}")
-                Divider()
-                ui.checks.forEachIndexed { i, ch ->
-                    if (i > 0) Divider()
-                    ChecklistRow(ch.label, ch.checked, { on(UiEvent.ToggleCheck(ch.kind)) })
-                }
-                Divider()
-                Text(ui.rationale, style = Pause.type.sub, color = c.sub)
-                Spacer(Modifier.weight(1f))
-                if (wc != WidthClass.FULL) ui.limitLine?.let { Text(it, style = Pause.type.bodyStrong, color = c.warningInk) }
-                if (wc != WidthClass.FULL) PauseButton("프로필 바꾸기", { on(UiEvent.OpenPet) }, kind = ButtonKind.SECONDARY, compact = true)
-            }
-            Panel(Modifier.weight(0.34f).fillMaxHeight(), pad = d.u(24f), spacing = d.gapS) {
-                Text(ui.route ?: "경로를 기다리는 중", style = Pause.type.section, color = c.text, maxLines = 1)
-                if (wc == WidthClass.THIRD) {
-                    ui.duration?.let {
-                        Text("예상 시간", style = Pause.type.metricLabel, color = c.sub)
-                        Text(it, style = Pause.type.section, color = c.text, maxLines = 1)
-                    }
-                    Text("예상 쉼표 ${ui.plan.size}번", style = Pause.type.bodyStrong, color = c.text)
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f))) {
-                        ui.duration?.let { Metric("예상 시간", it, small = true) }
-                        Metric("예상 쉼표", "${ui.plan.size}", unit = "번", small = true)
-                    }
-                }
-                Divider()
-                ui.plan.take(3).forEach { p ->
-                    if (wc == WidthClass.THIRD) {
-                        Column {
-                            Text(p.eta, style = Pause.type.bodyStrong, color = c.text, maxLines = 1)
-                            Text(p.name, style = Pause.type.sub, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(p.eta, style = Pause.type.bodyStrong, color = c.text, maxLines = 1)
-                            Spacer(Modifier.width(d.gapS))
-                            Text(p.name, style = Pause.type.body, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                if (!ui.ready) Text("세 가지를 확인하면 출발할 수 있어요", style = Pause.type.sub, color = c.sub)
-                PauseButton("이대로 출발", { on(UiEvent.StartTrip) }, Modifier.fillMaxWidth(), enabled = ui.ready)
-                PauseButton("설정", { on(UiEvent.OpenSettings) }, Modifier.fillMaxWidth(), kind = ButtonKind.QUIET, compact = true)
+        } else {
+            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
+                DepartPet(ui, on, Modifier.fillMaxWidth(), wide = false)
+                DepartChecks(ui, on, Modifier.fillMaxWidth())
+                DepartRoute(ui, on, Modifier.fillMaxWidth(), wide = false)
             }
         }
+    }
+}
+
+@Composable
+private fun DepartPet(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Panel(m, pad = d.u(24f), spacing = d.gapS) {
+        if (wide) {
+            PetPhoto(Modifier.size(d.u(120f)).align(Alignment.CenterHorizontally))
+            Spacer(Modifier.height(d.unit))
+            Text(ui.pet.name, style = Pause.type.title, color = c.text, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Text(ui.pet.line, style = Pause.type.sub, color = c.sub, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        } else Row(verticalAlignment = Alignment.CenterVertically) {
+            PetPhoto(Modifier.size(d.u(72f)))
+            Spacer(Modifier.width(d.gap))
+            Column(Modifier.weight(1f)) {
+                Text(ui.pet.name, style = Pause.type.title, color = c.text)
+                Text(ui.pet.line, style = Pause.type.sub, color = c.sub)
+            }
+        }
+        if (ui.pet.sample) Text("프로필을 저장하면 맞춤 안내가 시작돼요", style = Pause.type.caption, color = c.sub, textAlign = if (wide) TextAlign.Center else TextAlign.Start, modifier = Modifier.fillMaxWidth())
+        if (wide) Spacer(Modifier.weight(1f))
+        ui.limitLine?.let {
+            Divider()
+            Text(it, style = Pause.type.sub, color = c.text)
+        }
+        PauseButton("프로필 바꾸기", { on(UiEvent.OpenPet) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, compact = true)
+    }
+}
+
+@Composable
+private fun DepartChecks(ui: DepartUi, on: On, m: Modifier) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Panel(m, pad = d.u(24f), spacing = d.gapS) {
+        SectionHeader("출발 전 체크", trailing = "${ui.checks.count { it.checked }} / ${ui.checks.size}")
+        Divider()
+        ui.checks.forEachIndexed { i, ch ->
+            if (i > 0) Divider()
+            ChecklistRow(ch.label, ch.checked, { on(UiEvent.ToggleCheck(ch.kind)) })
+        }
+        Divider()
+        Text(ui.rationale, style = Pause.type.sub, color = c.sub)
+    }
+}
+
+@Composable
+private fun DepartRoute(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Panel(m, pad = d.u(24f), spacing = d.gapS) {
+        // 목적지는 기본 내비에서 정한다 (같이가개는 내비를 만들지 않는다). 이름은 2줄까지.
+        Text(ui.route ?: "기본 내비에서 목적지를 정해 주세요", style = Pause.type.section, color = if (ui.route != null) c.text else c.sub, maxLines = 2)
+        Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f))) {
+            ui.duration?.let { Metric("예상 시간", it, small = true) }
+            Metric("예상 쉼표", "${ui.plan.size}", unit = "번", small = true)
+        }
+        Divider()
+        ui.plan.take(3).forEach { p ->
+            Column {
+                Text(p.eta, style = Pause.type.bodyStrong, color = c.text, maxLines = 1)
+                Text(p.name + (p.facilities.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""), style = Pause.type.sub, color = c.sub, maxLines = 2)
+            }
+        }
+        if (wide) Spacer(Modifier.weight(1f))
+        if (!ui.ready) Text("세 가지를 확인하면 출발할 수 있어요", style = Pause.type.sub, color = c.sub)
+        PauseButton("이대로 출발", { on(UiEvent.StartTrip) }, Modifier.fillMaxWidth(), enabled = ui.ready)
+        PauseButton("설정", { on(UiEvent.OpenSettings) }, Modifier.fillMaxWidth(), kind = ButtonKind.QUIET, compact = true)
     }
 }
 
@@ -182,12 +200,14 @@ fun RestScreen(ui: RestUi, on: On) {
     val c = Pause.colors
     val d = Pause.dimens
     Page(ui.meta, on, scroll = true) { wc ->
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-            Panel(Modifier.weight(0.38f).fillMaxHeight(), pad = d.u(24f), spacing = d.gapS) {
+        // 전체 창은 왼쪽(지금 상태·행동) | 오른쪽(돌보기·할 일), 1/2·1/3 창은 같은 순서로 위아래 (글자·버튼을 자르지 않는다)
+        val wide = wc == WidthClass.FULL
+        RestColumns(wide, { m ->
+            Panel(m, pad = d.u(24f), spacing = d.gapS) {
                 Text(ui.lead, style = Pause.type.title, color = c.text)
-                ui.motion?.let { m ->
-                    Metric("멀미 지수", "${m.index}", unit = "/ 100", note = toneWord(m.tone), color = toneInk(m.tone), noteColor = toneInk(m.tone), small = true)
-                }
+                // 콩이 관찰 상태 (보호자 음성 신고만) — 주행 자극 숫자는 "주행 자극 보기"에서만
+                Text("콩이 관찰 상태", style = Pause.type.metricLabel, color = c.sub)
+                Text(ui.observation.line, style = Pause.type.bodyStrong, color = if (ui.observation.count > 0) c.warningInk else c.text)
                 ui.battery?.let { IconLine(Icons.Rounded.BatteryStd, it) }
                 ui.restChoice?.let { sel ->
                     Divider()
@@ -196,12 +216,14 @@ fun RestScreen(ui: RestUi, on: On) {
                         listOf(10, 15, 20).forEach { m -> Choice("${m}분", sel == m, { on(UiEvent.SetRestMinutes(m)) }) }
                     }
                 }
-                Spacer(Modifier.weight(1f))
+                if (wide) Spacer(Modifier.weight(1f))
                 PauseButton("잠깐 다녀올게 (${ui.waitLimitMin}분)", { on(UiEvent.StartWait) }, Modifier.fillMaxWidth())
                 PauseButton("함께 가는 장소", { on(UiEvent.OpenPlaces) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Place, compact = true)
                 PauseButton("동물병원", { on(UiEvent.OpenVets) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, compact = true)
+                if (ui.stimulusAvailable) PauseButton("주행 자극 보기", { on(UiEvent.OpenStimulus) }, Modifier.fillMaxWidth(), kind = ButtonKind.QUIET, compact = true)
             }
-            Column(Modifier.weight(0.62f), verticalArrangement = Arrangement.spacedBy(d.gap)) {
+        }) { m ->
+            Column(m, verticalArrangement = Arrangement.spacedBy(d.gap)) {
                 // "콩이 돌보기" (UPGRADE 7): 주행 중에 말한 증상의 체크리스트, 정차 중에만
                 ui.care?.let { cu ->
                     Panel(Modifier.fillMaxWidth(), pad = d.u(24f), spacing = d.gapS) {
@@ -222,7 +244,7 @@ fun RestScreen(ui: RestUi, on: On) {
                         }
                     }
                 }
-                if (wc != WidthClass.THIRD) {
+                run {
                     Panel(Modifier.fillMaxWidth(), pad = d.u(24f), spacing = d.gapS) {
                         SectionHeader("지금 하면 좋은 것")
                         ui.activities.forEachIndexed { i, a ->
@@ -239,7 +261,8 @@ fun RestScreen(ui: RestUi, on: On) {
                 }
                 if (ui.distressChips.isNotEmpty()) {
                     Panel(Modifier.fillMaxWidth(), pad = d.u(20f), spacing = d.gapS) {
-                        SectionHeader("콩이가 이상해요", trailing = "고르면 체크리스트를 보여 줘요")
+                        SectionHeader("콩이가 이상해요")
+                        Text("고르면 기록하고 체크리스트를 보여 줘요", style = Pause.type.sub, color = c.sub)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
                             ui.distressChips.forEach { l -> Choice(l, false, { on(UiEvent.ReportDistress(l)) }) }
                         }
@@ -250,18 +273,37 @@ fun RestScreen(ui: RestUi, on: On) {
     }
 }
 
+/** 쉼표 화면 두 칸: 넓으면 0.38 | 0.62 나란히(높이 맞춤), 좁으면 위아래. */
+@Composable
+private fun RestColumns(wide: Boolean, a: @Composable (Modifier) -> Unit, b: @Composable (Modifier) -> Unit) {
+    val gap = Pause.dimens.gap
+    if (wide) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            a(Modifier.weight(0.38f).fillMaxHeight())
+            b(Modifier.weight(0.62f))
+        }
+    } else {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(gap)) {
+            a(Modifier.fillMaxWidth())
+            b(Modifier.fillMaxWidth())
+        }
+    }
+}
+
 // ═════════════ 잠깐 대기 (F3): 바깥 사람이 읽는 차 화면 ═════════════
 
 @Composable
 fun WaitScreen(ui: WaitUi, on: On) {
     val c = Pause.colors
     val d = Pause.dimens
-    Page(null, on, scroll = false, background = if (ui.overdue) c.warningSoft else c.bg) { _ ->
+    Page(null, on, scroll = false, background = if (ui.overdue) c.warningSoft else c.bg) { wc ->
         ui.notice?.let { n -> AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_warning, iconAsset = "ic_warning") { Text(n, style = Pause.type.section, color = c.text) } }
         ui.heat?.let { h -> AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_thermometer, iconAsset = "ic_thermometer") { Text(h, style = Pause.type.section, color = c.warningInk) } }
-        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-            Panel(Modifier.weight(0.62f).fillMaxHeight(), pad = d.u(32f), spacing = d.gap) {
-                Spacer(Modifier.weight(1f))
+        // 전체 창은 바깥 사람용 큰 글 | 차 안 상태 나란히, 1/2·1/3 창은 위아래(스크롤) — 숫자·버튼이 꺾이지 않게
+        val wide = wc == WidthClass.FULL
+        val body: @Composable (Modifier, Modifier) -> Unit = { left, right ->
+            Panel(left, pad = d.u(32f), spacing = d.gap) {
+                if (wide) Spacer(Modifier.weight(1f))
                 if (ui.overdue) StatusIcon("ic_warning", R.drawable.fe_warning, d.u(88f)) else StatusIcon("wait_house_dog", R.drawable.fe_house, d.u(112f))
                 Text(
                     if (ui.overdue) "보호자에게 알렸어요" else ui.headline,
@@ -269,25 +311,34 @@ fun WaitScreen(ui: WaitUi, on: On) {
                     color = if (ui.overdue) c.warningInk else c.text,
                 )
                 Text(ui.elapsed, style = Pause.type.metric, color = c.text)
-                Spacer(Modifier.weight(1f))
+                if (wide) Spacer(Modifier.weight(1f))
                 Text(
                     ui.share.url?.let { "보호자 폰: $it" + if (ui.share.connected) "" else " (연결 확인 중)" } ?: "폰 공유 연결 안 됨 — 차 화면 안내는 계속돼요",
                     style = Pause.type.sub, color = c.sub,
                 )
             }
-            Panel(Modifier.weight(0.38f).fillMaxHeight(), pad = d.u(24f), spacing = d.gapS) {
+            Panel(right, pad = d.u(24f), spacing = d.gapS) {
                 SectionHeader("차 안 상태")
                 Divider()
                 KeyValue("설정 시간", "${ui.limitMin}분")
                 ui.cabin?.let { KeyValue("실내 온도", it.removePrefix("실내 "), valueColor = if (ui.heat != null) c.warningInk else c.text) }
                 ui.batteryUsed?.let { KeyValue("배터리 사용", it) }
                 ui.seasonNote?.let { IconLine(Icons.Rounded.Thermostat, it, c.sub, maxLines = 2) }
-                Spacer(Modifier.weight(1f))
-                Text("제한 시간", style = Pause.type.metricLabel, color = c.sub)
+                if (wide) Spacer(Modifier.weight(1f))
+                Text("제한 시간 (분)", style = Pause.type.metricLabel, color = c.sub)
                 Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
-                    listOf(5, 10, 15, 20).forEach { m -> Choice("${m}분", ui.limitMin == m, { on(UiEvent.SetWaitLimit(m)) }, Modifier.weight(1f)) }
+                    listOf(5, 10, 15, 20).forEach { m -> Choice("$m", ui.limitMin == m, { on(UiEvent.SetWaitLimit(m)) }, Modifier.weight(1f)) }
                 }
                 PauseButton("돌아왔어요", { on(UiEvent.StopWait) }, Modifier.fillMaxWidth())
+            }
+        }
+        if (wide) {
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
+                body(Modifier.weight(0.62f).fillMaxHeight(), Modifier.weight(0.38f).fillMaxHeight())
+            }
+        } else {
+            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
+                body(Modifier.fillMaxWidth(), Modifier.fillMaxWidth())
             }
         }
     }
@@ -371,11 +422,11 @@ fun VetsScreen(ui: VetsUi, on: On) {
                         NumberBadge(i + 1, active = i == 0)
                         Spacer(Modifier.width(d.gap))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(d.u(4f))) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (v.sample) v.name.removePrefix("[샘플] ") else v.name, style = Pause.type.section, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                Spacer(Modifier.width(d.unit))
+                            // 병원 이름은 줄이지 않는다(2줄까지), 상태 알약은 이름 아래
+                            Text(if (v.sample) v.name.removePrefix("[샘플] ") else v.name, style = Pause.type.section, color = c.text, maxLines = 2)
+                            Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
                                 v.status?.let { StatusChip(it, MotionTone.CALM) }
-                                if (v.sample) StatusChip("샘플", neutral = true)
+                                if (v.partner) StatusChip("시연용 제휴") else if (v.sample) StatusChip("샘플", neutral = true)
                             }
                             Text(listOfNotNull(v.distance, v.minutes?.let { "약 ${it}분" }, v.phone).joinToString(" · "), style = Pause.type.body, color = c.sub, maxLines = 1)
                         }
@@ -386,50 +437,85 @@ fun VetsScreen(ui: VetsUi, on: On) {
                 ui.note?.let { Text(it, style = Pause.type.caption, color = c.sub) }
             }
         }) { m ->
-            Panel(m, pad = d.u(24f), spacing = d.gapS) {
-                SectionHeader("사전 접수", trailing = "이 차에만 저장")
-                Text("증상을 미리 보내면 병원이 도착 전에 준비해요.", style = Pause.type.sub, color = c.sub)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
-                    ui.memo.forEach { s -> Choice(s.label, s.selected, { on(UiEvent.ToggleMemoChip(s.label)) }) }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(d.unit)) {
-                    // 받아쓴 글은 그대로 보여 주고 고칠 수 있다 (정차 중 화면에서만)
-                    BasicTextField(
-                        ui.memoText, { on(UiEvent.SetMemoText(it)) },
-                        Modifier.weight(1f).heightIn(min = d.touch).clip(RoundedCornerShape(d.buttonRadius)).background(c.surfaceAlt)
-                            .border(d.border, c.border, RoundedCornerShape(d.buttonRadius)).padding(horizontal = d.u(16f), vertical = d.gapS),
-                        textStyle = Pause.type.body.copy(color = c.text),
-                        cursorBrush = SolidColor(c.primary),
-                        decorationBox = { inner ->
-                            if (ui.memoText.isEmpty()) Text("예: 구토 두 번, 물은 조금 마셨어요", style = Pause.type.body, color = c.sub)
-                            inner()
-                        },
-                    )
-                    PauseButton(if (ui.memoListening) "듣는 중…" else "음성", { on(UiEvent.StartMemoVoice) }, kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Mic, compact = true, enabled = !ui.memoListening)
-                }
-                ChecklistRow("증상 메모와 오늘 요약 함께 보내기", ui.memoInclude, { on(UiEvent.ToggleMemoInclude) })
-                ui.tripLine?.let { KeyValue("오늘 요약", it) }
-                Divider()
-                val first = ui.items.firstOrNull()
-                val ik = ui.intake
-                if (ik == null) {
-                    PauseButton(
-                        first?.let { "${it.name.removePrefix("[샘플] ")}에 사전 접수" } ?: "사전 접수 보내기",
-                        { first?.let { on(UiEvent.ShareVetEta(it.id)) } }, Modifier.fillMaxWidth(), icon = Icons.Rounded.Send, enabled = first != null,
-                    )
-                    Text("병원 접수함 링크를 만들어요. 위치는 보내지 않고 도착 예정 시각만 갱신돼요.", style = Pause.type.caption, color = c.sub)
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Metric(ik.vetName, if (ik.arrived) "도착" else "${ik.etaMinutes}", unit = if (ik.arrived) null else "분 뒤", small = true, modifier = Modifier.weight(1f))
-                        StatusChip(if (ik.replied) "병원 응답" else "접수함 전송", if (ik.busy) MotionTone.CAUTION else null)
-                    }
-                    Text(ik.status, style = Pause.type.bodyStrong, color = if (ik.busy) c.warningInk else c.text)
-                    KeyValue("병원 접수함", ik.clinicUrl, valueColor = c.primary)
-                    ui.shareUrl?.let { KeyValue("보호자 링크", it) }
-                    Text("링크는 보호자가 병원에 문자로 보내요. 2시간 뒤 사라져요.", style = Pause.type.caption, color = c.sub)
-                }
-            }
+            val target = ui.items.firstOrNull()
+            if (target?.partner == true || ui.intake != null) IntakePanel(ui, on, m) else ContactPanel(ui, on, m)
         }
+    }
+}
+
+/**
+ * 시연용 제휴 병원 사전 접수 (상태 7): 증상·메모 → **보낼 내용 미리보기** → "동의하고 보내기". 보낸 뒤 도착 예정·병원 응답.
+ * 제휴 병원(시연용 가상 병원)만 이 패널을 쓴다.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IntakePanel(ui: VetsUi, on: On, m: Modifier) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Panel(m, pad = d.u(24f), spacing = d.gapS) {
+        SectionHeader("사전 접수", trailing = "시연용 제휴 병원")
+        val ik = ui.intake
+        if (ik == null) {
+            Text("증상을 미리 보내면 병원이 도착 전에 준비해요.", style = Pause.type.sub, color = c.sub)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
+                ui.memo.forEach { s -> Choice(s.label, s.selected, { on(UiEvent.ToggleMemoChip(s.label)) }) }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(d.unit)) {
+                // 받아쓴 글은 그대로 보여 주고 고칠 수 있다 (정차 중 화면에서만)
+                BasicTextField(
+                    ui.memoText, { on(UiEvent.SetMemoText(it)) },
+                    Modifier.weight(1f).heightIn(min = d.touch).clip(RoundedCornerShape(d.buttonRadius)).background(c.surfaceAlt)
+                        .border(d.border, c.border, RoundedCornerShape(d.buttonRadius)).padding(horizontal = d.u(16f), vertical = d.gapS),
+                    textStyle = Pause.type.body.copy(color = c.text),
+                    cursorBrush = SolidColor(c.primary),
+                    decorationBox = { inner ->
+                        if (ui.memoText.isEmpty()) Text("예: 구토 두 번, 물은 조금 마셨어요", style = Pause.type.body, color = c.sub)
+                        inner()
+                    },
+                )
+                PauseButton(if (ui.memoListening) "듣는 중…" else "음성", { on(UiEvent.StartMemoVoice) }, kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Mic, compact = true, enabled = !ui.memoListening)
+            }
+            ChecklistRow("증상 메모와 오늘 요약 함께 보내기", ui.memoInclude, { on(UiEvent.ToggleMemoInclude) })
+            Divider()
+            // 전달 동의: 보낼 내용을 먼저 보여 준다
+            Text("병원에 보낼 내용", style = Pause.type.metricLabel, color = c.sub)
+            ui.preview.forEach { r -> KeyValue(r.key, r.value, valueColor = if (r.key == "보내지 않음") c.sub else c.text) }
+            val first = ui.items.firstOrNull()
+            PauseButton(
+                "동의하고 보내기", { first?.let { on(UiEvent.ShareVetEta(it.id)) } }, Modifier.fillMaxWidth(), icon = Icons.Rounded.Send, enabled = first != null,
+            )
+            Text("병원 접수함 링크를 만들어요. 도착 예정 시각만 자동으로 갱신돼요.", style = Pause.type.caption, color = c.sub)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Metric(ik.vetName, if (ik.arrived) "도착" else "${ik.etaMinutes}", unit = if (ik.arrived) null else "분 뒤", small = true, modifier = Modifier.weight(1f))
+                StatusChip(if (ik.replied) "병원 응답" else "접수함 전송", if (ik.busy) MotionTone.CAUTION else null)
+            }
+            Text(ik.status, style = Pause.type.bodyStrong, color = if (ik.busy) c.warningInk else c.text)
+            KeyValue("병원 접수함", ik.clinicUrl, valueColor = c.primary)
+            ui.shareUrl?.let { KeyValue("보호자 링크", it) }
+            Text("링크는 보호자가 병원에 문자로 보내요. 2시간 뒤 사라져요.", style = Pause.type.caption, color = c.sub)
+        }
+    }
+}
+
+/**
+ * 제휴가 없는 병원 (공공 인허가 데이터의 실제 병원): 사전 접수·"접수 완료"를 보이지 않는다. 전화번호와 도착 예정 링크 공유만.
+ */
+@Composable
+private fun ContactPanel(ui: VetsUi, on: On, m: Modifier) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    val v = ui.items.firstOrNull()
+    Panel(m, pad = d.u(24f), spacing = d.gapS) {
+        SectionHeader("병원에 연락")
+        Text("이 병원은 사전 접수 연동이 없어요. 전화로 증상과 도착 시간을 알려 주세요.", style = Pause.type.body, color = c.text)
+        v?.let { Text(it.name.removePrefix("[샘플] "), style = Pause.type.section, color = c.text) }
+        Text(v?.phone ?: "전화번호 정보 없음", style = Pause.type.title, color = if (v?.phone != null) c.primary else c.sub)
+        ui.tripLine?.let { KeyValue("오늘 요약", it) }
+        Divider()
+        PauseButton("도착 예정 링크 만들기", { v?.let { on(UiEvent.ShareVetEta(it.id)) } }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Send, enabled = v != null)
+        ui.shareUrl?.let { KeyValue("도착 예정 링크", it, valueColor = c.primary) }
+        Text("링크에는 도착 예정 시각만 있어요(위치 없음). 보호자가 병원에 문자로 보내요.", style = Pause.type.caption, color = c.sub)
     }
 }
 
@@ -507,7 +593,7 @@ private fun ProfileForm(ui: PetEditUi, on: On) {
                 }
             }
         }
-        FieldLabel("차멀미 성향")
+        FieldLabel("흔들림에 예민한 정도 (보호자 응답)")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
             listOf(TendencyUi.LOW to "거의 안 해요", TendencyUi.NORMAL to "가끔", TendencyUi.HIGH to "자주 해요").forEach { (t, l) -> Choice(l, ui.tendency == t, { on(UiEvent.SetPetTendency(t)) }) }
         }
@@ -524,9 +610,9 @@ private fun ProfileForm(ui: PetEditUi, on: On) {
 private fun FieldLabel(text: String) = Text(text, style = Pause.type.metricLabel, color = Pause.colors.sub)
 
 private fun tendencyWord(t: TendencyUi) = when (t) {
-    TendencyUi.LOW -> "멀미 거의 안 함"
-    TendencyUi.NORMAL -> "멀미 가끔"
-    TendencyUi.HIGH -> "멀미 자주"
+    TendencyUi.LOW -> "덜 예민"
+    TendencyUi.NORMAL -> "보통"
+    TendencyUi.HIGH -> "예민"
 }
 
 private fun sizeWord(s: SizeUi) = when (s) {
@@ -606,7 +692,7 @@ fun OnboardingScreen(ui: OnboardingUi, on: On) {
                     Text("받지 못한 신호는 지어내지 않고 그 기능만 쉬어요.", style = Pause.type.sub, color = c.sub)
                 }
                 else -> {
-                    SectionHeader("멀미 민감도 진단", trailing = "질문 3개")
+                    SectionHeader("흔들림에 예민한 정도", trailing = "보호자 응답 · 질문 3개")
                     Divider()
                     ui.quiz.forEachIndexed { qi, q ->
                         Text("${qi + 1}. ${q.question}", style = Pause.type.bodyStrong, color = c.text)
@@ -617,7 +703,7 @@ fun OnboardingScreen(ui: OnboardingUi, on: On) {
                     ui.result?.let { r ->
                         AlertStrip(Modifier.fillMaxWidth(), accent = c.primary, soft = c.primarySoft) {
                             Text("결과: ${MotionQuiz.label(r)}", style = Pause.type.section, color = c.text)
-                            Text("진단이 아니라 멀미 예보의 출발점이에요. 프로필에서 언제든 바꿀 수 있어요.", style = Pause.type.sub, color = c.sub)
+                            Text("측정이나 진단이 아니라 보호자 답으로 예보 민감도를 정해요. 프로필에서 언제든 바꿀 수 있어요.", style = Pause.type.sub, color = c.sub)
                         }
                     }
                 }
@@ -635,7 +721,7 @@ private fun StepIndicator(step: Int) {
     val c = Pause.colors
     val d = Pause.dimens
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
-        listOf("반려견 프로필", "차량 연동", "멀미 민감도 진단").forEachIndexed { i, label ->
+        listOf("반려견 프로필", "차량 연동", "흔들림에 예민한 정도").forEachIndexed { i, label ->
             if (i > 0) Box(Modifier.width(d.u(40f)).height(d.u(2f)).background(if (i < step) c.primary else c.border))
             NumberBadge(i + 1, active = i + 1 <= step)
             Text(label, style = Pause.type.bodyStrong, color = if (i + 1 == step) c.text else c.sub)
@@ -688,7 +774,7 @@ fun SettingsScreen(ui: SettingsUi, on: On, licenses: String) {
                 ui.credits.forEach { Text(it, style = Pause.type.caption, color = c.sub) }
             }
         }
-        Text("같이가개 ${ui.version} · 멀미 지수는 주의 예보이며 의학적 진단이 아니에요.", style = Pause.type.sub, color = c.sub)
+        Text("같이가개 ${ui.version} · 주행 자극은 차량 흔들림 기준이며 반려견 측정·진단이 아니에요.", style = Pause.type.sub, color = c.sub)
         if (licenses.isNotBlank()) Text(licenses.take(400), style = Pause.type.caption, color = c.sub)
     }
 }

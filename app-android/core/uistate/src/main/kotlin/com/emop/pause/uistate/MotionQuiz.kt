@@ -1,8 +1,8 @@
 package com.emop.pause.uistate
 
 /**
- * 온보딩 3단계 "멀미 민감도 진단" (11번 화면). 질문 3개 → 멀미 성향 3단계.
- * 의학적 진단이 아니라 멀미 지수 계수(MotionTendency)를 고르는 도움말이다 — 결과는 프로필에서 언제든 바꿀 수 있다.
+ * 온보딩 3단계 "흔들림에 예민한 정도(보호자 응답)" (11번 화면). 질문 3개 → 3단계.
+ * 측정·진단이 아니라 보호자 답으로 주행 자극 예보 민감도 계수(MotionTendency)를 고르는 도움말이다 — 결과는 프로필에서 언제든 바꿀 수 있다.
  * 답 점수: 0(없음) · 1(가끔) · 2(자주). 합 0~1 → LOW, 2~3 → NORMAL, 4 이상 → HIGH.
  */
 object MotionQuiz {
@@ -25,9 +25,9 @@ object MotionQuiz {
     }
 
     fun label(t: TendencyUi) = when (t) {
-        TendencyUi.LOW -> "멀미 거의 안 해요"
-        TendencyUi.NORMAL -> "가끔 해요"
-        TendencyUi.HIGH -> "멀미에 예민해요"
+        TendencyUi.LOW -> "흔들림에 덜 예민한 편"
+        TendencyUi.NORMAL -> "보통"
+        TendencyUi.HIGH -> "흔들림에 예민한 편"
     }
 
     fun ui(answers: List<Int?>): List<QuizUi> = questions.mapIndexed { i, q -> QuizUi(q, options, answers.getOrNull(i)) }

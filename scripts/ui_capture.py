@@ -5,9 +5,10 @@
     python scripts/ui_capture.py dark --dark 01 02      # 다크 테마 (cmd uimode night yes, 끝나면 되돌림)
     python scripts/ui_capture.py half --split half 01   # 실제 분할 창 1/2(1280dp)·1/3(853dp) — am task resize
     python scripts/ui_capture.py --out v7 --size 1920x1080 w1920 03   # 화면 크기 바꿔 찍기 (adb wm size, 끝나면 항상 reset)
+    python scripts/ui_capture.py --out v8 --nav nav 01 02          # 실제 분할 창: 같이가개(왼쪽 1/2) + Pleos 기본 내비(오른쪽), 끝나면 풀기
     python scripts/ui_capture.py --out v7 --sheet sheet.png 03-triplog-before 03-triplog-after   # 찍은 그림을 앱 영역만 잘라 격자로
 
-주행·멀미 예보·쉼표·대기·도착·이동 기록은 **시뮬레이터 실제 값**(pet-trip 장면 점프), 나머지는 화면 계약 Fixtures 장면.
+주행·주행 자극 예보·쉼표·대기·도착·기록 리포트는 **시뮬레이터 실제 값**(pet-trip 장면 점프), 나머지는 화면 계약 Fixtures 장면.
 에뮬레이터·디버그 앱·서버(:8000)가 떠 있어야 한다. 나란히 붙이기는 설치된 Chrome 헤드리스를 쓴다(없으면 건너뜀).
 """
 import argparse
@@ -47,6 +48,28 @@ def resize(right: int) -> None:
         time.sleep(3)
 
 
+NAV_PKG = "ai.umos.maps.android.navigation.app"
+
+
+def nav_split() -> None:
+    """런처 분할: 기본 내비를 띄운 뒤 같이가개를 앞으로, 앱 영역 오른쪽 끝 손잡이(⋮)를 왼쪽으로 끈다 (10/31 확인)."""
+    subprocess.run(["adb", "shell", "monkey", "-p", NAV_PKG, "-c", "android.intent.category.LAUNCHER", "1"], capture_output=True, env=r.ENV)
+    time.sleep(4)
+    r.start()
+    time.sleep(2)
+    subprocess.run(["adb", "shell", "input", "swipe", "2547", "720", "1700", "720", "800"], capture_output=True, env=r.ENV)
+    # 창 크기가 바뀐 뒤 다시 그릴 때까지 (4초면 바뀌는 중에 찍힐 때가 있다)
+    time.sleep(8)
+
+
+def nav_unsplit() -> None:
+    """분할 풀기: 가운데 손잡이를 오른쪽 끝으로 끈 뒤 같이가개를 다시 앞으로."""
+    subprocess.run(["adb", "shell", "input", "swipe", "1705", "720", "2555", "720", "800"], capture_output=True, env=r.ENV)
+    time.sleep(3)
+    r.start()
+    time.sleep(2)
+
+
 def sim(seek: int, wait: str | None = None, timeout: float = 30, settle: float = 6, speed: int = 1, **extra: object) -> bool:
     r.start(sim="pet-trip", onboard="done", scene="none", demo=False, compare=False, seek=seek, action="play", speed=speed, **extra)
     ok = True
@@ -68,7 +91,7 @@ def depart() -> bool:
 
 
 def distress() -> bool:
-    if not sim(2400, "멀미 지수", settle=2, cabin=31):
+    if not sim(2400, "다음 쉼표", settle=2, cabin=31):
         return False
     r.start(say="콩이가 헥헥거려")
     time.sleep(1)
@@ -91,7 +114,7 @@ def triplog() -> bool:
     xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
     if xy:
         r.tap(xy)
-    ok = r.wait_for("동물병원 공유용 요약", 15) is not None
+    ok = r.wait_for("병원에 보여 줄 내용", 15) is not None
     time.sleep(3)
     return ok
 
@@ -105,8 +128,8 @@ def compare() -> bool:
 
 
 SCREENS = {
-    "01-drive": lambda: sim(1800, "최근 30분", settle=8),
-    "02-forecast": lambda: sim(8748, "예상 최고", timeout=40, settle=2),
+    "01-drive": lambda: sim(1800, "다음 쉼표", settle=8),
+    "02-forecast": lambda: sim(8748, "덜 흔들려요", timeout=40, settle=2),
     "03-triplog": triplog,
     "04-pet": lambda: fixture("pet"),
     "05-depart": depart,
@@ -117,6 +140,8 @@ SCREENS = {
     "10-wait": wait_mode,
     "11-places": lambda: fixture("places"),
     "12-vets": lambda: fixture("vets"),
+    "12b-vets-call": lambda: fixture("vets_call"),
+    "17-stimulus": lambda: fixture("stimulus"),
     "13-arrival": lambda: sim(10843, "내렸어요", timeout=100, settle=1),
     "14-settings": lambda: fixture("settings"),
     "15-onboarding": lambda: fixture("onboard_1"),
@@ -183,6 +208,7 @@ def main() -> int:
     ap.add_argument("--out", default="v6", help="artifacts/ui/<이름>")
     ap.add_argument("--size", help="예: 1920x1080 — adb shell wm size로 바꿔 찍고 끝나면 wm size reset")
     ap.add_argument("--sheet", help="찍지 않고 screens(파일 이름, .png 생략)를 한 장으로: 2칸 격자")
+    ap.add_argument("--nav", action="store_true", help="런처 분할 창(같이가개 + 기본 내비)으로 찍는다")
     a = ap.parse_args()
     global OUT
     OUT = r.ROOT / "artifacts" / "ui" / a.out
@@ -197,6 +223,7 @@ def main() -> int:
         return 0
     names = [n for n in SCREENS if not a.screens or any(n.startswith(s) or s in n for s in a.screens)]
     width = int(a.size.split("x")[0]) if a.size else 2560
+    split_on = False
     try:
         if a.size:
             subprocess.run(["adb", "shell", "wm", "size", a.size], capture_output=True, env=r.ENV)
@@ -206,6 +233,11 @@ def main() -> int:
             time.sleep(2)
         for n in names:
             ok = SCREENS[n]()
+            # 장면에 들어간 뒤 분할한다 (분할한 채 am start로 장면을 열면 런처가 분할을 푼다).
+            # 답을 기다리는 쉼표 추천은 분할하는 10초 사이에 끝나므로 --split third(같은 1/3 폭)로 찍는다.
+            if a.nav:
+                nav_split()
+                split_on = True
             if a.size and width in APP_AREA:
                 x, y, w, h = APP_AREA[width]
                 tid = task_id()
@@ -219,7 +251,12 @@ def main() -> int:
                 f.write(subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, env=r.ENV).stdout)
             path.with_suffix(".json").write_text(json.dumps({"width": width}), encoding="utf-8")
             print(f"{n}: {'OK' if ok else '기대 글자 못 찾음'} → {path.name}", flush=True)
+            if split_on:
+                nav_unsplit()
+                split_on = False
     finally:
+        if split_on:
+            nav_unsplit()
         if a.split:
             resize(FULL_RIGHT)
         if a.dark:

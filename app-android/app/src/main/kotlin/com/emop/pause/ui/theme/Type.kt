@@ -52,7 +52,7 @@ data class PauseType(val scale: Float = 2f) {
     val button = style(16 * scale, 24 * scale, FontWeight.SemiBold)
     /** 보조 설명 14. */
     val sub = style(14 * scale, 20 * scale, FontWeight.Normal)
-    /** 수치 레이블 ("멀미 지수") 14 Medium. */
+    /** 수치 레이블 ("주행 자극") 14 Medium. */
     val metricLabel = style(14 * scale, 20 * scale, FontWeight.Medium)
     val caption = style(12 * scale, 16 * scale, FontWeight.Medium)
 

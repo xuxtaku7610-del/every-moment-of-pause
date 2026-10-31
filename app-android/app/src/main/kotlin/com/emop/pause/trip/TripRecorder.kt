@@ -19,6 +19,9 @@ data class StopVisit(
     var petWalk: Boolean = false,
 )
 
+/** 주행 자극 보통(40) 이상이 이어진 구간: 출발 뒤 분(정차 포함) [startMin]~[endMin], 그 안 최고 [peak]. */
+data class StimulusSegment(val startMin: Int, val endMin: Int, val peak: Int)
+
 data class TripLog(
     val visits: List<StopVisit>,
     val fatigueSeries: List<Int>,
@@ -39,6 +42,10 @@ data class TripLog(
     val cautionCount: Int = 0,
     /** 마지막 1초 멀미 지수 ("내렸어요" 때 읽으면 도착 시점 지수). */
     val motionNow: Int = 0,
+    /** 주행 자극 보통 이상 구간 (기록 리포트 타임라인). 히스테리시스는 [cautionCount]와 같다. */
+    val segments: List<StimulusSegment> = emptyList(),
+    /** 출발 뒤 마지막 기록 분 (도착 시각 줄). */
+    val elapsedMin: Int = 0,
 )
 
 /**
@@ -64,12 +71,16 @@ class TripRecorder {
     private var longest = 0
     private var distance = 0.0
     private var start: Int? = null
+    private val segments = mutableListOf<StimulusSegment>()
+    private var open: StimulusSegment? = null
+    private var lastMinute: Int? = null
 
     fun reset() {
         visits.clear(); series.clear(); marks.clear()
         lastSampleMin = null; current = null; peak = 0; longest = 0; distance = 0.0; start = null
         motionSeries.clear(); motionNow = 0; motionPeak = 0; firstCautionMin = null; drivingMin = 0
         windowMax = 0; cautionCount = 0; inCaution = false
+        segments.clear(); open = null; lastMinute = null
     }
 
     /** 멀미 엔진 상태 (MotionComfortEngine). [firstCautionSec]은 주의에 처음 닿은 주행 초. */
@@ -90,6 +101,8 @@ class TripRecorder {
     fun tick(minute: Int, mode: AppMode, cause: PauseCause?, fatigueScore: Int?, continuousMin: Int?, traveledKm: Double, stops: List<RestStop>) {
         if (mode == AppMode.PREPARE) return
         if (start == null) start = minute
+        lastMinute = minute
+        trackSegment(minute - start!!)
         distance = max(distance, traveledKm)
         fatigueScore?.let { peak = max(peak, it) }
         continuousMin?.let { longest = max(longest, it) }
@@ -118,6 +131,19 @@ class TripRecorder {
         }
     }
 
+    /** 주행 자극 보통 이상 구간: 40에 닿으면 열고, 35 아래로 내려가면 닫는다 (멀미 주의 횟수와 같은 히스테리시스). */
+    private fun trackSegment(elapsed: Int) {
+        val o = open
+        when {
+            o == null && motionNow >= MotionConstants.CAUTION -> open = StimulusSegment(elapsed, elapsed, motionNow)
+            o != null && motionNow < MotionConstants.CAUTION - CAUTION_HYSTERESIS -> {
+                segments += o.copy(endMin = elapsed)
+                open = null
+            }
+            o != null -> open = o.copy(endMin = elapsed, peak = max(o.peak, motionNow))
+        }
+    }
+
     fun onPetWalk() { current?.petWalk = true }
 
     /** 지금 머무는 곳 이름 (멈춤 화면 앱바). */
@@ -126,7 +152,8 @@ class TripRecorder {
 
     fun log(): TripLog {
         val n = max(1, series.size - 1)
-        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin, cautionCount, motionNow)
+        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin, cautionCount, motionNow,
+            segments.toList() + listOfNotNull(open), start?.let { st -> lastMinute?.let { it - st } } ?: 0)
     }
 
     /** 목록이 비어 있으면 null(아직 모름), 3km 안에 휴게소가 없으면 "길가". */

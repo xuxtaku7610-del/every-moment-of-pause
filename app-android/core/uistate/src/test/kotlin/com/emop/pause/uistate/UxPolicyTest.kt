@@ -32,7 +32,7 @@ class UxPolicyTest {
     fun `LIMIT_STRING_LENGTH면 예보 문장을 줄이고 이유는 하나만, 아니면 그대로`() {
         val f = UxPolicy.Flags(limitStringLength = true, maxStringLength = 20)
         val fc = UxPolicy.apply(Fixtures.forecast, f).content as DriveContent.Forecast
-        assertTrue(fc.line.length <= 20, fc.line)
+        assertTrue(fc.title.length <= 20 && fc.coach.length <= 20, fc.line)
         val sg = UxPolicy.apply(Fixtures.suggest, f).content as DriveContent.Suggest
         assertEquals(1, sg.reasons.size)
         assertEquals(Fixtures.forecast, UxPolicy.apply(Fixtures.forecast, UxPolicy.Flags()))

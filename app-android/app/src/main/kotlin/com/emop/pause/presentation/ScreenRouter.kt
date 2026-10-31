@@ -2,12 +2,14 @@ package com.emop.pause.presentation
 
 import com.emop.pause.core.model.AppMode
 import com.emop.pause.core.model.DriveState
+import com.emop.pause.uistate.DriveContent
+import com.emop.pause.uistate.ServiceState
 
 /** 어떤 화면을 그릴지 (상태 값은 ViewModel이 채운다). */
-enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, TRIPLOG, PET, SETTINGS, ONBOARDING }
+enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, TRIPLOG, STIMULUS, PET, SETTINGS, ONBOARDING }
 
 /** 정차 중에 위로 여는 화면. */
-enum class Overlay { NONE, PET, SETTINGS, PLACES, VETS }
+enum class Overlay { NONE, PET, SETTINGS, PLACES, VETS, STIMULUS }
 
 /**
  * 화면 선택 규칙 — 순수 함수라 단위 테스트로 고정한다 (docs/ui_contract.md "화면 선택").
@@ -40,6 +42,8 @@ object ScreenRouter {
         i.needsProfile && i.mode == AppMode.PREPARE && i.setupAllowed -> Route.ONBOARDING
         i.overlay == Overlay.PLACES -> Route.PLACES
         i.overlay == Overlay.VETS -> Route.VETS
+        // "주행 자극 보기"는 정차 중에만 (주행이면 위에서 DRIVE)
+        i.overlay == Overlay.STIMULUS -> Route.STIMULUS
         else -> when (i.mode) {
             AppMode.PREPARE -> Route.DEPART
             AppMode.DRIVING -> Route.DRIVE
@@ -51,6 +55,25 @@ object ScreenRouter {
     /** 애니메이션 허용 = AppMode PAUSE && PARKED && 움직임 줄이기 꺼짐 (architecture §5). */
     fun motionAllowed(mode: AppMode, driveState: DriveState, reduceMotion: Boolean): Boolean =
         mode == AppMode.PAUSE && driveState == DriveState.PARKED && !reduceMotion
+
+    /**
+     * 8개 상태 (docs/states.md): 화면과 주행 내용으로 지금 서비스 상태를 정한다. 발표 모드 표시·테스트용이고 화면 선택은 [route]가 한다.
+     * 동물병원 화면은 병원으로 가는 중이면 7(병원 이동), 아니면 정차 화면.
+     */
+    fun serviceState(route: Route, content: DriveContent?, goingVet: Boolean): ServiceState = when (route) {
+        Route.DEPART, Route.ONBOARDING -> ServiceState.DEPART
+        Route.DRIVE -> when (content) {
+            is DriveContent.Distress -> ServiceState.DISTRESS
+            is DriveContent.Vet -> ServiceState.VET
+            is DriveContent.Suggest -> ServiceState.SUGGEST
+            is DriveContent.Forecast -> ServiceState.FORECAST
+            else -> if (goingVet) ServiceState.VET else ServiceState.DRIVING
+        }
+        Route.WAIT -> ServiceState.WAIT
+        Route.VETS -> if (goingVet) ServiceState.VET else ServiceState.STOPPED
+        Route.ARRIVAL, Route.TRIPLOG -> ServiceState.REPORT
+        Route.REST, Route.STIMULUS, Route.PLACES, Route.PET, Route.SETTINGS, Route.SCENE -> ServiceState.STOPPED
+    }
 
     /** 발표 모드 패널: 실차 주행 중에는 열지 않는다. */
     fun demoVisible(open: Boolean, simulation: Boolean, driveState: DriveState): Boolean =

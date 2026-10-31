@@ -3,7 +3,7 @@ package com.emop.pause.uistate
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** 큰 비교 그래프의 한 점: 고갯길 시작에서 [km], 그때 멀미 지수. */
+/** 큰 비교 그래프의 한 점: 고갯길 시작에서 [km], 그때 주행 자극. */
 data class ComparePoint(val km: Float, val index: Int)
 
 /**

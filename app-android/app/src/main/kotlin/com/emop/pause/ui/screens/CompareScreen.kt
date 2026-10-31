@@ -39,7 +39,7 @@ import com.emop.pause.uistate.ComparePoint
 
 /**
  * 발표 모드 "고갯길 비교" 전체 화면 (UPGRADE 1). 정지된 그림 — 애니메이션 없음.
- * 가로 거리 0~15km, 세로 멀미 지수 0~100, "안내 없이"(회색 굵은 선)·"안내대로"(primary 굵은 선), 끝점 값 라벨.
+ * 가로 거리 0~15km, 세로 주행 자극 0~100, "안내 없이"(회색 굵은 선)·"안내대로"(primary 굵은 선), 끝점 값 라벨.
  * 정차 중에만 연다(MainActivity가 drivingLocked면 그리지 않는다).
  */
 @Composable
@@ -67,14 +67,14 @@ fun CompareScreen(ui: CompareChartUi, onClose: () -> Unit) {
                     Chart(ui, grey, Modifier.fillMaxSize())
                 }
             }
-            Text("가로: 고갯길 시작에서의 거리 · 세로: 멀미 지수(0~100)", style = Pause.type.caption, color = c.sub)
+            Text("가로: 고갯길 시작에서의 거리 · 세로: 주행 자극(0~100, 차량 흔들림 기준)", style = Pause.type.caption, color = c.sub)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-            Fact("멀미 지수", "${ui.dropPct}%", Modifier.weight(1f), c.primary)
+            Fact("주행 자극", "${ui.dropPct}%", Modifier.weight(1f), c.primary)
             Fact("소요 시간", CompareChart.extraLabel(ui.extraSec), Modifier.weight(1f), c.text)
             Fact("실제 도로", "대관령 옛길 ${CompareChart.kmLabel(ui.roadKm)}", Modifier.weight(1f), c.text, "OpenStreetMap")
         }
-        Text("시뮬레이션 결과 · 진단 아님 · 지도 © OpenStreetMap contributors (ODbL) · docs/plan/demo_compare.md", style = Pause.type.caption, color = c.sub)
+        Text("시뮬레이션 결과 · 차량 흔들림 기준, 반려견 측정 아님 · 지도 © OpenStreetMap contributors (ODbL) · docs/plan/demo_compare.md", style = Pause.type.caption, color = c.sub)
     }
 }
 

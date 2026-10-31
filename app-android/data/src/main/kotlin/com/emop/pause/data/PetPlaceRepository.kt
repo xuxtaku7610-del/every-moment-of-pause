@@ -37,7 +37,8 @@ data class PetPlace(
     val indoorOk: Boolean? = null,
 )
 
-data class Vet(val id: String, val name: String, val lat: Double, val lng: Double, val distanceKm: Double, val address: String?, val phone: String?, val sample: Boolean)
+/** [partner] = 사전 접수함 제휴 병원 (지금은 시연용 가상 병원 한 곳만, trip.DemoPartner). 실제 병원은 false. */
+data class Vet(val id: String, val name: String, val lat: Double, val lng: Double, val distanceKm: Double, val address: String?, val phone: String?, val sample: Boolean, val partner: Boolean = false)
 
 /** 어디서 받았는지: 서버면 SERVER, 서버가 없거나 실패하면 앱 내장 샘플. */
 enum class PlaceSource { SERVER, BUNDLED }

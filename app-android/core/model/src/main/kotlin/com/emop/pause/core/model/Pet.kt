@@ -17,7 +17,7 @@ data class PetProfile(
     val motionTendency: MotionTendency = MotionTendency.NORMAL,
     val pottyIntervalMin: Int = DEFAULT_POTTY_MIN,
     val facilityPrefs: Set<String> = setOf("pet_zone"),
-    /** 개인 보정 계수 (UPGRADE 4, 도착 뒤 "멀미했어요?" 답으로 맞춤). 멀미 민감도에 곱한다. 1.0 = 보정 없음. pet.db에는 저장하지 않는다(CalibrationStore). */
+    /** 개인 보정 계수 (UPGRADE 4, 2026-10-31부터 음성 신고에서 자동 — AutoCalibration). 주행 자극 민감도에 곱한다. 1.0 = 보정 없음. pet.db에는 저장하지 않는다(CalibrationStore). */
     val motionScale: Double = 1.0,
 ) {
     /** 입력 화면·저장 전에 부르는 검사. 문제가 없으면 빈 목록. */

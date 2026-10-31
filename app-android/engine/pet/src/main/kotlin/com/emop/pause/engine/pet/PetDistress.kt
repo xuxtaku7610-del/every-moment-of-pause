@@ -82,7 +82,7 @@ object PetDistress {
             // 표에 없는 경우(온도 정상, 출발한 지 오래): 이어지면 쉬도록 다음 쉼표를 앞당긴다
             else -> DistressAdvice(kind, "헐떡임이 이어지면 다음 쉼터에서 쉬어요", DistressAction.EARLIER_REST, "panting_anxious", 50)
         }
-        DistressKind.NAUSEA -> DistressAdvice(kind, "멀미 초기일 수 있어요. 창문을 조금 열어요", DistressAction.EARLIER_REST, "nausea", 60, boost = 1.2)
+        DistressKind.NAUSEA -> DistressAdvice(kind, "속이 불편할 수 있어요. 창문을 조금 열어요", DistressAction.EARLIER_REST, "nausea", 60, boost = 1.2)
         DistressKind.ANXIOUS -> DistressAdvice(kind, "정차 후 켄넬과 벨트를 확인해요", DistressAction.EARLIER_REST, "anxious", 30)
         DistressKind.UNSURE -> DistressAdvice(kind, "다음 쉼터에서 멈춰 살펴봐요", DistressAction.NEAREST_STOP, "unsure", 20)
     }

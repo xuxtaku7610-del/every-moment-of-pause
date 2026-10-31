@@ -4,14 +4,14 @@ package com.emop.pause.engine.pet
 data class PetTripRecord(
     val startedMs: Long,
     val drivingMin: Int,
-    /** 멀미 지수가 주의(40)에 처음 닿은 주행 분. 닿지 않았으면 null. */
+    /** 주행 자극이 보통(40)에 처음 닿은 주행 분. 닿지 않았으면 null. (주행 자극 = 차량 흔들림 누적, 반려견 측정 아님) */
     val firstCautionMin: Int?,
     val motionPeak: Int,
     val stops: Int,
     val symptomNote: String? = null,
 )
 
-/** "콩이는 약 1시간 10분이 한계" 추정. [basedOn]은 근거가 된 여행 수. */
+/** "지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상" 추정. [basedOn]은 근거가 된 여행 수. */
 data class LimitEstimate(val minutes: Int, val basedOn: Int)
 
 /**
@@ -30,35 +30,39 @@ object PetTripLog {
         return LimitEstimate(median, mins.size)
     }
 
-    /** 템플릿 문장. 근거가 3번 미만이면 몇 번 기준인지 덧붙인다. */
+    /**
+     * 템플릿 문장. 근거가 3번 미만이면 몇 번 기준인지 덧붙인다. 반려견의 한계로 말하지 않고 "주행 자극이 쌓이는 때"로 말한다
+     * (2026-10-31 재정비). [name]은 예전 호출과 맞추려고 남겨 둔다.
+     */
+    @Suppress("UNUSED_PARAMETER")
     fun limitPhrase(name: String, e: LimitEstimate?): String {
-        if (e == null) return "${Josa.eunNeun(name)} 아직 멀미 주의 단계에 닿은 적이 없어요."
-        val base = "${Josa.eunNeun(name)} 약 ${duration(e.minutes)}이 한계예요."
+        if (e == null) return "지난 여행에서 주행 자극이 보통 단계에 닿은 적은 없어요."
+        val base = "지난 여행들은 출발 약 ${duration(e.minutes)} 뒤 주행 자극이 보통 이상이 됐어요."
         return if (e.basedOn < 3) "$base (기록 ${e.basedOn}번 기준)" else base
     }
 
     /**
-     * 이동 기록 화면의 한 줄 (이번 여행 + 평소 한계). 같은 화면의 "멀미 주의 n번"과 어긋나지 않게 **이번 여행 값을 먼저** 본다:
-     * 이번에 주의에 닿았으면 그 시각, 평소 한계가 있으면 덧붙이고, 둘 다 없을 때만 "아직 닿은 적이 없어요".
+     * 기록 리포트 한 줄 (이번 여행 + 지난 여행). **이번 여행 값을 먼저** 본다:
+     * 이번에 보통에 닿았으면 그 시각, 지난 기록이 있으면 덧붙이고, 둘 다 없을 때만 "닿은 적은 없어요".
      */
     fun insight(name: String, trip: PetTripRecord, e: LimitEstimate?): String {
         val first = trip.firstCautionMin
         return when {
-            first != null && e != null -> "이번엔 출발 ${duration(first)} 뒤 멀미 주의에 닿았어요. ${limitPhrase(name, e)}"
-            first != null -> "이번엔 출발 ${duration(first)} 뒤 멀미 주의에 닿았어요. 기록이 쌓이면 평소 한계를 알려 드려요."
-            e != null -> "이번엔 멀미 주의 없이 도착했어요. ${limitPhrase(name, e)}"
+            first != null && e != null -> "이번엔 출발 ${duration(first)} 뒤 주행 자극이 보통 이상이 됐어요. ${limitPhrase(name, e)}"
+            first != null -> "이번엔 출발 ${duration(first)} 뒤 주행 자극이 보통 이상이 됐어요."
+            e != null -> "이번엔 주행 자극이 낮은 채로 도착했어요. ${limitPhrase(name, e)}"
             else -> limitPhrase(name, null)
         }
     }
 
-    /** 동물병원에 보여 줄 요약 줄 (F7-03). 증상 메모는 사용자가 적은 그대로. */
+    /** 동물병원에 보여 줄 요약 줄 (F7-03). 증상 메모(음성 신고)는 그대로. 주행 자극은 차량 흔들림이라는 것을 함께 쓴다. */
     fun vetSummary(name: String, trip: PetTripRecord, e: LimitEstimate?): List<String> = buildList {
         add("$name 이동 기록")
         add("이동 시간 ${duration(trip.drivingMin)} · 휴식 ${trip.stops}번")
-        add("멀미 주의 예보 최고 ${trip.motionPeak} (0~100, 진단 아님)")
-        trip.firstCautionMin?.let { add("주의 단계 도달: 출발 ${duration(it)} 뒤") }
-        e?.let { add("평소 한계: 약 ${duration(it.minutes)} (기록 ${it.basedOn}번)") }
-        trip.symptomNote?.takeIf { it.isNotBlank() }?.let { add("증상 메모: $it") }
+        add("주행 자극 최고 ${trip.motionPeak} (0~100, 차량 흔들림 기준 · 반려견 측정 아님)")
+        trip.firstCautionMin?.let { add("주행 자극 보통 도달: 출발 ${duration(it)} 뒤") }
+        e?.let { add("지난 여행 보통 도달: 약 ${duration(it.minutes)} (기록 ${it.basedOn}번)") }
+        trip.symptomNote?.takeIf { it.isNotBlank() }?.let { add("관찰 신고: $it") }
     }
 
     fun duration(min: Int): String {

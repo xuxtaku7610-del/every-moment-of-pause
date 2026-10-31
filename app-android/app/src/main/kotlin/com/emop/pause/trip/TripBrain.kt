@@ -73,6 +73,8 @@ data class BrainState(
     val nextCurveM: Double? = null,
     /** 최근 30분 멀미 지수 (1분 간격, 오래된 것부터). */
     val motionRecent: List<Int> = emptyList(),
+    /** 시연 표시용 바로 다음 회전 (GPX에서 만든 안내, 시뮬레이터만 — 화면에 "시연 데이터"로 표시). 실차는 NaviHelper 값을 쓴다. */
+    val demoTurn: RouteTurn? = null,
 )
 
 /**
@@ -88,6 +90,8 @@ class TripBrain(
     private val shapeStartM: Int = 0,
     /** 시연 "회전 안내" 모드: GPX에서 만든 가짜 NaviHelper 안내를 [GUIDE_MS]마다 [TbtRouteShape]에 넣는다 (UPGRADE 5). */
     private val guidance: GuidanceFromShape? = null,
+    /** 시뮬레이터 주행 화면 "다음 회전" 카드용 (예보에는 쓰지 않는다). [guidance]가 있으면 그것을 쓴다. */
+    private val demoGuidance: GuidanceFromShape? = null,
     private val stops: () -> List<RestStop>,
 ) {
     private val fatigue = FatigueEngine(setup.sleepHours)
@@ -178,7 +182,8 @@ class TripBrain(
             recent.addLast(m.index)
             while (recent.size > RECENT_MIN + 1) recent.removeFirst()
         }
-        state = BrainState(f, n, pending, heading, traveledKm, m, forecast, speak, road, nextCurve, recent.toList())
+        val demoTurn = (guidance ?: demoGuidance)?.let { g -> routeM?.let { g.upcoming(it).firstOrNull() } }
+        state = BrainState(f, n, pending, heading, traveledKm, m, forecast, speak, road, nextCurve, recent.toList(), demoTurn)
         return state
     }
 

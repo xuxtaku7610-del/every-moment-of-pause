@@ -20,7 +20,7 @@ import java.io.File
 import kotlin.math.abs
 
 /**
- * 발표 숫자 맞추기 (docs/demo_numbers.md, DM-06). pet-trip을 처음부터 1초씩 돌려 장면마다 엔진 값을 뽑고,
+ * 발표 숫자 맞추기 (docs/demo_numbers.md, DM-06). pet-trip을 처음부터 1초씩 돌려 장면마다 엔진 값(주행 자극)을 뽑고,
  * 화면끼리 어긋나면 안 되는 값을 확인한다: 예보 예상 ↔ 실제로 달린 뒤 지수 ↔ 고갯길 비교 "안내 없이",
  * 이동 기록 그래프 최고 ↔ 최고 지수, 멀미 주의 횟수 ↔ 주의 도달 시각.
  * 장면 값 표는 build/demo_numbers.txt에 쓴다(문서 "엔진 값" 열).
@@ -38,7 +38,7 @@ class DemoNumbersTest {
         val recorder = TripRecorder()
         var mode = ModeState()
         val scenes = DemoScenes.JUMPS.associateBy { it.tSec }
-        val out = StringBuilder("장면\t시각\t멀미 지수\t최근30분\t다음 굽은 길\t예보(시작·지속·예상·20분 곡선 최고)\n")
+        val out = StringBuilder("장면\t시각\t주행 자극\t최근30분\t다음 굽은 길\t예보(시작·지속·예상·20분 곡선 최고)\n")
         var forecastAtScene: Pair<Int, Int>? = null
         for (t in 0..scenario.durationSec) {
             val f = ScenarioPlayer.frameAt(scenario, t.toDouble())

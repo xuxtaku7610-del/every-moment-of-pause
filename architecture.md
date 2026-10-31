@@ -4,12 +4,13 @@
 
 ## 1. 설계 원칙
 
-1. **판단은 차 안에서.** 멀미 지수, 휴식 추천, 대기 모드 경과, 도착 체크는 모두 앱 안에서 계산한다. 서버가 끊겨도 핵심 기능(F1·F2·F3 차 화면·F6·F7)은 동작한다.
+1. **판단은 차 안에서.** 주행 자극, 휴식 추천, 대기 모드 경과, 도착 체크는 모두 앱 안에서 계산한다. 서버가 끊겨도 핵심 기능(F1·F2·F3 차 화면·F6·F7)은 동작한다.
 2. **서버는 데이터와 공유만.** 서버는 휴게소·반려동물 동반 장소·동물병원 데이터를 정제해 내려주고, 대기 모드 상태를 보호자 폰 웹페이지로 보여 주고, 기록 요약 문장을 다듬는다. LLM이 실패하면 템플릿 문장을 쓴다.
 3. **SDK는 인터페이스 뒤에.** Vehicle·NaviHelper·AAOS 속성·STT·TTS를 인터페이스로 감싸고, 확인한 시그니처만 쓴다(sdk_check.md). 승인 전 SDK, 차종별 미지원 신호, 시뮬레이터를 같은 코드로 처리한다.
 4. **주행 중에는 음성, 정차 중에는 화면.** `CarUxRestrictions` 상태가 모든 UI의 최상위 분기다. 대기 모드의 바깥 사람용 화면은 P단에서만.
-5. **정직한 표현.** 멀미 지수는 의학적 진단이 아니라 "주의 예보"다. 계수는 문헌 기반 가정값이며 근거를 [docs/plan/motion_model.md](docs/plan/motion_model.md)에 적는다. 샘플 데이터는 화면에 "샘플"로 표시한다.
-6. **시연은 절대 실패하지 않게.** 시뮬레이터가 실제 SDK와 같은 인터페이스로 값을 주입하고, 노트북 한 대에서 앱·서버·LLM이 모두 돈다.
+5. **정직한 표현.** 엔진 0~100 값은 **주행 자극**(차량 흔들림 누적, ISO 2631-1 단순화, 예전 이름 멀미 지수)이고 반려견 측정·진단이 아니다. 반려견 상태는 **콩이 관찰 상태**(보호자 음성 신고만, 없으면 "관찰 기록 없음")로 따로 두고 두 값을 섞지 않는다([docs/states.md](docs/states.md), [docs/wording.md](docs/wording.md)). 계수는 문헌 기반 가정값이며 근거를 [docs/plan/motion_model.md](docs/plan/motion_model.md)에 적는다. 샘플 데이터는 화면에 "샘플"로 표시한다.
+6. **지도는 그리지 않는다.** 길 안내는 Pleos 기본 내비가 맡는다(앱 안 내비·외부 내비 없음). 주행 중 같이가개는 런처 분할 창(기본 내비 옆 1/3·1/2)에서 NaviHelper 실제 값(다음 회전·남은 거리·도착)과 반려견 정보만 보여 주고, 정차 화면은 전체 창을 쓴다. 위치는 기록하지 않는다(리포트는 거리만).
+7. **시연은 절대 실패하지 않게.** 시뮬레이터가 실제 SDK와 같은 인터페이스로 값을 주입하고, 노트북 한 대에서 앱·서버·LLM이 모두 돈다.
 
 ## 2. 전체 구성도
 
@@ -25,19 +26,20 @@ flowchart TB
             SIM["시뮬레이터<br/>장면 JSON 재생"]
         end
         subgraph ENGINE["엔진 계층"]
-            MOTION["멀미 예보<br/>MotionComfortEngine"]
+            MOTION["주행 자극 예보<br/>MotionComfortEngine"]
             FAT["운전자 피로"]
             NEED["배변·산책 간격"]
             PLAN["반려견 맞춤 쉼표<br/>PetRestPlanner"]
             WAIT["잠깐 대기<br/>WaitMode"]
             BOARD["타고·내릴 때 체크<br/>BoardingCheck"]
-            LOG["이동 기록<br/>PetTripLog"]
+            OBS["콩이 관찰 상태<br/>음성 신고만"]
+            LOG["도착 후 기록 리포트<br/>PetTripLog · TripRecorder"]
         end
         subgraph OUT["출력 계층"]
             UI["Compose 화면<br/>UiState만 보고 그림"]
             VOICE["음성<br/>Android STT · TTS"]
         end
-        ROOM[("Room<br/>반려견 프로필 · 휴게소 캐시<br/>장소·병원 캐시 · 이동 기록")]
+        ROOM[("Room<br/>반려견 프로필 · 휴게소 캐시<br/>장소·병원 캐시 · 여행 기록")]
     end
 
     subgraph HOST["백엔드 · 시연 노트북"]
@@ -67,6 +69,8 @@ flowchart TB
     VEH --> WAIT
     VEH --> BOARD
     MOTION --> LOG
+    OBS --> LOG
+    OBS --> UI
     PLAN --> LOG
     WAIT --> LOG
     PLAN --> UI
@@ -105,18 +109,18 @@ applicationId·패키지는 쉼표 때의 `com.emop.pause`를 그대로 쓴다(�
 | `core:navi` | 남은 거리·시간, 현재 위치 방위, 경유지 추가 (NaviHelper 3.0.5) | `NaviSource`, `PleosNaviSource` |
 | `core:restriction` | `CarUxRestrictions` → `DriveState` (PARKED / DRIVING / RESTRICTED) | `DriveStateRepository` |
 | `core:uistate` | 화면 계약: 화면별 상태·이벤트·주행 중 규칙 ([docs/ui_contract.md](docs/ui_contract.md)) | `AppUiState`, `Screen`, `UiEvent`, `Fixtures` |
-| `engine:motion` | **F1 멀미 예보**: 종·횡가속 추정 → 0.02~0.5Hz 대역(수평 흔들림, motion_model.md §3) → 누적량(MSDV 단순화) → 프로필 보정 → 0~100 지수, 앞 구간 예보 | `MotionComfortEngine`, `MotionConstants`, `RouteShape`, `MotionPhrases` |
-| `engine:pet` | **F3 대기 모드**, **F6 타고·내릴 때 체크**, **F7 이동 기록 패턴**, 이름 조사 (`PetProfile`은 `core:model`) | `WaitMode`, `BoardingCheck`, `PetTripLog`, `Josa` |
+| `engine:motion` | **F1 주행 자극 예보**: 종·횡가속 추정 → 0.02~0.5Hz 대역(수평 흔들림, motion_model.md §3) → 누적량(MSDV 단순화) → 프로필 보정(흔들림에 예민한 정도·음성 신고 자동 보정) → 0~100 주행 자극, 앞 구간 예보 | `MotionComfortEngine`, `MotionConstants`, `RouteShape`, `MotionPhrases` |
+| `engine:pet` | **F3 대기 모드**, **F6 타고·내릴 때 체크**, **F7 도착 후 기록 리포트 패턴**, 이름 조사 (`PetProfile`은 `core:model`) | `WaitMode`, `BoardingCheck`, `PetTripLog`, `Josa` |
 | `engine:fatigue` | 운전자 피로 (F2의 요인 하나) | `FatigueEngine` |
 | `engine:needs` | 반려견 배변·산책 간격(프로필 값), 충전 니즈 | `NeedsEngine` |
-| `engine:planner` | **F2 반려견 맞춤 쉼표**: 멀미 누적·주행 시간·배변 간격·운전자 피로·반려견 시설 가중치로 휴게소 1곳 + 이유 1~2개, 히스테리시스·쿨다운 | `PetRestPlanner`, `ScoringPolicy`, `SuggestionPolicy`, `RestPhrases` |
+| `engine:planner` | **F2 반려견 맞춤 쉼표**: 주행 자극 누적·주행 시간·배변 간격·운전자 피로·반려견 시설 가중치로 휴게소 1곳 + 이유 1~2개, 히스테리시스·쿨다운 | `PetRestPlanner`, `ScoringPolicy`, `SuggestionPolicy`, `RestPhrases` |
 | `engine:pause` | 쉼표에서 할 일(산책·물·배변·스트레칭) | `PauseCurator` |
 | `voice` | Android 기본 STT/TTS, 우선순위 큐(안전 > 제안 > 안내 > 배경), "응/나중에/여기서 쉴게요/잠깐 다녀올게" 의도 | `SpeechQueue`, `VoiceIntent`, `ReplyIntent` |
-| `data` | Room 두 개: `pause.db`(휴게소 캐시, 스키마가 바뀌면 지움)와 `pet.db`(반려견 프로필·이동 기록), Retrofit, 오프라인 내장 데이터 | `RestStopRepository`, `RoomPetStore`, `PlaceRepository` |
+| `data` | Room 두 개: `pause.db`(휴게소 캐시, 스키마가 바뀌면 지움)와 `pet.db`(반려견 프로필·여행 기록), Retrofit, 오프라인 내장 데이터 | `RestStopRepository`, `RoomPetStore`, `PlaceRepository` |
 | `sim` | 장면(depart/highway/rest_stop/wait/mountain_road/arrive) JSON 재생, 방위·경로 형상 포함 | `ScenarioPlayer` |
 | `app` | ViewModel·화면 선택(`ScreenRouter`)·`AppModeReducer`·`TripCoordinator`(엔진 묶음과 음성 흐름) | `MainViewModel`, `TripBrain`, `TripCoordinator` |
 
-**신호 수급 전략.** 차종마다 지원 신호가 다르므로 엔진은 nullable 신호를 받고, 값이 없는 요인은 빼고 재정규화한다. 멀미 엔진은 방위가 없으면 경로 형상(곡률)으로, 그것도 없으면 종방향 가속만으로 계산하고 화면에 "곡선 정보 없음"을 표시한다.
+**신호 수급 전략.** 차종마다 지원 신호가 다르므로 엔진은 nullable 신호를 받고, 값이 없는 요인은 빼고 재정규화한다. 주행 자극 엔진은 방위가 없으면 경로 형상(곡률)으로, 그것도 없으면 종방향 가속만으로 계산하고 화면에 "곡선 정보 없음"을 표시한다.
 
 ### 3.2 백엔드 (server)
 
@@ -126,7 +130,7 @@ applicationId·패키지는 쉼표 때의 `com.emop.pause`를 그대로 쓴다(�
 | `api/places`·`jobs/ingest_pet_places` | 반려동물 동반 식당·카페·숙소·관광지 (F4). 한국관광공사 TourAPI. `TOUR_API_KEY`(환경 변수)가 없으면 `data/sample_pet_places.json`("샘플" 표시). 경로 버퍼 검색 |
 | `api/vets`·`jobs/load_vets` | 동물병원 (F5). 공공데이터 인허가 파일(`data/raw/`)을 적재, 없으면 `sample_vets.json` |
 | `api/wait` | 대기 모드 공유 (F3). 앱이 상태를 올리면 보호자 폰이 `GET /wait/{token}` 웹페이지(큰 글자, 5초 자동 새로고침)로 본다. 토큰 무작위, 2시간 만료, **위치는 받지 않음** |
-| `api/llm` | 이동 기록 요약 문장(F7). 타임아웃 2.5초, 실패 시 템플릿 |
+| `api/llm` | 도착 후 기록 리포트 요약 문장(F7). 타임아웃 2.5초, 실패 시 템플릿 |
 | `api/trips` | 여행 시작·종료, 이벤트 일괄 업로드, 리포트 집계 (선택 업로드) |
 | `jobs/cleanup` | 보관 기간 정리(여행 90일, LLM 기록 30일, 대기 공유 만료 후 1일, 기기 180일) |
 
@@ -145,7 +149,7 @@ flowchart LR
     TPL --> OUT
 ```
 
-- LLM은 **휴게소 제안 문장과 이동 기록 요약**에만 쓴다. 멀미 예보·안전 문구·"내렸나요?"는 템플릿만 (안전 문구에 지어낸 말이 섞이지 않게).
+- LLM은 **휴게소 제안 문장과 리포트 요약**에만 쓴다. 주행 자극 예보·관찰 상태·안전 문구·"내렸나요?"는 템플릿만 (안전 문구에 지어낸 말이 섞이지 않게).
 - 모델: `OLLAMA_MODEL=gemma4:12b`, `POST /api/chat`, `think=false`, `keep_alive=30m`, `num_predict=60`, `temperature=0.3`, 서버 시작 시 warm-up.
 
 ## 4. 배포 구성
@@ -189,8 +193,8 @@ stateDiagram-v2
 | DriveState | 허용 범위 | 음성 |
 | --- | --- | --- |
 | PARKED | 전체 화면, 설정, 기록, 애니메이션(정차 화면만) | 자유 |
-| DRIVING | 텍스트 2줄 이하, 버튼 2개 + 음성 힌트, 스크롤·키보드·영상·자동 애니메이션 금지 | 제안·응답·멀미 예보 |
-| RESTRICTED | 가장 급한 한 줄만, 터치 최소화 | 제안·응답·멀미 예보 |
+| DRIVING | 텍스트 2줄 이하, 버튼 2개 + 음성 힌트, 스크롤·키보드·영상·자동 애니메이션 금지, 주행 자극 숫자·그래프 없음 | 제안·응답·주행 자극 예보·관찰 신고 |
+| RESTRICTED | 가장 급한 한 줄만, 터치 최소화 | 제안·응답·주행 자극 예보·관찰 신고 |
 
 ### 5.2 AppMode
 
@@ -208,9 +212,11 @@ stateDiagram-v2
 | AppMode | 화면 |
 | --- | --- |
 | PREPARE | 출발 체크(반려견 프로필·하네스·물·배변봉투), 오늘의 쉼표 계획 |
-| DRIVING | 주행 글랜스: 멀미 예보 한 줄 + 다음 쉼표 |
-| PAUSE | 쉼표 화면(산책·물·배변). "잠깐 다녀올게" → **대기 모드**(PAUSE의 하위 상태, 차 화면이 바깥 사람용 안내로 바뀜) |
-| ARRIVED | 도착 체크("콩이 내렸나요?") → 이동 기록 |
+| DRIVING | 분할 창 주행 글랜스: 다음 회전 카드(NaviHelper) + 주행 자극 예보 한 줄(숫자 없음) + 다음 쉼표 + 콩이 관찰 상태 한 줄 |
+| PAUSE | 쉼표 화면(산책·물·배변, "주행 자극 보기"). "잠깐 다녀올게" → **대기 모드**(PAUSE의 하위 상태, 차 화면이 바깥 사람용 안내로 바뀜) |
+| ARRIVED | 도착 체크("콩이 내렸나요?") → 도착 후 기록 리포트(시간순 타임라인) |
+
+8개 서비스 상태(출발 전·일반 주행·주행 자극 예보·쉼표 추천·콩이가 이상해요·대기·병원 이동·리포트)와 전환은 [docs/states.md](docs/states.md).
 
 경계 조건 (쉼표에서 그대로):
 - 여행 중 PARKED인데 기어가 P가 아님(신호 대기) → DRIVING 유지.
@@ -223,17 +229,18 @@ stateDiagram-v2
 | 항목 | 정책 |
 | --- | --- |
 | 식별 | 계정 없음. 익명 기기 토큰, 서버에는 해시만 |
-| 반려견 프로필 | 기기 Room에만 저장, **서버 전송 안 함** (이름·체급·나이·멀미 성향·배변 간격) |
-| 위치 | 경로 좌표는 장소·휴게소 조회 요청에만 쓰고 저장하지 않음. **대기 공유에는 위치를 보내지 않음** |
+| 반려견 프로필 | 기기 Room에만 저장, **서버 전송 안 함** (이름·체급·나이·흔들림에 예민한 정도(보호자 응답)·배변 간격) |
+| 위치 | 경로 좌표는 장소·휴게소 조회 요청에만 쓰고 저장하지 않음. 여행 기록에도 경로선 없이 거리만. **대기 공유에는 위치를 보내지 않음** |
 | 대기 공유 토큰 | 무작위 128비트, 2시간 만료, 만료 후 1일 안에 삭제. 페이지에는 경과 시간·배터리%·실내 온도(있을 때)·제한 시간만 |
 | LLM 로그 | 원문 저장 안 함. 종류·지연시간·폴백 여부만 |
-| 표현 | 멀미 지수·실내 온도는 "참고 표시". 의학적 진단·안전 보장 문구를 쓰지 않음 |
+| 표현 | 주행 자극은 "차량 흔들림 기준 · 반려견 측정 아님", 실내 온도는 측정값만. 의학적 진단·확률·안전 보장 문구를 쓰지 않음 |
+| 병원 사전 접수 | 시연용 제휴 동물병원만, 보내기 전 동의(주행 중 음성 "네", 정차 중 "동의하고 보내기"). 실제 병원은 전화·도착 예정 링크만 |
 
 ## 7. 성능 목표
 
 | 지표 | 목표 |
 | --- | --- |
-| 멀미 지수 갱신 | 1초 (예보 재계산 10초) |
+| 주행 자극 갱신 | 1초 (예보 재계산 10초) |
 | 휴게소 추천 계산 | 기기에서 100ms 이내 |
 | 대기 공유 갱신 | 앱 → 서버 10초마다, 폰 페이지 5초마다 새로고침 |
 | 제안 문장 생성 | 2.5초 이내, 초과 시 템플릿 |

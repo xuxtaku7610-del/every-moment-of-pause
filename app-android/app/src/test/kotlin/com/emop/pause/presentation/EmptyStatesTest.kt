@@ -30,10 +30,12 @@ class EmptyStatesTest {
     private val kong = TripUi(pet = PetProfile("콩이"), passengers = listOf(Passenger.Dog()))
 
     @Test
-    fun `주행 - 경로·엔진 값이 없으면 안내 문장만, 메타·멀미 없음`() {
+    fun `주행 - 경로·엔진 값이 없으면 안내 문장만, 메타·길 안내·도착 없음, 관찰 기록 없음`() {
         val ui = UiMapper.drive(empty, TripUi())
         assertNull(ui.meta)
-        assertNull(ui.motion)
+        assertNull(ui.guide)
+        assertNull(ui.arrive)
+        assertEquals("관찰 기록 없음", ui.observation.line)
         assertTrue(ui.content is DriveContent.Calm)
         assertEquals(emptyList<String>(), DrivingRules.violations(ui))
     }
@@ -45,11 +47,12 @@ class EmptyStatesTest {
     }
 
     @Test
-    fun `F1 주행 - 5km 안 예보는 한 줄, 멀리 있으면 안내 문장`() {
+    fun `F1 주행 - 5km 안 예보는 경고 한 줄(숫자 없음), 멀리 있으면 안내 문장`() {
         val near = kong.copy(motion = MotionState(index = 45), forecast = MotionForecast(3000.0, 2400.0, 480, 52, 39))
         val ui = UiMapper.drive(empty, near)
-        assertEquals("3km 뒤 굽은 길 8분, 콩이 멀미 주의 — 조금 일찍 감속해 주세요.", (ui.content as DriveContent.Forecast).line)
-        assertEquals("콩이 멀미 주의 45", ui.motion!!.label)
+        assertEquals("3km 뒤 굽은 길 · 8분 · 천천히 가면 덜 흔들려요", (ui.content as DriveContent.Forecast).line)
+        // 주행 화면에 주행 자극 숫자가 없다 (재정비 원칙 2)
+        assertFalse("45" in (ui.content as DriveContent.Forecast).line)
         val far = near.copy(forecast = MotionForecast(9000.0, 2400.0, 480, 52, 39))
         assertTrue(UiMapper.drive(empty, far).content is DriveContent.Calm)
     }

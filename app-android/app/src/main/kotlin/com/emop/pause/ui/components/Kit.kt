@@ -62,6 +62,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -118,13 +119,14 @@ fun PauseButton(
             Icon(it, null, Modifier.size(d.u(20f)), tint = fg)
             Spacer(Modifier.width(d.unit))
         }
-        Text(label, style = Pause.type.button, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // 버튼 글자는 줄임표로 자르지 않는다 — 좁으면 두 줄 (2026-10-31 사용자 규칙)
+        Text(label, style = Pause.type.button, color = fg, maxLines = 2, textAlign = TextAlign.Center)
     }
 }
 
 /** 앱 바: 로고(발표 모드 진입점, 5번 탭) · 화면 이름 · 오른쪽 정보(목적지·남은 시간). 시스템 시간·온도는 그리지 않는다. */
 @Composable
-fun AppBar(meta: String?, onLogoTap: () -> Unit, modifier: Modifier = Modifier, title: String? = null, trailing: @Composable RowScope.() -> Unit = {}) {
+fun AppBar(meta: String?, onLogoTap: () -> Unit, modifier: Modifier = Modifier, title: String? = null, trailing: @Composable RowScope.() -> Unit = {}, demo: Boolean = false) {
     val c = Pause.colors
     val d = Pause.dimens
     Row(modifier.fillMaxWidth().height(d.appBar).padding(horizontal = d.margin), verticalAlignment = Alignment.CenterVertically) {
@@ -136,8 +138,16 @@ fun AppBar(meta: String?, onLogoTap: () -> Unit, modifier: Modifier = Modifier, 
             Spacer(Modifier.width(d.unit))
             Text(title ?: "같이가개", style = Pause.type.section, color = c.text, maxLines = 1)
         }
-        Spacer(Modifier.weight(1f))
-        meta?.let { Text(it, style = Pause.type.bodyStrong, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        if (demo) {
+            Spacer(Modifier.width(d.gapS))
+            StatusChip("시연 데이터", neutral = true)
+        }
+        // 오른쪽 정보는 남는 자리만 쓰고(2줄까지) 버튼을 밀어내지 않는다 — 좁은 창에서 "기록 확인"이 눌리지 않게
+        Spacer(Modifier.width(d.gapS))
+        Text(
+            meta.orEmpty(), style = Pause.type.bodyStrong.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph.copy(wordBreak = androidx.compose.ui.text.style.LineBreak.WordBreak.Phrase)),
+            color = c.sub, maxLines = 2, textAlign = TextAlign.End, modifier = Modifier.weight(1f),
+        )
         trailing()
     }
 }
@@ -228,11 +238,11 @@ fun Metric(
 @Composable
 fun KeyValue(key: String, value: String, modifier: Modifier = Modifier, valueColor: Color = Pause.colors.text) {
     val c = Pause.colors
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // 값은 줄임표 대신 2줄까지 (오른쪽 정렬) — 좁은 창에서도 내용이 잘리지 않게
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Text(key, style = Pause.type.sub, color = c.sub, maxLines = 1)
         Spacer(Modifier.width(Pause.dimens.gap))
-        Spacer(Modifier.weight(1f))
-        Text(value, style = Pause.type.bodyStrong, color = valueColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, style = Pause.type.bodyStrong, color = valueColor, maxLines = 2, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
     }
 }
 
@@ -274,9 +284,9 @@ fun toneInk(t: MotionTone): Color = when (t) {
 
 /** 단계 글자 (색과 함께 쓴다). */
 fun toneWord(t: MotionTone): String = when (t) {
-    MotionTone.CALM -> "편안해요"
-    MotionTone.CAUTION -> "멀미 주의"
-    MotionTone.HIGH -> "멀미 높음"
+    MotionTone.CALM -> "주행 자극 낮음"
+    MotionTone.CAUTION -> "주행 자극 보통"
+    MotionTone.HIGH -> "주행 자극 높음"
 }
 
 /** 0~100 막대: 지금 값 + 주의 기준(40)·높음 기준(70) 눈금. 정지된 그림. */
@@ -575,6 +585,12 @@ fun TrendChart(
         fun x(m: Float) = left + plotW * (m / total).coerceIn(0f, 1f)
         fun y(v: Int) = top + plotH * (1f - v.coerceIn(0, 100) / 100f)
         drawRect(c.warningSoft, Offset(left, top), Size(plotW, y(40) - top))
+        // 흔들림 많은 구간(주행 자극 보통 이상): 앰버 면 (리포트 타임라인과 같은 구간)
+        if (series.size >= 2) marks.filter { it.kind == TrendMarkKind.HIGH && it.minute < total }.forEach { m ->
+            val x0 = x(m.minute.toFloat())
+            val x1 = maxOf(x((m.minute + m.lengthMin).toFloat()), x0 + 4.dp.toPx())
+            drawRect(c.warning.copy(alpha = 0.18f), Offset(x0, top), Size(x1 - x0, plotH))
+        }
         // 휴식 구간: 그 시간에도 지수는 기록되므로 선은 그대로 두고 면만 깐다
         if (series.size >= 2) marks.filter { it.kind == TrendMarkKind.STOP && it.minute < total }.forEach { m ->
             val x0 = x(m.minute.toFloat())
@@ -633,13 +649,14 @@ fun TrendChart(
 
 /** [TrendChart] 범례 한 줄: 무엇이 실제 기록인지 글자로 (색만으로 구분하지 않는다). */
 @Composable
-fun TrendLegend(modifier: Modifier = Modifier, symptoms: Boolean = true, stops: Boolean = true, arrival: Boolean = true) {
+fun TrendLegend(modifier: Modifier = Modifier, symptoms: Boolean = true, stops: Boolean = true, arrival: Boolean = true, high: Boolean = false) {
     val c = Pause.colors
     val d = Pause.dimens
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(d.gapS), verticalAlignment = Alignment.CenterVertically) {
         LegendItem("최고") { Box(Modifier.size(d.u(10f)).clip(CircleShape).background(c.warning)) }
         if (arrival) LegendItem("도착 시점") { Box(Modifier.size(d.u(10f)).clip(CircleShape).background(c.navy)) }
-        if (symptoms) LegendItem("증상 기록") { Box(Modifier.width(d.u(3f)).height(d.u(14f)).background(c.warningInk)) }
+        if (high) LegendItem("흔들림 많은 구간") { Box(Modifier.size(d.u(14f)).clip(RoundedCornerShape(d.u(3f))).background(c.warning.copy(alpha = 0.35f))) }
+        if (symptoms) LegendItem("관찰 신고") { Box(Modifier.width(d.u(3f)).height(d.u(14f)).background(c.warningInk)) }
         if (stops) LegendItem("휴식") { Box(Modifier.size(d.u(14f)).clip(RoundedCornerShape(d.u(3f))).background(c.sub.copy(alpha = 0.2f))) }
     }
 }

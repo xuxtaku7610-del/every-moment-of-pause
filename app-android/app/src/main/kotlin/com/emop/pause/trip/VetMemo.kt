@@ -32,15 +32,19 @@ data class VetMemo(
             if (!m.include) Shared(emptyList(), null, null)
             else Shared(CHIPS.filter { it in m.chips }, m.text.trim().ifEmpty { null }, tripLine)
 
-        /** 이동 기록에서 한 줄: "이동 2시간 10분 · 멀미 주의 1회(최고 46) · 헐떡임 1회". 아직 움직이지 않았으면 null. */
+        /**
+         * 이동 기록에서 한 줄: "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회". 아직 움직이지 않았으면 null.
+         * 주행 자극은 차량 흔들림(반려견 측정 아님) — 관찰 신고(보호자 음성)와 따로 쓴다. [cautionCount]는 예전 호출과 맞추려고 남겨 둔다.
+         */
+        @Suppress("UNUSED_PARAMETER")
         fun tripLine(drivingMin: Int, cautionCount: Int, peak: Int, events: List<String>): String? {
             if (drivingMin <= 0) return null
             val h = drivingMin / 60
             val m = drivingMin % 60
             val time = if (h > 0) "${h}시간 ${m}분" else "${m}분"
-            val motion = if (cautionCount > 0) "멀미 주의 ${cautionCount}회(최고 $peak)" else "멀미 주의 없음"
             val ev = events.groupingBy { it }.eachCount().map { (k, n) -> "$k ${n}회" }
-            return (listOf("이동 $time", motion) + ev).joinToString(" · ")
+            val obs = if (ev.isEmpty()) "관찰 신고 없음" else "관찰 신고 " + ev.joinToString(", ")
+            return listOf("이동 $time", "주행 자극 최고 $peak", obs).joinToString(" · ")
         }
     }
 }

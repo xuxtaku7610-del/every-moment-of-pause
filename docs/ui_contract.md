@@ -100,11 +100,17 @@ flowchart TD
 - `DriveUi.nextCurve: String?`("3.4km", 구간 안이면 "지금") · `DriveUi.recentMotion: List<Int>`(최근 30분, 1분 간격).
 - `TripLogUi.limitLine`은 이제 이번 여행 값을 먼저 보는 한 줄(`PetTripLog.insight`), `warnings`는 1초 값 기준 주의 횟수.
 
-## 2026-10-31 이동 기록 v7 추가 (모두 기본값 있음, 저장 데이터·서버 API 변경 없음)
-- `TripLogUi.petName` — 상태 카드 제목 "오늘 콩이 상태".
-- `TripLogUi.status: PetStatusUi`(CHECKING·GOOD·CAUTION·ATTENTION) + `statusReason`("헐떡임 1번 · 멀미 주의 1번") — 판정 `UiMapper.petStatus`·`statusReason` (test_plan F7-06).
-- `TripLogUi.arrivalIndex: Int?` — "내렸어요" 때 엔진 멀미 지수(`TripRecorder.motionNow`, `SavedTrip.arrivalIndex`, 기기에 따로 저장하지 않음). 기록이 없으면 null.
-- `TripLogUi.marks: List<TrendMarkUi>` — 그래프 표시: `STOP`(휴식 시작 분·길이) · `SYMPTOM`(주행 중 증상 기록, 주행 분 → 정차 포함 분 `UiMapper.elapsedMin`) (F7-08).
-- `TripLogUi.vetRows: List<VetRowUi>` — 병원 공유 요약 표 (F7-09). `vetSummary`(문자열 목록)는 그대로 둔다.
-- `TripLogUi.motionSeries`는 기록이 없으면 빈 목록(전에는 `[0, 0]`으로 채웠다) — 그래프가 "기록이 아직 없어요"를 그린다.
-- `UiEvent.ToggleSymptom`: "괜찮았어요"를 고르면 다른 증상이 풀리고, 다른 증상을 고르면 "괜찮았어요"가 풀린다(`UiMapper.toggleSymptom`, F7-07). 저장되는 증상 메모 글자(`symptomNote`)는 그대로.
+## 2026-10-31 재정비 (v8, docs/states.md) — 계약을 바꿨다 (기본값 있음, 저장 데이터·서버 API는 그대로)
+원칙: 엔진 0~100 = **주행 자극**(차량 흔들림), 반려견 상태 = **관찰 상태**(음성 신고만). 주행 화면에 주행 자극 숫자가 없다. 문구는 [wording.md](wording.md).
+
+| 상태 | 바뀐 값 |
+| --- | --- |
+| `DriveUi` | 지움: `motion`, `roadAhead`, `nextCurve`, `recentMotion`. 새로: `guide: GuideUi?`(NaviHelper TBT 첫 항목 — 아이콘·거리·방면, 시뮬레이터 시연 안내는 `demo`), `remain`("194km · 2시간 33분"), `arrive`("오후 7:44"), `observation: ObservationUi`("관찰 기록 없음" / "신고 n건 · 마지막"), `nextStopFacilities`(확인된 반려견 시설만), `voiceHint` |
+| `DriveContent.Forecast` | `title`("3km 뒤 굽은 길 · 8분") + `coach`("천천히 가면 덜 흔들려요") + `level` + `basis`(근거 한 줄). 지움: `now`·`peak`·`series`·`startMin`·`durationMin`·`startM`. `line` = 제목 · 안내 |
+| `StimulusUi` (새 화면 `Screen.Stimulus`, `Route.STIMULUS`, `UiEvent.OpenStimulus`) | 정차 중 "주행 자극 보기": 지금·이번 여행 최고·최근 30분·앞길 예보·근거, 고정 문구 "차량 흔들림 기준 · 반려견 측정 아님" |
+| `RestUi` | 지움: `motion`. 새로: `observation`, `stimulusAvailable` |
+| `TripLogUi` (도착 후 리포트) | 다시 씀: `totalMin`·`distance`·`stops`·`reports`, `timeline: List<TimelineUi>`(START·STIMULUS·REPORT·REST·VET·ARRIVE, 출발 뒤 시각), `stimulusSeries`, `marks`(STOP·SYMPTOM·HIGH), `insight`, `summary`, `share: List<VetRowUi>`, `history`, `calibration`. 지움: v7 `status`·`symptoms`·`askMotion`·`arrivalIndex` 등 |
+| `VetUi.partner`, `VetsUi.preview` | 사전 접수는 제휴(시연용 가상) 병원만, 보내기 전 미리보기 |
+| `AppUiState.state: ServiceState`(8개), `demoData` | 발표 모드 상태 번호, 앱 바 "시연 데이터" |
+| `UiEvent` | 지움: `ToggleSymptom`, `AnswerMotion`(+ `MotionAnswerUi`). 새로: `OpenStimulus`, `ShareReport` |
+| `MotionTone` 글자 | 낮음 / 보통 / 높음 (40·70) |

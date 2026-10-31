@@ -42,4 +42,16 @@ class MotionCalibrationTest {
         assertEquals("조금 높음", MotionCalibration.label(1.15))
         assertEquals("낮음", MotionCalibration.label(0.7))
     }
+
+    @Test
+    fun `F7-05b 신고 없음(괜찮았음)은 신고의 절반 이하 가중치로만 반영`() {
+        assertTrue(MotionCalibration.QUIET_WEIGHT <= 0.5, "가중치 ${MotionCalibration.QUIET_WEIGHT}")
+        val base = many(3, 70, MotionAnswer.YES)
+        val full = MotionCalibration.scale(base + CalibrationSample(70, MotionAnswer.NO))
+        val quiet = MotionCalibration.scale(base + CalibrationSample(70, MotionAnswer.NO, MotionCalibration.QUIET_WEIGHT))
+        val before = MotionCalibration.scale(base)
+        // 같은 "아니요"라도 신고 없음은 덜 내린다 — 내린 폭이 절반 이하
+        assertTrue(quiet < before && quiet > full, "before=$before quiet=$quiet full=$full")
+        assertTrue(kotlin.math.ln(before / quiet) <= 0.5 * kotlin.math.ln(before / full) + 1e-9)
+    }
 }

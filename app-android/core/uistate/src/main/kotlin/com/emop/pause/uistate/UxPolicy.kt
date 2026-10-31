@@ -35,7 +35,8 @@ object UxPolicy {
             toast = shorten(ui.toast, m),
             content = when (val c = ui.content) {
                 is DriveContent.Calm -> c.copy(line = shorten(c.line, m)!!)
-                is DriveContent.Forecast -> c.copy(line = shorten(c.line, m)!!, title = shorten(c.title, m), coach = null)
+                // 문자열 제한: 제목(거리·시간)은 줄이고, 운전 안내는 제한 안이면 그대로(넘으면 뺀다 — 음성으로는 그대로 말한다)
+                is DriveContent.Forecast -> c.copy(title = shorten(c.title, m)!!, coach = c.coach.takeIf { it.length <= m }.orEmpty())
                 is DriveContent.Suggest -> c.copy(reasons = c.reasons.take(1))
                 is DriveContent.Heading, is DriveContent.Vet -> c
                 is DriveContent.Distress -> c.copy(line = shorten(c.line, m)!!)

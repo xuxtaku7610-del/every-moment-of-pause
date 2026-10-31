@@ -6,7 +6,11 @@ package com.emop.pause.uistate
  * 화면은 엔진을 모르고, 사용자 동작은 [UiEvent]로만 돌려보낸다. 디자인(v5)이 오면 화면(Compose)만 갈아 끼운다.
  */
 
-/** 멀미 예보 단계 (화면 색·아이콘). 의학적 진단이 아닌 "주의 예보". */
+/**
+ * 주행 자극 단계 (화면 색·아이콘): 낮음 · 보통(40) · 높음(70). 엔진 값은 **차량 흔들림 누적량**(ISO 2631-1 단순화)이지
+ * 반려견 몸을 잰 값이 아니다 (2026-10-31 재정비) — 반려견 상태는 [ObservationUi](보호자 음성 신고)로만 말하고 둘을 섞지 않는다.
+ * 주행 화면에는 숫자를 보이지 않는다(정차 중 "주행 자극 보기"·도착 리포트·발표 비교에서만).
+ */
 enum class MotionTone { CALM, CAUTION, HIGH }
 
 fun motionTone(index: Int): MotionTone = when {
@@ -16,13 +20,29 @@ fun motionTone(index: Int): MotionTone = when {
 }
 
 fun motionLabel(t: MotionTone) = when (t) {
-    MotionTone.CALM -> "편안"
-    MotionTone.CAUTION -> "주의"
+    MotionTone.CALM -> "낮음"
+    MotionTone.CAUTION -> "보통"
     MotionTone.HIGH -> "높음"
 }
 
-/** "콩이 멀미 주의 45". */
+/** 주행 자극 "주행 자극 보통 45" (정차 중·리포트·발표 비교에서만). */
 data class MotionUi(val index: Int, val tone: MotionTone, val label: String)
+
+/**
+ * 콩이 관찰 상태 (재정비 원칙 1): 보호자가 음성으로 신고한 증상만으로 정한다. 신고가 없으면 [line] = "관찰 기록 없음"
+ * ("양호"라고 쓰지 않는다). 주행 자극과 섞지 않고, 진단·확률 표현을 쓰지 않는다.
+ */
+data class ObservationUi(
+    /** "관찰 기록 없음" / "신고 2건 · 마지막 헐떡임(출발 39분 뒤)". */
+    val line: String,
+    val count: Int = 0,
+)
+
+/** 다음 길 안내 아이콘 (NaviHelper TBT 종류를 줄인 것). */
+enum class GuideIconUi { LEFT, RIGHT, KEEP_LEFT, KEEP_RIGHT, UTURN, STRAIGHT, ROUNDABOUT, TOLL, REST_AREA, ARRIVE, OTHER }
+
+/** 다음 길 안내 카드: "80m · 기업지원허브 방면". [demo]면 시뮬레이터에서 만든 안내(화면에 "시연" 표시). */
+data class GuideUi(val icon: GuideIconUi, val distance: String, val towards: String?, val demo: Boolean = false)
 
 // ───────────── 주행 (F1·F2, 주행 중 제한: 텍스트 2줄·버튼 2개·스크롤 없음) ─────────────
 
@@ -31,25 +51,21 @@ sealed interface DriveContent {
     data class Calm(val line: String) : DriveContent
 
     /**
-     * 멀미 예보 ("3km 뒤 굽은 길 8분, 콩이 멀미 주의 — 조금 일찍 감속해 주세요"). 버튼 없음.
-     * v5 화면은 [title] 1줄 + [coach] 1줄 + 정지된 그래프([now] → [peak], 20분)로 그린다. 둘이 없으면 [line].
+     * 주행 자극 예보 (상태 3): 경고 **한 줄**만 — "3km 뒤 굽은 길 · 12분" + "천천히 가면 덜 흔들려요". 숫자·그래프 없음, 버튼 없음.
+     * [level]은 예보 단계(색·아이콘). 근거(경로 형상·속도)는 [basis]로 한 줄 (정차 중 "주행 자극 보기"에서 보인다).
      */
     data class Forecast(
-        val line: String,
-        val title: String? = null,
-        val coach: String? = null,
-        val now: Int? = null,
-        val peak: Int? = null,
-        /** v6 그래프 (엔진 값): 굽은 길 시작까지 분·굽은 길 지속 분·시작까지 m. 모르면 null → 그래프 없이 수치만. */
-        val startMin: Int? = null,
-        val durationMin: Int? = null,
-        val startM: Int? = null,
-        /** 엔진 예측 곡선: 지금부터 1분 간격 예상 지수 (0번 = 지금, 최대 21개). 그래프는 이 점만 잇는다. */
-        val series: List<Int> = emptyList(),
-    ) : DriveContent
+        val title: String,
+        val coach: String,
+        val level: MotionTone = MotionTone.CAUTION,
+        val basis: String? = null,
+    ) : DriveContent {
+        /** 음성·제한 화면 한 줄. */
+        val line: String get() = if (coach.isBlank()) title else "$title · $coach"
+    }
 
     /**
-     * 쉼표 추천. [reasons]는 실제 기여 상위 1~2개 ("콩이 멀미가 쌓였어요", "반려견 놀이터").
+     * 쉼표 추천. [reasons]는 실제 기여 상위 1~2개 ("흔들리는 길을 오래 달렸어요", "반려견 놀이터") — 확인된 시설만.
      * 버튼 2개(여기서 쉴게요·나중에) + 음성 힌트. [urgent](운전자 피로 위험)면 거절 버튼 없이 1개.
      */
     data class Suggest(
@@ -77,10 +93,13 @@ sealed interface DriveContent {
     data class Distress(val line: String, val target: String?, val minutes: Int?, val vet: Boolean = false) : DriveContent
 }
 
+/**
+ * 일반 주행 (상태 2, 분할 창 1/3·1/2가 기본): 다음 회전·남은 거리·도착(NaviHelper 실제 값) / 다음 쉼표 / 콩이 관찰 상태 한 줄 / 음성 힌트.
+ * 주행 자극 숫자·그래프·도로 그림은 없다(재정비 원칙 2·4). 값이 없으면 그 줄을 숨긴다.
+ */
 data class DriveUi(
     /** "강릉까지 1시간 10분". */
     val meta: String?,
-    val motion: MotionUi?,
     val content: DriveContent,
     val voice: VoiceSheetState? = null,
     /** 결과 한 줄 ("경로에 횡성휴게소를 넣었어요"). */
@@ -95,15 +114,21 @@ data class DriveUi(
     val sinceRest: String? = null,
     /** "약 72km" — 다음 쉼표까지 (계획이 없으면 null). */
     val nextStop: String? = null,
-    /** v6 상태 패널: 다음 쉼표 이름·남은 분 (계획이 없으면 null). */
+    /** 다음 쉼표 이름·남은 분 (계획이 없으면 null). */
     val nextStopName: String? = null,
     val nextStopMin: Int? = null,
-    /** 앞 1km 경로 곡률(1/m, 50m 간격, 왼쪽 +). 도로 일러스트가 휘는 정도 — 없으면 곧은 길. */
-    val roadAhead: List<Float> = emptyList(),
-    /** 다음 굽은 길까지 거리 ("3.2km", 형상이 없으면 null) — 상태 패널 빈자리 대신 (엔진 값). */
-    val nextCurve: String? = null,
-    /** 최근 30분 멀미 지수 (1분 간격, 엔진 값). 2점 미만이면 그래프 없음. */
-    val recentMotion: List<Int> = emptyList(),
+    /** 다음 쉼표의 **확인된** 반려견 시설 ("반려견 놀이터"). 확인 안 된 시설은 넣지 않는다. */
+    val nextStopFacilities: List<String> = emptyList(),
+    /** 다음 길 안내 (NaviHelper TBT 첫 항목, 시뮬레이터는 시연 안내). 없으면 카드를 숨긴다. */
+    val guide: GuideUi? = null,
+    /** 목적지까지 "194km · 2시간 33분" (NaviHelper remainDistance·remainTime). */
+    val remain: String? = null,
+    /** 도착 예정 "오후 7:44". */
+    val arrive: String? = null,
+    /** 콩이 관찰 상태 한 줄 (음성 신고만). */
+    val observation: ObservationUi = ObservationUi("관찰 기록 없음"),
+    /** 음성 힌트 한 줄 ("“콩이 토했어”라고 말하면 기록해요"). */
+    val voiceHint: String? = null,
 )
 
 enum class VoiceSheetState { LISTENING, FAILED }
@@ -114,7 +139,7 @@ enum class CheckKind { HARNESS, WATER, POTTY_BAGS }
 
 data class CheckUi(val kind: CheckKind, val label: String, val checked: Boolean)
 
-/** "콩이 · 소형 · 9살 · 멀미 성향 높음". */
+/** "콩이 · 소형 · 9살 · 흔들림에 예민한 편(보호자 응답)". */
 data class PetSummaryUi(val name: String, val line: String, val sample: Boolean = false)
 
 data class PlanStopUi(val name: String, val facilities: String, val eta: String)
@@ -127,7 +152,7 @@ data class DepartUi(
     val ready: Boolean,
     val plan: List<PlanStopUi>,
     val rationale: String,
-    /** "콩이는 약 1시간 10분이 한계예요" (이동 기록이 있을 때). */
+    /** "지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요" (이동 기록이 있을 때). */
     val limitLine: String? = null,
     /** "서울 → 강릉" (경로가 있을 때). */
     val route: String? = null,
@@ -154,7 +179,6 @@ data class RestUi(
     /** 충전이 아닌 정차: 사용자가 10/15/20분 고름. */
     val restChoice: Int?,
     val activities: List<ActivityUi>,
-    val motion: MotionUi?,
     /** "잠깐 다녀올게" 제한 시간 (기본 10분). */
     val waitLimitMin: Int,
     val battery: String? = null,
@@ -162,7 +186,31 @@ data class RestUi(
     val care: CareUi? = null,
     /** 정차 중 "콩이가 이상해요" 고르기. */
     val distressChips: List<String> = emptyList(),
+    /** 콩이 관찰 상태 한 줄 (음성 신고만). */
+    val observation: ObservationUi = ObservationUi("관찰 기록 없음"),
+    /** "주행 자극 보기" 버튼 (기록이 있을 때만). */
+    val stimulusAvailable: Boolean = false,
 )
+
+/**
+ * 정차 중 "주행 자극 보기" (재정비 원칙 2): 주행 자극 숫자·그래프를 보는 유일한 정차 화면.
+ * 고정 문구 "차량 흔들림 기준 · 반려견 측정 아님". 값은 엔진 값만.
+ */
+data class StimulusUi(
+    /** 지금 주행 자극. 기록이 없으면 null. */
+    val now: MotionUi?,
+    /** 최근 30분 (1분 간격). */
+    val recent: List<Int>,
+    /** 이번 여행 최고. */
+    val peak: Int?,
+    /** 다음 굽은 길 예보 한 줄 ("3.4km 뒤 굽은 길 · 12분 — 천천히 가면 덜 흔들려요"), 없으면 null. */
+    val forecast: String? = null,
+    /** 예보 근거 한 줄 ("경로 형상: 시연 경로 (OSM GPX) · 속도 기준"). */
+    val basis: String? = null,
+    val note: String = STIMULUS_NOTE,
+)
+
+const val STIMULUS_NOTE = "차량 흔들림 기준 · 반려견 측정 아님"
 
 // ───────────── 잠깐 대기 (F3, 차 화면 = 바깥 사람용 안내) ─────────────
 
@@ -234,6 +282,8 @@ data class VetUi(
     val minutes: Int? = null,
     /** 인허가 상태 "영업 중"(실데이터만). 영업시간·24시는 데이터에 없어 쓰지 않는다. */
     val status: String? = null,
+    /** 사전 접수 제휴 병원 (시연용 가상 병원만). 아니면 전화·도착 예정 링크만. */
+    val partner: Boolean = false,
 )
 
 data class VetsUi(
@@ -250,10 +300,12 @@ data class VetsUi(
     val memoInclude: Boolean = false,
     /** 음성 메모를 듣는 중. */
     val memoListening: Boolean = false,
-    /** 오늘 이동 한 줄 요약 (공유에 함께 붙는다): "이동 2시간 10분 · 멀미 주의 1회(최고 46)". */
+    /** 오늘 이동 한 줄 요약 (공유에 함께 붙는다): "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회". */
     val tripLine: String? = null,
     /** 병원 사전 접수 (UPGRADE 3): 만들었으면 접수함 링크·상태. */
     val intake: IntakeUi? = null,
+    /** 보내기 전에 보여 줄 내용 (전달 동의, 상태 7): 반려견·관찰 신고·메모·오늘 요약·도착 예정. */
+    val preview: List<VetRowUi> = emptyList(),
 )
 
 /**
@@ -283,55 +335,47 @@ data class ArrivalUi(
     val cabin: String? = null,
 )
 
+/**
+ * 도착 후 기록 리포트 (상태 8, 기존 이동 기록 대체). 주인공은 **시간순 타임라인** — 출발 → 주행 자극 높은 구간 → 관찰 신고 → 휴식 →
+ * 병원 이동 → 도착. 데이터가 없는 줄은 빼고 지어내지 않는다. 경로선은 그리지 않는다(위치를 남기지 않음, 사용자 결정 10/31 안 A).
+ */
 data class TripLogUi(
     val meta: String?,
-    val summary: String,
-    val durationMin: Int,
+    val petName: String = "",
+    /** 요약 한 줄 수치: 총 이동 시간(분, 정차 포함) · 거리("194km", 모르면 null) · 휴식 횟수 · 관찰 신고 횟수. */
+    val totalMin: Int,
+    val distance: String?,
     val stops: Int,
-    val motionPeak: Int,
-    /** 멀미 지수 흐름(0~100, 5분 간격). */
-    val motionSeries: List<Int>,
-    val limitLine: String,
-    /** 동물병원에 보여 줄 요약 줄 (F7-03). */
-    val vetSummary: List<String>,
-    /** 증상 고르기(키보드 없이). */
-    val symptoms: List<SymptomUi>,
-    /** 멀미 주의(40↑)에 들어간 횟수. */
-    val warnings: Int = 0,
+    val reports: Int,
+    /** 시간순 타임라인. */
+    val timeline: List<TimelineUi>,
+    /** 주행 자극 흐름(0~100, 5분 간격, 각 점 = 그 5분 최고). 기록이 없으면 빈 목록. */
+    val stimulusSeries: List<Int>,
+    /** 그래프 표시: 타임라인 항목 위치(휴식·신고·높은 구간). */
+    val marks: List<TrendMarkUi> = emptyList(),
+    /** 이번 여행 한 줄 ("이번엔 출발 2시간 14분 뒤 주행 자극이 보통 이상이 됐어요."). */
+    val insight: String? = null,
+    /** 기록 요약 문장 (LLM·템플릿, F7-04). */
+    val summary: String = "",
+    /** "병원에 공유" — 관찰 신고·시각·주행 요약 (값이 있는 줄만). */
+    val share: List<VetRowUi> = emptyList(),
     /** 이전 기록 (최근 순, 최대 3). */
     val history: List<HistoryUi> = emptyList(),
-    /** 도착 뒤 한 번만: "오늘 콩이 멀미했어요?" (답하거나 건너뛰면 null). */
-    val askMotion: String? = null,
-    /** 오늘 증상 기록 한 줄: "오늘 헐떡임 1회(출발 10분 뒤)". */
-    val events: String? = null,
-    /** 개인 보정 한 줄 (UPGRADE 4): 답한 뒤 "콩이 맞춤 정도: 기록 4회, 민감도 보통 → 조금 높음". */
+    /** 개인 보정 한 줄 ("콩이 맞춤 정도: 기록 4회, 민감도 보통 → 높음") — 신고에서 자동으로 쌓인다. */
     val calibration: String? = null,
-    /** 상태 카드 제목 "오늘 콩이 상태". */
-    val petName: String = "",
-    /** 오늘 상태 (v7, 판정 규칙 UiMapper.petStatus). 기록이 없으면 확인 중. */
-    val status: PetStatusUi = PetStatusUi.CHECKING,
-    /** 상태 근거 한 줄: "헐떡임 1번 · 멀미 주의 1번". */
-    val statusReason: String? = null,
-    /** 도착 시점 멀미 지수 ("내렸어요" 때 엔진 값). 기록이 없으면 null. */
-    val arrivalIndex: Int? = null,
-    /** 그래프 표시: 휴식 구간·주행 중 증상 기록 (출발 뒤 분, 그래프 가로축과 같은 시계). */
-    val marks: List<TrendMarkUi> = emptyList(),
-    /** 병원 공유 요약 표 (값이 없는 줄은 뺀다). */
-    val vetRows: List<VetRowUi> = emptyList(),
 )
 
-/** 이동 기록 상태 4단계. 색은 상태마다 하나(초록·앰버·빨강·회색)이고 항상 아이콘·글자와 함께 쓴다. */
-enum class PetStatusUi { CHECKING, GOOD, CAUTION, ATTENTION }
+enum class TimelineKind { START, STIMULUS, REPORT, REST, VET, ARRIVE }
 
-enum class TrendMarkKind { STOP, SYMPTOM }
+/** 타임라인 한 줄: [time]은 출발 뒤 "2:14", [minute]은 출발 뒤 분(그래프 위치). */
+data class TimelineUi(val kind: TimelineKind, val time: String, val title: String, val detail: String? = null, val minute: Int = 0)
 
-/** 그래프 표시 하나. [minute]은 출발 뒤 분(정차 포함), [lengthMin]은 휴식 구간 길이. */
+enum class TrendMarkKind { STOP, SYMPTOM, HIGH }
+
+/** 그래프 표시 하나. [minute]은 출발 뒤 분(정차 포함), [lengthMin]은 휴식·높은 구간 길이. */
 data class TrendMarkUi(val kind: TrendMarkKind, val minute: Int, val label: String, val lengthMin: Int = 0)
 
 data class VetRowUi(val key: String, val value: String)
-
-/** "오늘 멀미했어요?" 답. 건너뛰기는 기록하지 않는다. */
-enum class MotionAnswerUi { YES, LITTLE, NO }
 
 data class HistoryUi(val date: String, val line: String)
 
@@ -360,19 +404,19 @@ data class PetEditUi(
 
 data class SignalRowUi(val name: String, val inUse: Boolean, val source: String? = null)
 
-// ───────────── 온보딩 3단계 (11번): 반려견 프로필 → 차량 연동 → 멀미 민감도 진단 ─────────────
+// ───────────── 온보딩 3단계 (11번): 반려견 프로필 → 차량 연동 → 흔들림에 예민한 정도(보호자 응답) ─────────────
 
 data class QuizUi(val question: String, val options: List<String>, val selected: Int?)
 
 data class OnboardingUi(
-    /** 1 프로필 · 2 차량 연동 · 3 멀미 민감도. */
+    /** 1 프로필 · 2 차량 연동 · 3 흔들림에 예민한 정도(보호자 응답). */
     val step: Int,
     val pet: PetEditUi,
     /** 2단계: 이 차에서 확인한 신호. */
     val signals: List<SignalRowUi>,
     /** 3단계: 질문 3개. */
     val quiz: List<QuizUi>,
-    /** 3개 다 답하면 결과(멀미 성향). */
+    /** 3개 다 답하면 결과(흔들림에 예민한 정도 — 보호자 응답이지 측정·진단이 아니다). */
     val result: TendencyUi?,
 ) {
     val canNext: Boolean get() = when (step) {

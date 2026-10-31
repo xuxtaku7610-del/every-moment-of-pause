@@ -15,7 +15,9 @@ import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
 import android.content.Context
 import android.util.Log
 import com.emop.pause.core.model.EtaInfo
+import com.emop.pause.core.model.GuideIcon
 import com.emop.pause.core.model.LatLng
+import com.emop.pause.core.model.NextGuide
 import com.emop.pause.core.model.RouteInfo
 import com.emop.pause.core.model.RouteTurn
 import com.emop.pause.core.model.TurnKind
@@ -38,6 +40,7 @@ class PleosNaviSource(context: Context) : NaviSource {
     private val etaState = MutableStateFlow<EtaInfo?>(null)
     private val headingState = MutableStateFlow<Double?>(null)
     private val turnsState = MutableStateFlow<List<RouteTurn>>(emptyList())
+    private val guideState = MutableStateFlow<NextGuide?>(null)
     private var currentLocation: LatLng? = null
     private var routeDistanceM: Int = 0
     private var pendingWaypoint: CompletableDeferred<Result<Unit>>? = null
@@ -52,6 +55,7 @@ class PleosNaviSource(context: Context) : NaviSource {
         override fun onRouteEnded() {
             routeState.value = null
             etaState.value = null
+            guideState.value = null
         }
 
         @Suppress("OVERRIDE_DEPRECATION")
@@ -68,6 +72,8 @@ class PleosNaviSource(context: Context) : NaviSource {
         override fun onTBTInfo(tbtInfoList: List<TBTInfo>) {
             // distance는 앞 안내 지점부터의 구간 거리 → 누적해서 현재 위치 기준으로 (에뮬레이터 확인 10/30)
             turnsState.value = RouteTurn.fromSegments(tbtInfoList.map { t -> turnKind(t.type) to t.distance })
+            // 주행 화면 "다음 회전" 카드: 목록 첫 항목 그대로 (첫 구간 거리 = 지금 위치에서 그 지점까지)
+            guideState.value = tbtInfoList.firstOrNull()?.let { t -> NextGuide(guideIcon(t.type), t.distance, t.description.orEmpty()) }
             // 실차·에뮬레이터 확인용: 건수와 앞 3개의 종류·거리만 (위치는 남기지 않는다)
             Log.i(TAG, "onTBTInfo n=${tbtInfoList.size} " + tbtInfoList.take(3).joinToString { "${it.type}@${it.distance.toInt()}m" })
         }
@@ -147,6 +153,7 @@ class PleosNaviSource(context: Context) : NaviSource {
     override fun eta(): Flow<EtaInfo?> = etaState
     override fun heading(): Flow<Double?> = headingState
     override fun turns(): Flow<List<RouteTurn>> = turnsState
+    override fun guide(): Flow<NextGuide?> = guideState
 
     override suspend fun addWaypoint(lat: Double, lng: Double, name: String): Result<Unit> {
         val done = CompletableDeferred<Result<Unit>>()
@@ -191,4 +198,26 @@ internal fun turnKind(t: TurnType): TurnKind? = when (t) {
     // TURN_TOLL·TURN_ENTER_SERVICEAREA·TURN_SERVICE_AREA·TURN_RESTAREA·TURN_REST_AREA·TURN_ARRIVE 등(에뮬레이터에서 실제로 옴)은
     // 굽이가 아니라 null — 거리는 RouteTurn.fromSegments에서 누적에만 쓴다.
     else -> null
+}
+
+/**
+ * 안내 아이콘: 굽이 종류는 [turnKind]와 같은 확인된 상수로, 굽이가 아닌 안내는 상수 이름으로 고른다
+ * (TURN_TOLL·TURN_SERVICE_AREA·TURN_REST_AREA·TURN_ARRIVE 등 — 에뮬레이터에서 온 이름, 상수를 코드에 직접 쓰지 않는다).
+ */
+internal fun guideIcon(t: TurnType): GuideIcon = when (turnKind(t)) {
+    TurnKind.LEFT, TurnKind.SHARP_LEFT, TurnKind.RAMP_LEFT -> GuideIcon.LEFT
+    TurnKind.RIGHT, TurnKind.SHARP_RIGHT, TurnKind.RAMP_RIGHT -> GuideIcon.RIGHT
+    TurnKind.KEEP_LEFT -> GuideIcon.KEEP_LEFT
+    TurnKind.KEEP_RIGHT -> GuideIcon.KEEP_RIGHT
+    TurnKind.UTURN -> GuideIcon.UTURN
+    TurnKind.ROUNDABOUT -> GuideIcon.ROUNDABOUT
+    TurnKind.STRAIGHT -> GuideIcon.STRAIGHT
+    null -> t.name.let { n ->
+        when {
+            "TOLL" in n -> GuideIcon.TOLL
+            "SERVICE" in n || "REST" in n -> GuideIcon.REST_AREA
+            "ARRIVE" in n || "DESTINATION" in n -> GuideIcon.ARRIVE
+            else -> GuideIcon.OTHER
+        }
+    }
 }

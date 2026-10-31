@@ -41,9 +41,9 @@ object DrivingRules {
             is DriveContent.Calm -> block("안내", c.line)
             is DriveContent.Forecast -> {
                 block("예보", c.line)
-                // v5: 제목 1줄 + 코칭 1줄 (한 줄 ≈ 24자)
-                if ((c.title?.length ?: 0) > MAX_LINE_CHARS) add("예보 제목 ${c.title!!.length}자 > $MAX_LINE_CHARS: ${c.title}")
-                if ((c.coach?.length ?: 0) > MAX_LINE_CHARS) add("코칭 ${c.coach!!.length}자 > $MAX_LINE_CHARS: ${c.coach}")
+                // 제목 1줄 + 운전 안내 1줄 (한 줄 ≈ 24자). 숫자 지수는 넣지 않는다(재정비 원칙 2).
+                if (c.title.length > MAX_LINE_CHARS) add("예보 제목 ${c.title.length}자 > $MAX_LINE_CHARS: ${c.title}")
+                if (c.coach.length > MAX_LINE_CHARS) add("운전 안내 ${c.coach.length}자 > $MAX_LINE_CHARS: ${c.coach}")
             }
             is DriveContent.Vet -> {
                 place(c.name)
@@ -61,6 +61,7 @@ object DrivingRules {
             is DriveContent.Heading -> place(c.place)
         }
         block("결과", ui.toast)
-        block("멀미", ui.motion?.label)
+        block("관찰 상태", ui.observation.line)
+        ui.guide?.towards?.let { block("길 안내", it) }
     }
 }
