@@ -131,6 +131,7 @@ class MainActivity : ComponentActivity() {
         if (intent.hasExtra("guidance")) viewModel.setGuidanceMode(intent.getBooleanExtra("guidance", false))
         if (intent.hasExtra("cabin")) viewModel.setDemoCabin(intent.getIntExtra("cabin", 0).toFloat())
         intent.getStringExtra("shareBase")?.let(viewModel::setShareBase)
+        intent.getStringExtra("calib")?.let(viewModel::seedCalibration)
         when (intent.getStringExtra("onboard")) {
             "done" -> viewModel.skipProfile()
             "reset" -> viewModel.deleteData()

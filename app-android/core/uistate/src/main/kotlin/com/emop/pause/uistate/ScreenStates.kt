@@ -40,6 +40,10 @@ sealed interface DriveContent {
         val coach: String? = null,
         val now: Int? = null,
         val peak: Int? = null,
+        /** v6 그래프 (엔진 값): 굽은 길 시작까지 분·굽은 길 지속 분·시작까지 m. 모르면 null → 그래프 없이 수치만. */
+        val startMin: Int? = null,
+        val durationMin: Int? = null,
+        val startM: Int? = null,
     ) : DriveContent
 
     /**
@@ -61,7 +65,8 @@ sealed interface DriveContent {
     data class Heading(val minutes: Int, val place: String) : DriveContent
 
     /** 동물병원 가는 길 (주행 중엔 1순위 한 곳 2줄만, 목록·가이드·메모는 정차 중). 버튼 없음. */
-    data class Vet(val name: String, val distance: String, val minutes: Int?) : DriveContent
+    /** [clinic]: 병원 사전 접수 상태 한 줄(24자 이하, UPGRADE 3) — "병원: 도착하면 바로 봐요". */
+    data class Vet(val name: String, val distance: String, val minutes: Int?, val clinic: String? = null) : DriveContent
 
     /**
      * "콩이가 이상해요" (UPGRADE 7): 안내 2줄 이하([line]) + 버튼 2개(정차 장소·병원으로 / 괜찮아졌어요) + 고정 하단 문구.
@@ -88,6 +93,9 @@ data class DriveUi(
     val sinceRest: String? = null,
     /** "약 72km" — 다음 쉼표까지 (계획이 없으면 null). */
     val nextStop: String? = null,
+    /** v6 상태 패널: 다음 쉼표 이름·남은 분 (계획이 없으면 null). */
+    val nextStopName: String? = null,
+    val nextStopMin: Int? = null,
     /** 앞 1km 경로 곡률(1/m, 50m 간격, 왼쪽 +). 도로 일러스트가 휘는 정도 — 없으면 곧은 길. */
     val roadAhead: List<Float> = emptyList(),
 )
@@ -238,6 +246,22 @@ data class VetsUi(
     val memoListening: Boolean = false,
     /** 오늘 이동 한 줄 요약 (공유에 함께 붙는다): "이동 2시간 10분 · 멀미 주의 1회(최고 46)". */
     val tripLine: String? = null,
+    /** 병원 사전 접수 (UPGRADE 3): 만들었으면 접수함 링크·상태. */
+    val intake: IntakeUi? = null,
+)
+
+/**
+ * 병원 사전 접수 (UPGRADE 3, F5-07~10). [clinicUrl]은 병원 접수함(보호자가 직접 전달), [status]는 한 줄 상태
+ * ("병원: 도착하면 바로 볼게요 · 9분 뒤 도착"). [busy]면 병원이 어렵다고 답한 것 → 다른 병원 고르기를 앞에.
+ */
+data class IntakeUi(
+    val vetName: String,
+    val clinicUrl: String,
+    val status: String,
+    val etaMinutes: Int,
+    val replied: Boolean = false,
+    val busy: Boolean = false,
+    val arrived: Boolean = false,
 )
 
 // ───────────── 도착 체크·이동 기록 (F6·F7) ─────────────
@@ -274,6 +298,8 @@ data class TripLogUi(
     val askMotion: String? = null,
     /** 오늘 증상 기록 한 줄: "오늘 헐떡임 1회(출발 10분 뒤)". */
     val events: String? = null,
+    /** 개인 보정 한 줄 (UPGRADE 4): 답한 뒤 "콩이 맞춤 정도: 기록 4회, 민감도 보통 → 조금 높음". */
+    val calibration: String? = null,
 )
 
 /** "오늘 멀미했어요?" 답. 건너뛰기는 기록하지 않는다. */

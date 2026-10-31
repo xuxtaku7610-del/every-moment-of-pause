@@ -1,43 +1,48 @@
-"""보호자 폰 페이지 공통 틀 (6번 화면, docs/design/v5/STYLE_V5.md). 390×844 모바일 기준, 외부 글꼴·스크립트 없음.
+"""보호자 폰·병원 접수함 페이지 공통 틀 (docs/design/v6/STYLE_V6.md §8). 390×844 모바일 기준, 외부 글꼴·스크립트 없음.
 
-색은 v5 토큰(라이트·다크)을 그대로 쓴다: 파랑 = 주 버튼, 앰버 = 경고에만, 민트 = 편안에만.
+색은 앱과 같은 v6 토큰(라이트·다크): 파랑 = 주 버튼, 앰버 = 경고에만, 초록 = 편안·완료에만.
 반려견 사진은 서버로 보내지 않으므로 페이지는 직접 그린 SVG 일러스트를 쓴다.
 """
 import html
 
 CSS = """
-:root{--primary:#286FE5;--on-primary:#fff;--bg:#F4F5F7;--surface:#fff;--text:#1A2430;--sub:#667384;--border:#D6DBE2;
---warning:#F59E0B;--warning-ink:#A85C10;--warning-soft:#FDE8CC;--comfort:#137A60;--comfort-soft:#DDF3EC;--disabled:#AEB6C2}
-@media (prefers-color-scheme:dark){:root{--primary:#69A9FF;--on-primary:#10151D;--bg:#10151D;--surface:#19212D;--text:#F4F6F8;
---sub:#AAB5C3;--border:#3B4757;--warning:#F4A344;--warning-ink:#F4A344;--warning-soft:#3A2A17;--comfort:#59C9A5;--comfort-soft:#173A33;--disabled:#5A6677}}
+:root{--primary:#3478E5;--on-primary:#fff;--bg:#F5F6F8;--surface:#fff;--text:#182230;--sub:#687586;--border:#DFE4EA;
+--warning:#E99532;--warning-ink:#9A5A10;--warning-soft:#FCF1E3;--comfort:#16866C;--comfort-soft:#E4F2EE;--disabled:#B9C2CD;--navy:#1C3150}
+@media (prefers-color-scheme:dark){:root{--primary:#5E97F0;--on-primary:#0E1420;--bg:#0F141B;--surface:#171E27;--text:#EEF2F6;
+--sub:#9AA7B6;--border:#2B3542;--warning:#F0A54B;--warning-ink:#F0A54B;--warning-soft:#33261A;--comfort:#3FB394;--comfort-soft:#15302A;--disabled:#4F5B6A;--navy:#A9BCD8}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
 line-height:1.5;-webkit-text-size-adjust:100%}
-main{max-width:430px;margin:0 auto;padding:16px 24px 32px}
+main{max-width:430px;margin:0 auto;padding:12px 16px 32px}
 header{display:flex;align-items:center;gap:8px;height:56px;font-size:20px;font-weight:600}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-top:12px}
 .hero{text-align:center}
 .avatar{width:112px;height:112px;border-radius:50%;overflow:hidden;margin:4px auto 12px;display:block}
-.title{font-size:20px;font-weight:600;margin:0}
-.big{font-size:44px;font-weight:700;line-height:52px;margin:4px 0 0;font-variant-numeric:tabular-nums}
+.title{font-size:20px;font-weight:600;margin:0;word-break:keep-all}
+.big{font-size:40px;font-weight:700;line-height:48px;margin:4px 0 0;font-variant-numeric:tabular-nums;word-break:keep-all}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:12px;margin-top:16px}
 .tile{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 12px;text-align:center}
 .tile .label{font-size:14px;color:var(--sub);font-weight:500}
 .tile .value{font-size:28px;font-weight:700;line-height:36px;font-variant-numeric:tabular-nums}
-.btn{display:block;width:100%;min-height:56px;border:0;border-radius:12px;background:var(--primary);color:var(--on-primary);
+.btn{display:block;width:100%;min-height:56px;border:0;border-radius:12px;word-break:keep-all;background:var(--primary);color:var(--on-primary);
 font:inherit;font-size:16px;font-weight:600;margin-top:16px;cursor:pointer}
 .btn[disabled]{background:var(--disabled);color:var(--surface)}
-.banner{background:var(--warning-soft);color:var(--text);border-radius:16px;padding:16px 20px;margin-top:16px}
-.banner b{color:var(--warning-ink);display:block;font-size:20px;margin-bottom:4px}
+.banner{background:var(--warning-soft);color:var(--text);border-radius:14px;border-left:6px solid var(--warning);padding:14px 18px;margin-top:12px}
+.banner b{color:var(--warning-ink);display:block;font-size:18px;margin-bottom:2px}
 .ok{background:var(--comfort-soft);color:var(--comfort);border-radius:12px;padding:12px 16px;margin-top:16px;font-weight:600;text-align:center}
 .note{font-size:14px;color:var(--sub);margin-top:20px}
-.row{display:flex;justify-content:space-between;gap:12px;font-size:16px;padding:6px 0}
-.row span:first-child{color:var(--sub)}
+.row{display:flex;justify-content:space-between;gap:16px;font-size:16px;padding:8px 0;border-top:1px solid var(--border)}
+.row:first-child{border-top:0}
+.row span:first-child{color:var(--sub);white-space:nowrap;flex:none;font-size:14px;padding-top:1px}
+.row span:last-child{text-align:right;word-break:keep-all;min-width:0}
+.kicker{font-size:14px;color:var(--sub);margin:0 0 4px}
+.btn.alt{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+form{margin:0}
 """
 
 LOGO = (
     "<svg width='28' height='28' viewBox='0 0 32 32' aria-hidden='true'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>"
-    "<stop offset='0' stop-color='#286FE5'/><stop offset='1' stop-color='#1C53A6'/></linearGradient></defs>"
+    "<stop offset='0' stop-color='#3478E5'/><stop offset='1' stop-color='#1C53A6'/></linearGradient></defs>"
     "<rect width='32' height='32' rx='7' fill='url(#g)'/><path d='M0 27Q16 19 32 22V32H0Z' fill='#15418A'/>"
     "<circle cx='15' cy='13.5' r='7.6' fill='#fff'/><ellipse cx='8.6' cy='12' rx='2.2' ry='4.4' fill='#E6ECF7' transform='rotate(-20 8.6 12)'/>"
     "<ellipse cx='21.4' cy='12' rx='2.2' ry='4.4' fill='#E6ECF7' transform='rotate(20 21.4 12)'/>"

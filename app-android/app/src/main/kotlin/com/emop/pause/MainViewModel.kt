@@ -1,5 +1,6 @@
 package com.emop.pause
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.emop.pause.core.model.LatLng
@@ -36,6 +37,9 @@ import com.emop.pause.trip.TripCoordinator
 import com.emop.pause.trip.TripRecorder
 import com.emop.pause.trip.TripUi
 import com.emop.pause.trip.VetMemo
+import com.emop.pause.trip.ClinicIntake
+import com.emop.pause.trip.ClinicReply
+import com.emop.pause.uistate.IntakeUi
 import com.emop.pause.trip.SymptomMemoStore
 import com.emop.pause.trip.CareRepository
 import com.emop.pause.engine.pet.DistressKind
@@ -66,6 +70,7 @@ import com.emop.pause.uistate.MotionQuiz
 import com.emop.pause.uistate.OnboardingUi
 import com.emop.pause.core.model.AppMode
 import com.emop.pause.data.net.EtaShareReq
+import com.emop.pause.data.net.EtaUpdateReq
 import com.emop.pause.engine.motion.MotionConstants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -110,6 +115,8 @@ data class AppState(
     val vetDriving: Boolean = false,
     /** 도착 예정 공유 링크. */
     val etaUrl: String? = null,
+    /** 병원 사전 접수 (UPGRADE 3): 접수함 링크·도착 예정·병원 응답. */
+    val intake: ClinicIntake? = null,
     /** 이 차에 저장된 이전 기록 (최근 순). */
     val history: List<PetTripRecord> = emptyList(),
     /** 발표 모드 "고갯길 비교" 전체 화면. */
@@ -184,6 +191,7 @@ class MainViewModel @Inject constructor(
                     if (s.mode == AppMode.DRIVING && !a.vetDriving) _app.update { it.copy(vetDriving = true) }
                     else if (s.mode != AppMode.DRIVING && a.vetDriving) _app.update { it.copy(goingVet = null, vetDriving = false) }
                 }
+                tickIntake(s)
             }
         }
     }
@@ -216,7 +224,7 @@ class MainViewModel @Inject constructor(
             )
             Route.WAIT -> Screen.Wait(UiMapper.wait(t.wait, t))
             Route.PLACES -> Screen.Places(UiMapper.places(a.along, a.near, a.loading))
-            Route.VETS -> Screen.Vets(UiMapper.vets(a.vets, a.loading, a.vetMemo, a.etaUrl, a.memoListening, todayLine(a)))
+            Route.VETS -> Screen.Vets(UiMapper.vets(a.vets, a.loading, a.vetMemo, a.etaUrl, a.memoListening, todayLine(a)).copy(intake = a.intake?.let(::intakeUi)))
             Route.ARRIVAL -> Screen.Arrival(UiMapper.arrival(t))
             Route.TRIPLOG -> Screen.TripLog(tripLog(s, t, a))
             Route.PET -> Screen.PetProfile(UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = false).copy(calibration = calibrationLine(t.pet.name, a)))
@@ -319,6 +327,18 @@ class MainViewModel @Inject constructor(
     /** 발표 장면 실내 온도 (시뮬레이터만, UPGRADE 7). */
     fun setDemoCabin(c: Float?) {
         trip.demoCabinTempC = c
+    }
+
+    /**
+     * 발표 장면 "쓸수록 맞춰짐" (디버그 adb `--es calib yes,yes,little`): 지난 여행 답을 미리 넣는다(멀미 최고 46과 짝).
+     * `reset`이면 지운다. 실제 사용에서는 도착 뒤 질문으로만 쌓인다.
+     */
+    fun seedCalibration(spec: String) {
+        val pet = trip.ui.value.pet.name
+        calibration.reset(pet)
+        if (spec != "reset") spec.split(',').mapNotNull { a -> runCatching { MotionAnswer.valueOf(a.trim().uppercase()) }.getOrNull() }
+            .forEach { calibration.add(pet, CalibrationSample(DEMO_PEAK, it)) }
+        applyCalibration(pet)
     }
 
     /** 발표 모드: 앞 구간 형상 시연 경로 ↔ 회전 안내 (UPGRADE 5). */
@@ -442,17 +462,19 @@ class MainViewModel @Inject constructor(
     private fun withVet(d: DriveUi, a: AppState): DriveUi {
         val v = a.goingVet ?: return d
         if (d.content !is DriveContent.Calm && d.content !is DriveContent.Heading) return d
-        val vet = UiMapper.vetDrive(v.name, v.distanceKm)
-        return d.copy(content = vet, nextStop = null, meta = "동물병원까지 ${vet.minutes}분")
+        val i = a.intake?.takeIf { it.vetName == v.name }
+        val vet = UiMapper.vetDrive(v.name, v.distanceKm).let { if (i != null) it.copy(minutes = i.etaMin, clinic = i.reply?.drive ?: if (i.seen) "병원이 접수함을 열어 봤어요" else "병원 사전 접수 보냄") else it }
+        return d.copy(content = vet, nextStop = null, nextStopName = null, nextStopMin = null, meta = "동물병원까지 ${vet.minutes}분")
     }
 
     /**
-     * 동물병원 도착 예정 공유 (V5 §5): 무작위 토큰 링크를 만들어 보호자 폰으로 보낸다. 보호자가 병원·가족에게 직접 전달한다.
-     * 위치는 보내지 않고 반려견 이름·병원·도착 예정 분·고른 증상만. 서버가 없으면 만들지 않는다.
+     * 동물병원 사전 접수 (UPGRADE 3, V5 §5 도착 예정 공유를 확장): 보호자용 도착 예정 링크 + 병원 접수함 링크를 함께 만든다.
+     * 둘 다 보호자가 직접 전달한다(앱·서버가 병원에 보내지 않는다). 위치는 보내지 않고 반려견 이름·병원·도착 예정 분,
+     * 체크했을 때만 증상·메모·오늘 요약. 가는 동안 도착 예정 분을 갱신하고 병원 응답을 받는다([tickIntake]). 서버가 없으면 만들지 않는다.
      */
     private fun shareVetEta(id: String) {
         val a = _app.value
-        val v = a.vets?.items?.firstOrNull { it.id == id } ?: return
+        val v = a.vets?.items?.firstOrNull { it.id == id } ?: a.goingVet?.takeIf { it.id == id } ?: return
         val session = server.session
         if (session == null) {
             trip.notify("서버 연결이 없어 공유 링크를 만들지 못했어요.")
@@ -461,17 +483,72 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             // 증상 메모·오늘 요약은 체크했을 때만 (기기 밖으로 나가는 유일한 길)
             val shared = VetMemo.share(a.vetMemo, todayLine(a))
-            val req = EtaShareReq(trip.ui.value.pet.name, v.name, UiMapper.vetMinutes(v.distanceKm), shared.symptoms, shared.memo, shared.tripLine)
+            val minutes = UiMapper.vetMinutes(v.distanceKm)
+            val req = EtaShareReq(trip.ui.value.pet.name, v.name, minutes, shared.symptoms, shared.memo, shared.tripLine, intake = true)
             val res = runCatching { session.call { etaShare(req) } }.getOrNull()
             if (res == null) {
-                trip.notify("공유 링크를 만들지 못했어요. 잠시 뒤 다시 해 주세요.")
+                trip.notify("사전 접수 링크를 만들지 못했어요. 병원에 전화해 주세요.")
                 return@launch
             }
-            val url = trip.share.shareBase.trimEnd('/').takeIf { it.isNotBlank() }?.let { it + res.pageUrl } ?: res.pageUrl
-            _app.update { it.copy(etaUrl = url) }
-            trip.notify("도착 예정 공유 링크를 만들었어요. 보호자 폰으로 보내 주세요.")
+            val base = trip.share.shareBase.trimEnd('/').takeIf { it.isNotBlank() }
+            val url = base?.let { it + res.pageUrl } ?: res.pageUrl
+            val clinic = res.clinicUrl?.let { c -> base?.let { it + c } ?: c }
+            val intake = clinic?.let { ClinicIntake(res.token, it, url, v.name, minutes, minutes, System.currentTimeMillis(), snapshot.value.clockMinute) }
+            _app.update { it.copy(etaUrl = url, intake = intake) }
+            if (BuildConfig.DEBUG) Log.i("Intake", "clinic=${res.clinicUrl} share=${res.pageUrl}")
+            trip.notify(if (intake != null) "병원 접수함 링크를 만들었어요. 병원에 보내 주세요." else "도착 예정 공유 링크를 만들었어요. 보호자 폰으로 보내 주세요.")
         }
     }
+
+    private var intakeBusy = false
+    private var intakePolledMs = 0L
+
+    /**
+     * 사전 접수 갱신 (F5-08·09): 도착 예정이 바뀌면 보내고(응답에 병원 응답이 실려 온다), 아니면 15초마다 응답만 묻는다.
+     * 병원 응답이 새로 오면 화면 한 줄 + 같은 문장 음성. 실패는 조용히 다음 차례에 다시.
+     */
+    private fun tickIntake(s: Snapshot) {
+        val i = _app.value.intake ?: return
+        if (i.arrived || intakeBusy) return
+        val session = server.session ?: return
+        val vet = _app.value.vets?.items?.firstOrNull { it.name == i.vetName } ?: _app.value.goingVet
+        val distKm = if (s.source == SourceMode.VEHICLE) vet?.let { v -> here(s)?.let { h -> PetPlaceRepository.distanceM(h, LatLng(v.lat, v.lng)) / 1000.0 } } else null
+        val eta = distKm?.let { UiMapper.vetMinutes(it) } ?: ClinicIntake.simEta(i, s.clockMinute)
+        val arrived = (distKm != null && distKm < ClinicIntake.ARRIVE_KM) || (distKm == null && eta == 0)
+        val now = System.currentTimeMillis()
+        val push = arrived || ClinicIntake.shouldPush(i, eta, now)
+        if (!push && now - intakePolledMs < ClinicIntake.POLL_MS) {
+            if (eta != i.etaMin) _app.update { it.copy(intake = it.intake?.copy(etaMin = eta)) }
+            return
+        }
+        intakeBusy = true
+        intakePolledMs = now
+        viewModelScope.launch {
+            val st = runCatching { session.call { if (push) etaUpdate(i.token, EtaUpdateReq(eta, arrived)) else etaStatus(i.token) } }.getOrNull()
+            intakeBusy = false
+            val cur = _app.value.intake?.takeIf { it.token == i.token } ?: return@launch
+            val next = cur.copy(
+                etaMin = if (arrived) 0 else eta,
+                sentEtaMin = if (push && st != null) eta else cur.sentEtaMin,
+                sentAtMs = if (push && st != null) now else cur.sentAtMs,
+                reply = ClinicReply.of(st?.reply) ?: cur.reply,
+                seen = st?.seen ?: cur.seen,
+                arrived = cur.arrived || (arrived && st != null),
+            )
+            _app.update { it.copy(intake = next) }
+            if (next.reply != null && next.reply != cur.reply) trip.announce(next.reply.drive)
+        }
+    }
+
+    private fun intakeUi(i: ClinicIntake) = IntakeUi(
+        vetName = i.vetName,
+        clinicUrl = i.clinicUrl,
+        status = ClinicIntake.status(i),
+        etaMinutes = i.etaMin,
+        replied = i.reply != null,
+        busy = i.reply == ClinicReply.BUSY,
+        arrived = i.arrived,
+    )
 
     private fun addWaypoint(lat: Double, lng: Double, name: String) {
         viewModelScope.launch {
@@ -568,6 +645,7 @@ class MainViewModel @Inject constructor(
             warnings = cautionCount(saved?.series ?: log.motionSeries),
             askMotion = askMotion,
             events = events,
+            calibration = if (a.askMotion) null else calibrationLine(t.pet.name, a),
             history = a.history.filter { it.startedMs != record.startedMs }.take(3).map { r ->
                 val d = java.time.Instant.ofEpochMilli(r.startedMs).atZone(java.time.ZoneId.systemDefault())
                 HistoryUi("${d.monthValue}월 ${d.dayOfMonth}일", "${UiMapper.duration(r.drivingMin)} · 멀미 최고 ${r.motionPeak}")
@@ -593,14 +671,17 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * "콩이가 이상해요" 수락 (UPGRADE 7). 정차 장소는 경유지로(TripCoordinator), 병원이면 병원 안내 + 증상을 메모에 넣고
-     * 도착 예정 공유 링크까지 만든다(서버가 있을 때, 보호자가 직접 전달).
+     * "콩이가 이상해요" 수락 (UPGRADE 7). 정차 장소는 경유지로(TripCoordinator), 응급(병원)이면 병원 안내 + 증상을 메모에 넣고
+     * 병원 사전 접수(UPGRADE 3)로 넘어간다 — 접수함 링크·도착 예정 자동 갱신(서버가 있을 때, 보호자가 직접 전달).
      */
     private fun acceptDistress() {
         val d = trip.acceptDistress() ?: return
         val vet = d.vet ?: return
         _app.update { it.copy(vets = Found(listOf(vet), PlaceSource.SERVER), goingVet = vet, vetDriving = false) }
-        editMemo { m -> (if (PetDistress.label(d.kind) in m.chips) m else m.copy(chips = m.chips + PetDistress.label(d.kind))).copy(include = true) }
+        // 증상 고르기 칸에 맞는 칩("축 처짐·호흡 곤란" → "축 처짐", 없으면 "기타") + 메모에 원래 이름 (병원 접수함에 둘 다 보인다)
+        val label = PetDistress.label(d.kind)
+        val chip = VetMemo.CHIPS.firstOrNull { label.startsWith(it) } ?: "기타"
+        editMemo { m -> m.copy(chips = m.chips + chip, include = true).let { if (label in it.text) it else it.append(label) } }
         addWaypoint(vet.lat, vet.lng, vet.name)
         shareVetEta(vet.id)
     }
@@ -681,6 +762,7 @@ class MainViewModel @Inject constructor(
     }
 
     private companion object {
+        const val DEMO_PEAK = 46
         /** 정차 중 "콩이가 이상해요" 고르기 (주행 중에는 음성으로만). */
         val DISTRESS_CHIPS = listOf(
             "헐떡임" to DistressKind.PANTING, "구토" to DistressKind.VOMIT, "침 흘림·하품" to DistressKind.NAUSEA,

@@ -231,6 +231,7 @@ class EtaShare(Base):
     __tablename__ = "eta_shares"
     __table_args__ = (
         CheckConstraint("eta_minutes BETWEEN 0 AND 600", name="ck_eta_shares_eta"),
+        CheckConstraint("clinic_reply IS NULL OR clinic_reply IN ('received', 'ready', 'busy')", name="ck_eta_shares_reply"),
         Index("idx_eta_shares_device", "device_id"),
     )
 
@@ -244,3 +245,11 @@ class EtaShare(Base):
     trip_line: Mapped[str | None] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(Tz)
+    # 동물병원 사전 접수 (UPGRADE 3, 마이그레이션 0005): 병원 접수함 링크는 보호자 링크와 다른 토큰(해시만)
+    clinic_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    eta_at: Mapped[datetime | None] = mapped_column(Tz)
+    updated_at: Mapped[datetime | None] = mapped_column(Tz)
+    arrived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    clinic_reply: Mapped[str | None] = mapped_column(String(16))
+    clinic_reply_at: Mapped[datetime | None] = mapped_column(Tz)
+    clinic_seen_at: Mapped[datetime | None] = mapped_column(Tz)

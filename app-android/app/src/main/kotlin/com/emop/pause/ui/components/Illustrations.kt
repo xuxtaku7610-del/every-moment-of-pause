@@ -73,24 +73,28 @@ fun DogIllustration(modifier: Modifier = Modifier) {
  * 비면 곧은 길. 현재 위치 = 아래 가운데 삼각형.
  */
 @Composable
-fun RoadIllustration(curvature: List<Float>, modifier: Modifier = Modifier, showCar: Boolean = true) {
+fun RoadIllustration(curvature: List<Float>, modifier: Modifier = Modifier, showCar: Boolean = true, cautionFromM: Float? = null) {
     val c = Pause.colors
-    Canvas(modifier) { drawRoad(c, curvature, showCar) }
+    Canvas(modifier) { drawRoad(c, curvature, showCar, cautionFromM) }
 }
 
-private fun DrawScope.drawRoad(c: PauseColors, curvature: List<Float>, showCar: Boolean) {
+/**
+ * 경로 보기 (v6, 지도 타일 없음): 앞 1km 경로 곡률을 원근으로 그린 도로 + 파란 경로선 + 내 차 표시.
+ * 바탕은 무채색(쿨그레이)이라 정보 색(파랑 경로·앰버 굽은 길)만 눈에 띈다. [cautionFromM]이 1km 안이면 그 지점부터 경로선을 앰버로.
+ * 폭·높이 비율이 달라도 도로 폭이 늘어나지 않게 짧은 변 기준으로 축척을 잡는다.
+ */
+private fun DrawScope.drawRoad(c: PauseColors, curvature: List<Float>, showCar: Boolean, cautionFromM: Float?) {
     val w = size.width
     val h = size.height
-    val horizon = h * 0.3f
-    drawRect(Brush.verticalGradient(listOf(c.sky, c.sky.copy(alpha = 0.6f)), 0f, horizon), size = Size(w, horizon))
-    drawRect(Brush.verticalGradient(listOf(c.land.copy(alpha = 0.7f), c.land), horizon, h), Offset(0f, horizon), Size(w, h - horizon))
-    // 먼 산 띠
-    val hills = Path().apply {
-        moveTo(0f, horizon)
-        for (i in 0..8) lineTo(w * i / 8f, horizon - h * (0.03f + 0.03f * ((i * 37) % 5) / 4f))
-        lineTo(w, horizon); close()
+    val horizon = h * 0.16f
+    drawRect(Brush.verticalGradient(listOf(c.sky, c.land), 0f, horizon * 1.6f), size = Size(w, h))
+    drawRect(c.land, Offset(0f, horizon), Size(w, h - horizon))
+    // 원근 격자 (지면 느낌, 아주 옅게)
+    val grid = c.roadEdge.copy(alpha = if (c.isDark) 0.25f else 0.45f)
+    for (i in 1..6) {
+        val yy = horizon + (h - horizon) * (i / 6f) * (i / 6f)
+        drawLine(grid, Offset(0f, yy), Offset(w, yy), strokeWidth = 1.5f)
     }
-    drawPath(hills, c.land.copy(alpha = 0.9f))
 
     // 경로 중심선: 곡률 적분 → 옆 거리(m). s = 0..1000m
     val step = 50f
@@ -102,42 +106,45 @@ private fun DrawScope.drawRoad(c: PauseColors, curvature: List<Float>, showCar: 
         lateral[i] = lateral[i - 1] - sin(heading) * step // 왼쪽(+곡률)이면 화면 왼쪽으로
     }
     val d0 = 25f // 원근: 화면 y = horizon + (h - horizon)·d0/(d0+s)
-    val pxPerM = w * 0.05f
+    val pxPerM = minOf(w, h * 1.3f) * 0.045f
     fun proj(sM: Float, xM: Float): Offset {
         val k = d0 / (d0 + sM)
-        return Offset(w / 2 + (xM - lateral.first()) * k * pxPerM * 1.0f, horizon + (h - horizon) * k)
+        return Offset(w / 2 + (xM - lateral.first()) * k * pxPerM, horizon + (h - horizon) * k)
     }
     fun latAt(sM: Float): Float {
         val i = (sM / step).toInt().coerceIn(0, samples.size - 2)
-        val f = (sM - i * step) / step
+        val f = ((sM - i * step) / step).coerceIn(0f, 1f)
         return lateral[i] * (1 - f) + lateral[i + 1] * f
     }
     val ss = (0..60).map { 1000f * (it / 60f) * (it / 60f) } // 가까운 곳을 촘촘히
     val half = 7.5f
-    // 원근 띠: 왼쪽·오른쪽 가장자리(m)를 따라 폭이 멀수록 좁아진다.
-    fun ribbon(fromM: Float, toM: Float) = Path().apply {
-        val l = ss.map { proj(it, latAt(it) + fromM) }
-        val r = ss.map { proj(it, latAt(it) + toM) }
-        moveTo(l.first().x, h); l.forEach { lineTo(it.x, it.y) }
-        r.asReversed().forEach { lineTo(it.x, it.y) }; lineTo(r.first().x, h); close()
+    fun ribbon(fromM: Float, toM: Float, s0: Float = 0f) = Path().apply {
+        val sel = ss.filter { it >= s0 }.let { if (s0 > 0f) listOf(s0) + it else it }
+        val l = sel.map { proj(it, latAt(it) + fromM) }
+        val r = sel.map { proj(it, latAt(it) + toM) }
+        if (s0 > 0f) moveTo(l.first().x, l.first().y) else moveTo(l.first().x, h)
+        l.forEach { lineTo(it.x, it.y) }
+        r.asReversed().forEach { lineTo(it.x, it.y) }
+        if (s0 > 0f) lineTo(r.first().x, r.first().y) else lineTo(r.first().x, h)
+        close()
     }
+    drawPath(ribbon(-half - 0.8f, half + 0.8f), c.roadEdge)
     drawPath(ribbon(-half, half), c.road)
     fun line(xM: Float, color: Color, width: Float, dash: Boolean = false) {
         val p = Path().apply { ss.forEachIndexed { i, s -> val o = proj(s, latAt(s) + xM); if (i == 0) moveTo(o.x, h) else lineTo(o.x, o.y) } }
-        drawPath(p, color, style = Stroke(width, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = if (dash) PathEffect.dashPathEffect(floatArrayOf(w * 0.03f, w * 0.03f)) else null))
+        drawPath(p, color, style = Stroke(width, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = if (dash) PathEffect.dashPathEffect(floatArrayOf(w * 0.025f, w * 0.03f)) else null))
     }
-    line(-half + 0.4f, c.roadEdge, w * 0.004f)
-    line(half - 0.4f, c.roadEdge, w * 0.004f)
-    line(0f, Color.White.copy(alpha = 0.7f), w * 0.004f, dash = true)
-    // 파란 경로선 (오른쪽 차로 가운데, 원근 띠라 멀수록 가늘어진다)
-    drawPath(ribbon(1.6f, 5.6f), c.primary.copy(alpha = 0.35f))
-    drawPath(ribbon(2.7f, 4.5f), c.primary)
+    line(0f, Color.White.copy(alpha = 0.55f), w * 0.0035f, dash = true)
+    // 파란 경로선 (오른쪽 차로 가운데). 굽은 길 구간은 앰버.
+    drawPath(ribbon(2.4f, 4.8f), c.primary)
+    cautionFromM?.takeIf { it in 0f..950f }?.let { from -> drawPath(ribbon(2.4f, 4.8f, from), c.warning) }
     if (showCar) {
         val p = proj(4f, latAt(4f) + 3.6f)
-        val r = w * 0.04f
-        val tri = Path().apply { moveTo(p.x, p.y - r * 1.2f); lineTo(p.x + r, p.y + r * 0.8f); lineTo(p.x, p.y + r * 0.3f); lineTo(p.x - r, p.y + r * 0.8f); close() }
-        drawCircle(Color.White, r * 1.5f, Offset(p.x, p.y))
-        drawPath(tri, c.primary)
+        val r = minOf(w, h) * 0.045f
+        val tri = Path().apply { moveTo(p.x, p.y - r * 1.15f); lineTo(p.x + r * 0.9f, p.y + r * 0.8f); lineTo(p.x, p.y + r * 0.35f); lineTo(p.x - r * 0.9f, p.y + r * 0.8f); close() }
+        drawCircle(c.primary.copy(alpha = 0.18f), r * 2.1f, p)
+        drawCircle(Color.White, r * 1.45f, p)
+        drawPath(tri, c.navy)
     }
 }
 

@@ -45,7 +45,10 @@ object DrivingRules {
                 if ((c.title?.length ?: 0) > MAX_LINE_CHARS) add("예보 제목 ${c.title!!.length}자 > $MAX_LINE_CHARS: ${c.title}")
                 if ((c.coach?.length ?: 0) > MAX_LINE_CHARS) add("코칭 ${c.coach!!.length}자 > $MAX_LINE_CHARS: ${c.coach}")
             }
-            is DriveContent.Vet -> place(c.name)
+            is DriveContent.Vet -> {
+                place(c.name)
+                if ((c.clinic?.length ?: 0) > MAX_LINE_CHARS) add("병원 응답 ${c.clinic!!.length}자 > $MAX_LINE_CHARS: ${c.clinic}")
+            }
             is DriveContent.Distress -> {
                 block("반려견 안내", c.line)
                 c.target?.let { place(it) }

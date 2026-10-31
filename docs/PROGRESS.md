@@ -8,6 +8,22 @@
 2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
 3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
 
+## UI 전면 재설계 v6 (2026-10-30 낮, 사용자 "전체 UI 전면 재설계" 지시)
+- 기준 문서 `docs/design/v6/STYLE_V6.md` (STYLE_V5는 "대체됨"). 색·글자는 지시 값(#F5F6F8·#3478E5·#E99532·#16866C·네이비 #1C3150, 수치 36·제목 24·섹션 18·본문 16·보조 14·캡션 12)이 v5보다 우선. 앰버 글자는 대비 때문에 #9A5A10.
+- 토큰 `ui/theme/{Color,Type,Dimens}.kt`(모서리 16→14, 칩 8, 앱 바 48) → 부품 `Kit.kt` 새로(Panel·Divider·SectionHeader·Metric·KeyValue·IndexGauge·AlertStrip·QUIET 버튼, ForecastChart·TrendChart는 축·눈금·주의 이상 면·굽은 길 시간대·최고 값 표시) → 화면 `ScreenFrame.kt`·`DriveScreens.kt`·`PetScreens.kt`로 나눠 전부 다시 그림. 경로 일러스트는 무채색 바탕·비율 고정·굽은 길 앰버 구간(지도 타일 없음).
+- 주행: 모든 상태가 "경로 보기 + 상태 패널" 한 뼈대. 예보는 경고 띠(20/16) + 지금·20분 뒤 수치 + 엔진 값 그래프(지어낸 곡선 제거). 이동 기록은 요약 수치·인사이트 한 줄 + 그래프 | 관찰·병원 요약이 한 화면.
+- 계약은 더하기만: `Forecast.startMin·durationMin·startM`, `DriveUi.nextStopName·nextStopMin` (기존 테스트 그대로 통과).
+- 보호자·병원 페이지(`pages.py`)도 v6 색, 표 이름 줄바꿈 고침.
+- 검수: `scripts/ui_capture.py`(16개 화면, 실제 엔진 값) — 주행·예보·이동 기록은 에뮬레이터 캡처로 3~4회 반복(`artifacts/ui/v6/*-it1~it4.png`), 전후 나란히 `artifacts/ui/v6/<화면>-before-after.png`. README 화면 표를 v6로(`docs/screens/v6/`).
+- 검증: `./gradlew test` 종료 0 — 고유 282개 실패 0, pytest 79 통과, PT 리허설 5장면 OK(74초), ERD Mermaid 렌더 OK.
+
+## UPGRADE 변경분 (2026-10-30 낮, 사용자 메시지 — 3번·8번 교체)
+- 참고: `_private/UPGRADE_PROMPT.md` 파일은 08:34 그대로라(3번이 아직 "증상 음성 메모") **사용자 메시지의 새 3번·8번을 기준**으로 했다.
+- 새 3 "동물병원 사전 접수 + 실시간 도착 알림": 서버 `POST /eta` `intake=true` → 병원 접수함 `/clinic/{token}`(보호자 링크와 다른 토큰, 해시만), `PUT /eta/{token}` 도착 예정 갱신·도착, `GET /eta/{token}` 병원 응답·열람, 접수함 폼 `POST /clinic/{token}/reply?r=received|ready|busy`(303). 마이그레이션 0005(위치 컬럼 없음, 2시간 만료 그대로). `test_clinic.py` 5개(F5-07~10). 앱 `ClinicIntake`(갱신 주기·시뮬레이터 카운트다운·상태 문구, `ClinicIntakeTest`) → MainViewModel `tickIntake`(1분 이상 바뀌면 15초 간격·같으면 60초, 응답은 15초마다), 병원 응답이 오면 화면 한 줄 + 같은 문장 음성(`TripCoordinator.announce`). 주행 화면 병원 카드 아래 "병원: 도착하면 바로 봐요"(24자, DrivingRules 검사), 동물병원 화면 "사전 접수 보내기" + 접수함 링크·상태. 증상 메모·오늘 이동 한 줄은 기존 `VetMemo.share` 재사용.
+- 7번 연결: 응급(축 처짐·호흡 곤란) "동물병원으로" → 병원 경유지 + 증상 자동 첨부 + **사전 접수**(F9-08).
+- 새 8: demo_script를 PT 3장면(고갯길 비교 · 이상 → 사전 접수 → 접수함 실시간 도착 · 쓸수록 맞춰짐)으로 다시 짬, 예비 장면 표. `rehearsal.py` PT 장면(병원 역할로 접수함 열고 "바로 볼게요" 누름, Chrome 헤드리스 캡처), 디버그 adb `--es calib yes,yes,little|reset`(보정 시드). 이동 기록에 "맞춤 정도" 줄. **리허설 5장면 모두 OK, 62초**.
+- 5번 한계: shape_compare.md 맨 앞 "한계" 절 — 회전 안내만이면 180초 늦음, 고갯길 뒤 지수 77(GPX 54), 낙관적 가정.
+
 ## UPGRADE (2026-10-30~, `_private/UPGRADE_PROMPT.md`)
 - 사전: 에뮬레이터 확인 — `onTBTInfo` 수신 확인(성남→강릉 32건), `distance`는 구간 거리 → `RouteTurn.fromSegments` 누적(F1-14). `geo fix`는 내비 위치를 못 움직임 → 실차 확인 예정. vhal_check.md "결정: 시뮬레이터로 시연". README "실차 확인 필요" 표.
 - 1 고갯길 비교 크게: `CompareChart`(uistate, CSV·summary 파싱, DM-05 테스트) + `CompareScreen`(정지 그림, 거리 0~15km × 지수, 회색·primary 굵은 선, 끝점 55·30, 사실 3칸 −45% · +7분 12초 · 대관령 옛길 15.0km). 데이터는 `docs/plan/demo_compare.csv`·`demo_compare_summary.txt` 사본(`assets/compare/`), DemoCompareTest가 엔진 결과와 같은지 확인. 발표 모드 "고갯길 비교 크게 보기"·adb `--ez compare true`, 주행이 시작되면 닫힘. 캡처 `artifacts/upgrade/01-compare.png`.
@@ -30,6 +46,14 @@
 8. `[UP] "콩이가 이상해요" 규칙·체크리스트·시연 장면` — `app-android/engine/pet/src/main/kotlin/com/emop/pause/engine/pet/PetDistress.kt app-android/engine/pet/src/test/kotlin/com/emop/pause/engine/pet/PetDistressTest.kt app-android/engine/motion/src/main/kotlin/com/emop/pause/engine/motion/MotionComfortEngine.kt app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/test/kotlin/com/emop/pause/trip/DistressFlowTest.kt app-android/core/uistate app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/build.gradle.kts content/care`
 9. `[UP] 리허설·대본·녹화·문서` — `scripts/rehearsal.py docs/demo_script.md docs/recording.md README.md test_plan.md api_spec.md database.md docs/BLOCKED.md docs/PROGRESS.md`
 (여러 항목이 같은 파일(TripCoordinator.kt·MainViewModel.kt·PetScreens.kt·ScreenStates.kt·0004)을 고치므로 `git add -A` 한 번으로 묶는 편이 안전하다.)
+
+## 커밋 대기열 (같이가개 6차 — 사전 접수 + UI v6, 10/30 낮) — 5차 다음에
+1. `[UP] 동물병원 사전 접수와 실시간 도착 알림 (서버)` — `server/app/api/eta.py server/app/models.py server/app/pages.py server/alembic/versions/0005_clinic_intake.py server/tests/test_clinic.py api_spec.md database.md`
+2. `[UP] 사전 접수 앱 연결, 응급 → 사전 접수` — `app-android/app/src/main/kotlin/com/emop/pause/trip/ClinicIntake.kt app-android/app/src/test/kotlin/com/emop/pause/trip/ClinicIntakeTest.kt app-android/data/src/main/kotlin/com/emop/pause/data/net/PauseApi.kt app-android/app/src/main/kotlin/com/emop/pause/di/DataModule.kt app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripCoordinator.kt app-android/core/uistate test_plan.md`
+3. `[UP] PT 3장면 대본·리허설, 회전 안내 한계` — `docs/demo_script.md scripts/rehearsal.py docs/plan/shape_compare.md README.md`
+4. `[UI] 디자인 v6 토큰·부품·전 화면` — `app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/src/main/kotlin/com/emop/pause/presentation/UiMapper.kt docs/design/v6 docs/design/v5/STYLE_V5.md docs/ui_contract.md`
+5. `[UI] 화면 전후 캡처 도구, README 화면 v6` — `scripts/ui_capture.py docs/screens/v6 README.md docs/PROGRESS.md docs/BLOCKED.md`
+(2번과 4번이 같은 파일(MainViewModel·ScreenStates·UiMapper)을 고치므로 `git add -A` 한 번이 안전하다.)
 
 ## V5 후속 (2026-10-30 저녁) — 사용자 결정 5개 + 분할 창·리허설·README·녹화
 - 결정 1: 디자이너 그림 = 사용자가 생성형 AI 디자인 도구로 직접 제작 → `licenses/ASSETS.md`(도구명 【도구명】), 디버그 전용 해제(main assets, 시트·안 쓰는 원본은 APK 제외).

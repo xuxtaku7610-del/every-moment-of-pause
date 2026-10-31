@@ -14,6 +14,7 @@ import com.emop.pause.data.pet.RoomPetStore
 import com.emop.pause.trip.WaitShare
 import com.emop.pause.trip.WaitShareApi
 import com.emop.pause.data.net.EtaShareReq
+import com.emop.pause.data.net.EtaUpdateReq
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -130,4 +131,6 @@ private class AuthedApi(private val s: ServerSession) : PauseApi {
     override suspend fun waitUpdate(token: String, body: WaitUpdateReq) = s.call { waitUpdate(token, body) }
     override suspend fun waitEnd(token: String) = s.call { waitEnd(token) }
     override suspend fun etaShare(body: EtaShareReq) = s.call { etaShare(body) }
+    override suspend fun etaUpdate(token: String, body: EtaUpdateReq) = s.call { etaUpdate(token, body) }
+    override suspend fun etaStatus(token: String) = s.call { etaStatus(token) }
 }

@@ -23,20 +23,24 @@
 | 가는 길·목적지 | **함께 가는 장소**(한국관광공사 반려동물 동반여행), **동물병원 가는 길** |
 | 도착 | **"콩이 내렸나요?"** → **이동 기록**: "콩이는 약 1시간 10분이 한계" |
 
-### 화면 (디자인 v5, Pleos Connect 에뮬레이터 2026-10-30)
-앱 영역만 잘랐다(왼쪽 차량 패널·아래 공조 바는 Pleos 시스템 UI). 장소·병원은 실제 데이터(서버), 나머지는 발표 모드 "장면 고정". 기준·차이는 [docs/design/v5/STYLE_V5.md](docs/design/v5/STYLE_V5.md), 비교 기록은 [docs/ui_review.md](docs/ui_review.md).
+### 화면 (디자인 v6, Pleos Connect 에뮬레이터 2026-10-30)
+앱 영역만 잘랐다(왼쪽 차량 패널·아래 공조 바는 Pleos 시스템 UI). 주행·예보·쉼표·대기·도착·이동 기록은 **시뮬레이터 실제 엔진 값**, 프로필·장소·병원·온보딩은 발표 모드 장면. 기준은 [docs/design/v6/STYLE_V6.md](docs/design/v6/STYLE_V6.md)(v5는 대체됨), 바꾸기 전/후는 `python scripts/ui_capture.py` → `artifacts/ui/v6/`.
 
 | 출발 체크 | 주행 기본 | 멀미 예보 |
 | --- | --- | --- |
-| ![출발 체크](docs/screens/v5/01-depart.jpg) | ![주행 기본](docs/screens/v5/02-drive.jpg) | ![멀미 예보](docs/screens/v5/03-forecast.jpg) |
-| **쉼표 추천** | **잠깐 대기 (차 화면)** | **함께 가는 장소 (TourAPI, 사진 한국관광공사)** |
-| ![쉼표 추천](docs/screens/v5/04-suggest.jpg) | ![잠깐 대기](docs/screens/v5/05-wait.jpg) | ![함께 가는 장소](docs/screens/v5/07-places-real.jpg) |
-| **동물병원 (인허가 데이터)** | **도착 체크** | **이동 기록** |
-| ![동물병원](docs/screens/v5/08-vets-real.jpg) | ![도착 체크](docs/screens/v5/09-arrival.jpg) | ![이동 기록](docs/screens/v5/10-triplog.jpg) |
+| ![출발 체크](docs/screens/v6/01-depart.png) | ![주행 기본](docs/screens/v6/02-drive.png) | ![멀미 예보](docs/screens/v6/03-forecast.png) |
+| **쉼표 추천** | **콩이가 이상해요** | **쉼표 (정차)** |
+| ![쉼표 추천](docs/screens/v6/04-suggest.png) | ![콩이가 이상해요](docs/screens/v6/07-distress.png) | ![쉼표](docs/screens/v6/05-rest.png) |
+| **잠깐 대기 (차 화면)** | **함께 가는 장소** | **동물병원 · 사전 접수** |
+| ![잠깐 대기](docs/screens/v6/05-wait.png) | ![함께 가는 장소](docs/screens/v6/07-places.png) | ![동물병원](docs/screens/v6/08-vets.png) |
+| **도착 체크** | **이동 기록** | **반려견 프로필** |
+| ![도착 체크](docs/screens/v6/09-arrival.png) | ![이동 기록](docs/screens/v6/10-triplog.png) | ![반려견 프로필](docs/screens/v6/11-pet.png) |
 
-| 온보딩 (멀미 민감도) | 보호자 폰 대기 페이지 | 동물병원 도착 예정 공유 |
+| 온보딩 | 고갯길 비교 (발표 모드) | 병원 접수함 (폰, 병원 응답 뒤) |
 | --- | --- | --- |
-| ![온보딩](docs/screens/v5/11-onboarding-3.jpg) | ![폰 대기](docs/screens/v5/06-phone-wait-light.jpg) | ![도착 예정](docs/screens/v5/08b-phone-eta-light.jpg) |
+| ![온보딩](docs/screens/v6/11-onboarding.png) | ![고갯길 비교](docs/screens/v6/12-compare.png) | ![병원 접수함](docs/screens/v6/08b-clinic-inbox.png) |
+
+v5 캡처(분할 창 포함)는 `docs/screens/v5/`에 이력으로 남겼다.
 
 | 실제 분할 창 1/2 (1280dp) | 실제 분할 창 1/3 (853dp) |
 | --- | --- |
@@ -72,11 +76,11 @@
 | F2 | 반려견 맞춤 쉼표 + 음성 경유지 추가 | 속도·주행 시간, 배터리, NaviHelper | 휴게소 추천 엔진·ScoringPolicy·니즈 타이머·피로 지수·음성 |
 | F3 | 잠깐 대기 모드 + 보호자 폰 웹페이지("돌아가는 중", 실내 온도가 오르면 배너) | 기어 P, 배터리, 주차 브레이크, 실내 온도 **측정값**(`getHvacTemperatureCurrent`, 없으면 숨김) | 서버, 발표 모드 패널 |
 | F4 | 함께 가는 장소 (TourAPI 반려동물 동반여행, 전국 327곳, 대형견·실내 필터는 명시된 곳만) | 남은 시간·목적지 | 서버 수집·캐시 |
-| F5 | 동물병원 가는 길 + 증상 음성 메모 + 도착 예정 공유(위치 없이, 2시간) | NaviHelper, 속도 | F1 엔진 |
+| F5 | 동물병원 가는 길 + 증상 음성 메모 + **병원 사전 접수**(병원 접수함 `/clinic/…`에 증상·메모·오늘 이동, 도착 예정 자동 갱신, 병원 응답 "바로 볼게요"가 차 화면·음성으로) + 보호자 도착 예정 공유(위치 없이, 2시간) | NaviHelper, 속도 | F1 엔진 |
 | F6 | 타고·내릴 때 체크 ("콩이 내렸나요?") | 기어 P, 주행 종료 판단 | 출발 준비 화면 |
 | F7 | 콩이 이동 기록 (한계 시간·병원용 요약) + **개인 맞춤 보정**("오늘 멀미했어요?" 답으로 민감도 계수, 3회부터) | 주행 기록 | 여행 리포트, TripRecorder, TripResume, Ollama 문장+템플릿 |
 | F8 | 온보딩 3단계 (반려견 프로필 → 차량 연동 신호 확인 → 멀미 민감도 진단) | 쓰는 신호 목록 | — |
-| F9 | **"콩이가 이상해요"** — 주행 중 "헥헥거려·토했어·낑낑대·축 처졌어"를 말하면 규칙(증상 + 실내 온도·계절·출발 뒤 시간·멀미 지수)으로 1줄 안내 + 가장 가까운 정차 장소(응급은 동물병원 + 도착 예정 공유), 정차 후 체크리스트(검수 전) | 실내 온도 측정값, 속도·경로, NaviHelper | 음성, 휴게소·병원 데이터 |
+| F9 | **"콩이가 이상해요"** — 주행 중 "헥헥거려·토했어·낑낑대·축 처졌어"를 말하면 규칙(증상 + 실내 온도·계절·출발 뒤 시간·멀미 지수)으로 1줄 안내 + 가장 가까운 정차 장소(응급은 동물병원 + 병원 사전 접수), 정차 후 체크리스트(검수 전) | 실내 온도 측정값, 속도·경로, NaviHelper | 음성, 휴게소·병원 데이터 |
 
 **뺀 것(쉼표에서):** 아이 원정대, 도착 맞춤 라디오, "아직 멀었어?", 파워냅.
 

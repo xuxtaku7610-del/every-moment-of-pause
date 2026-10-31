@@ -1,6 +1,6 @@
 # 화면 계약 — 같이가개 (UiState · UiEvent · 주행 중 제한)
 
-화면은 **디자인 v5**(docs/design/v5/STYLE_V5.md)로 그린다: `app/.../ui/screens/PetScreens.kt`(화면), `ui/components/Kit.kt`(부품)·`Illustrations.kt`(직접 그린 일러스트), `ui/theme/`(토큰). v5에서 계약에 더한 값은 모두 기본값이 있어 이전 화면·테스트를 깨지 않는다(아래 "v5에서 더한 값").
+화면은 **디자인 v6**(docs/design/v6/STYLE_V6.md, v5는 대체됨)로 그린다: `app/.../ui/screens/DriveScreens.kt`(주행)·`PetScreens.kt`(정차 화면)·`ScreenFrame.kt`(공통 틀), `ui/components/Kit.kt`(부품)·`Illustrations.kt`(직접 그린 일러스트), `ui/theme/`(토큰). v5에서 계약에 더한 값은 모두 기본값이 있어 이전 화면·테스트를 깨지 않는다(아래 "v5에서 더한 값").
 
 - 상태: `core/uistate/.../ScreenStates.kt`, 바깥 틀 `UiContract.kt`(`AppUiState`·`Screen`·`UiEvent`·`Scene`)
 - 엔진 → 상태: `app/.../presentation/UiMapper.kt` (순수 함수, `EmptyStatesTest`·`DrivingUiScenarioTest`)
@@ -48,6 +48,17 @@ flowchart TD
 | 설정 `Settings` | `timing`, `voiceSuggest`, `reduceMotion`, `signals`(쓰는 신호와 출처), `version`, `credits`(데이터 출처 — OSM ODbL 표기, 빼지 않는다) | `SetTiming`, `ToggleVoice`, `ToggleReduceMotion`, `DeleteData`, `Close` | "설정" | 열리지 않음 |
 
 공통: `LogoTap`(3초 안 5번 → 발표 모드 패널, 실차 주행 중에는 숨김).
+
+## v6·사전 접수에서 더한 값 (2026-10-30 낮) — 모두 기본값이 있어 이전 화면·테스트를 깨지 않는다
+| 상태 | 값 | 뜻 |
+| --- | --- | --- |
+| `DriveContent.Forecast` | `startMin`·`durationMin`·`startM` | 엔진 예보의 굽은 길 시작까지 분·지속 분·시작까지 m → 20분 예보 그래프·경로 보기 앰버 구간 |
+| `DriveUi` | `nextStopName`·`nextStopMin` | 상태 패널 "다음 쉼표까지 1시간 32분 · 횡성휴게소 · 138km" |
+| `DriveContent.Vet` | `clinic` | 병원 사전 접수 상태 한 줄(24자, DrivingRules 검사) |
+| `VetsUi` | `intake: IntakeUi?` | 병원 접수함 링크·도착 예정 분·상태 한 줄·병원 응답 여부(`busy`면 다른 병원) |
+| `TripLogUi` | `calibration` | 답한 뒤 "콩이 맞춤 정도: 기록 4회, 민감도 보통 → 높음" |
+
+이벤트는 늘리지 않았다: `ShareVetEta(id)`가 이제 사전 접수(보호자 링크 + 병원 접수함 링크)를 만든다.
 
 ## v5에서 더한 값 (2026-10-30)
 | 상태 | 값 | 비고 |

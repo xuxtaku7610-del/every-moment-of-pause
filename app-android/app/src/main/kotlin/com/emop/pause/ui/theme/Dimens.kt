@@ -5,7 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** 간격·모양 토큰 v5 (STYLE_V5 §4). 디자이너 메모 기준값 × [scale]. 그림자는 쓰지 않고 바탕 명도와 테두리로 구분한다. */
+/** 간격·모양 토큰 v6 (STYLE_V6 §4). 기준값 × [scale]. 화면 외곽 24 · 패널 안 20 · 요소 사이 16/12/8. 모서리 14(패널)·12(버튼). 그림자 없음. */
 @Immutable
 data class PauseDimens(val scale: Float = 2f) {
     fun u(base: Float): Dp = (base * scale).dp
@@ -13,11 +13,13 @@ data class PauseDimens(val scale: Float = 2f) {
     val gap = u(16f)
     val pad = u(20f)
     val unit = u(8f)
-    val cardRadius = u(16f)
+    val cardRadius = u(14f)
+    val chipRadius = u(8f)
     val buttonRadius = u(12f)
     val buttonHeight = u(56f)
     val border = u(1f)
-    val appBar = u(44f)
+    val appBar = u(48f)
+    val gapS = u(12f)
 
     /** 최소 터치 영역 — 배율과 상관없는 하한 (DS, 76dp). */
     val touch = 76.dp

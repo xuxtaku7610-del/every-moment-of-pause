@@ -18,6 +18,8 @@ object Fixtures {
         pet = "콩이",
         sinceRest = "마지막 휴식 후 52분",
         nextStop = "약 72km",
+        nextStopName = "횡성휴게소",
+        nextStopMin = 46,
         roadAhead = List(21) { k -> (k / 20.0 / 900).toFloat() },
     )
 
@@ -30,6 +32,9 @@ object Fixtures {
             coach = "콩이 멀미 주의 — 조금 일찍 감속해요",
             now = 38,
             peak = 71,
+            startMin = 3,
+            durationMin = 8,
+            startM = 3000,
         ),
         roadAhead = bends,
     )

@@ -1,4 +1,6 @@
-# 스타일 v5 — 같이가개 (현재 기준)
+# 스타일 v5 — 같이가개 (대체됨)
+
+> **대체됨 (2026-10-30):** 색·글자·간격·화면 배치는 [v6/STYLE_V6.md](../v6/STYLE_V6.md)가 기준이다. 이 문서는 이력으로만 남긴다. 디자이너 그림(`assets/`)은 v6에서도 그대로 쓴다.
 
 기준: [`overview.png`](overview.png)(1536×1024, 12개 화면 + 디자인 토큰 표) + [`DESIGNER_NOTES.md`](DESIGNER_NOTES.md). 색·글자는 디자이너 메모 값이 우선이고 이미지는 확인용이다. [`overview_a.png`](overview_a.png)는 이전 안(참고만). v2(UI_SPEC)·v3·v4는 폐기.
 

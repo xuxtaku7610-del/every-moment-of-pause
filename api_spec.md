@@ -53,6 +53,10 @@
 | POST | `/wait/{token}/returning` (루트) | 보호자 폰 "돌아가는 중" | F3 |
 | POST | `/eta` | 동물병원 도착 예정 공유 링크 만들기 | F5 |
 | GET | `/eta/{token}` (루트) | 도착 예정 페이지 (HTML, 2시간) | F5 |
+| PUT | `/eta/{token}` | 사전 접수 도착 예정 갱신·도착 (응답에 병원 응답) | F5 (UPGRADE 3) |
+| GET | `/eta/{token}` | 병원 응답·열람 여부 (기기 토큰, JSON) | F5 (UPGRADE 3) |
+| GET | `/clinic/{token}` (루트) | 병원 접수함 (HTML, 15초 새로 고침) | F5 (UPGRADE 3) |
+| POST | `/clinic/{token}/reply?r=` (루트) | 병원 응답 `received`·`ready`·`busy` → 303 | F5 (UPGRADE 3) |
 | POST | `/llm/phrases` | 제안·기록 요약 문장 | F2·F7 |
 | POST | `/trips` | 여행 시작 | F7 |
 | POST | `/trips/{tripId}/events` | 여행 이벤트 일괄 업로드 | F7 |
@@ -237,7 +241,17 @@ PUT·GET 상태 응답에 `returning`(보호자가 폰에서 "돌아가는 중"�
 ```
 `symptoms`·`memo`·`tripLine`은 앱에서 사용자가 "증상 메모와 오늘 요약 넣기"를 체크했을 때만 온다. 응답 `201` `{"token": "...", "pageUrl": "/eta/...", "expiresAt": "..."}`. 정의되지 않은 필드(위치 등) `422`. 토큰 128비트, 해시만 저장, 2시간 만료.
 
-**GET `/eta/{token}`** (인증 없음, HTML) → "콩이 · 동물병원으로 가는 중 / 12분 뒤 도착", 병원·도착 예정 시각(KST)·증상 메모. 만료 `410`.
+**GET `/eta/{token}`** (인증 없음, HTML) → "콩이 · 동물병원으로 가는 중 / 12분 뒤 도착", 병원·도착 예정 시각(KST)·증상 메모, 병원 응답이 있으면 그 줄. 만료 `410`.
+
+### 2.8-2 동물병원 사전 접수 + 실시간 도착 알림 (UPGRADE 3, F5-07~10)
+`POST /eta`에 `"intake": true`를 더하면 병원 접수함 링크를 함께 만든다 → 응답에 `clinicToken`, `clinicUrl` (`/clinic/...`, 보호자 링크와 **다른 토큰**, 해시만 저장). `intake`가 없으면 둘 다 `null`.
+접수함 링크도 보호자가 병원에 직접 보낸다(문자·전화). 서버는 병원에 아무것도 보내지 않는다.
+
+**PUT `/api/v1/eta/{token}`** (기기 토큰, 만든 기기만 — 아니면 `404`) `{"etaMinutes": 6, "arrived": false}` → `200` `{"etaMinutes", "arrived", "reply", "replyAt", "seen"}`. 위치 필드 `422`. 앱은 도착 예정이 1분 이상 바뀌면 15초 간격, 같으면 60초마다 보낸다. `arrived: true`면 0분·도착.
+**GET `/api/v1/eta/{token}`** (기기 토큰) → 같은 JSON. 앱은 15초마다 병원 응답을 묻는다.
+
+**GET `/clinic/{token}`** (인증 없음, HTML 390폭, 15초 새로 고침) → "사전 접수 · 병원 이름 / 콩이 보호자가 오는 중 / 6분 뒤 도착 / 11:50 도착 예정 · 방금 갱신", 증상·증상 메모·오늘 이동, 응답 버튼 3개. 처음 열면 `clinic_seen_at` 기록(앱에 "병원이 열어 봤어요"). 만료 `410`, 없는 토큰 `404`.
+**POST `/clinic/{token}/reply?r=received|ready|busy`** (폼, 인증 없음 — 접수함 토큰이 곧 권한) → `303` 접수함으로. 모르는 값 `400`. 마지막 응답이 이긴다. 문구: 접수 확인했어요 / 도착하면 바로 볼게요 / 지금은 어려워요 · 다른 병원을 찾아 주세요 (진단·처치 문구 없음).
 
 ### 2.9 POST `/llm/phrases`
 앱이 계산한 추천 결과를 자연스러운 한국어 2문장 이내로 바꾼다. 앱은 같은 내용의 템플릿 문장을 항상 함께 준비한다.

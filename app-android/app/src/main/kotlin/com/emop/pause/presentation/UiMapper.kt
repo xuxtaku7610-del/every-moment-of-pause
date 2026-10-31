@@ -140,6 +140,9 @@ object UiMapper {
                 coach = MotionPhrases.coach(forecast, name),
                 now = t.motion.index,
                 peak = max(t.motion.index, forecast.predictedIndex),
+                startMin = (forecast.startInM / 1000.0 / (t.kmPerMin.takeIf { it > 0 } ?: (60.0 / 60))).roundToInt(),
+                durationMin = max(1, (forecast.durationSec / 60.0).roundToInt()),
+                startM = forecast.startInM.roundToInt(),
             )
             t.heading != null -> DriveContent.Heading(minutesTo(t.heading, t), t.heading.name)
             else -> DriveContent.Calm(
@@ -162,6 +165,8 @@ object UiMapper {
             pet = name,
             sinceRest = t.fatigue?.continuousDriveMinutes?.takeIf { it > 0 }?.let { "마지막 휴식 후 ${duration(it)}" },
             nextStop = nextPlanned(t)?.let { "약 ${kmTo(it, t)}" },
+            nextStopName = nextPlanned(t)?.name,
+            nextStopMin = nextPlanned(t)?.let { minutesTo(it, t) },
             roadAhead = t.roadAhead,
         )
     }

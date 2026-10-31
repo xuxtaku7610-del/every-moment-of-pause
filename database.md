@@ -134,6 +134,13 @@ erDiagram
         string trip_line
         timestamptz created_at
         timestamptz expires_at
+        string clinic_token_hash UK
+        timestamptz eta_at
+        timestamptz updated_at
+        boolean arrived
+        string clinic_reply
+        timestamptz clinic_reply_at
+        timestamptz clinic_seen_at
     }
 ```
 
@@ -150,7 +157,7 @@ erDiagram
 | `pet_places` | 반려동물 동반 장소 (F4) | `source`: `tourapi` · `sample`. `category`: `restaurant` · `cafe` · `lodging` · `tour` · `walk`. 0004: `image_url`·`space_note`·`size_note`·`companion` — 동반 조건 원문(판정·추측 없음, 모르면 NULL). 실제 데이터가 들어오면 샘플 행은 지운다 |
 | `vet_clinics` | 동물병원 (F5) | `source`: `licensing` · `sample`. 영업 중(`open`)만 서비스. 샘플은 전화번호 없음 |
 | `wait_sessions` | 대기 공유 (F3) | 토큰 원문 대신 SHA-256 해시를 키로. **위치 컬럼 없음**. 2시간 만료. `guardian_returning`(0004): 폰 "돌아가는 중" |
-| `eta_shares` | 동물병원 도착 예정 공유 (F5, 0004) | 해시 키, **위치 컬럼 없음**, 이름·병원·도착 예정 분·증상 메모만, 2시간 만료 |
+| `eta_shares` | 동물병원 도착 예정 공유 (F5, 0004) + 사전 접수 (UPGRADE 3, 0005) | 해시 키, **위치 컬럼 없음**, 이름·병원·도착 예정 분·증상 메모만, 2시간 만료. 0005: 병원 접수함 토큰 해시(고유), 갱신된 도착 예정 시각(`eta_at`)·`arrived`, 병원 응답(`clinic_reply` ∈ received·ready·busy)·응답 시각·열람 시각 |
 | `trips` | 여행 단위 | 동승자는 인원 수만(`{"adults","children","pets"}` 정수). 반려견 이름·체급·나이는 받지 않는다 |
 | `trip_events` | 여행 중 이벤트 | `(trip_id, client_event_id)` 고유로 중복 방지 |
 | `llm_call_logs` | LLM 품질 모니터링 | 프롬프트·응답 원문 저장 안 함 |

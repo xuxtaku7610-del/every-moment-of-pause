@@ -249,6 +249,14 @@ class TripCoordinator @Inject constructor(
         }
     }
 
+    /** 화면 한 줄 + 같은 문장 음성 (병원 응답처럼 주행 중에도 알려야 하는 것). */
+    fun announce(text: String) {
+        scope.launch {
+            showToast(text)
+            say(text, SpeechPriority.SAFETY)
+        }
+    }
+
     /** 화면 결과 한 줄 (장소를 경유지로 넣었을 때 등). */
     fun notify(text: String) {
         scope.launch { showToast(text) }

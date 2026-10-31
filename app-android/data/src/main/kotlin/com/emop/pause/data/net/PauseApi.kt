@@ -53,6 +53,14 @@ interface PauseApi {
     /** 동물병원 도착 예정 공유 (F5, 2시간 만료). 위치는 보내지 않고 도착 예정 분만. */
     @POST("eta")
     suspend fun etaShare(@Body body: EtaShareReq): EtaShareRes
+
+    /** 사전 접수 도착 예정 갱신 (UPGRADE 3, F5-08). 응답에 병원 응답이 실려 온다. */
+    @PUT("eta/{token}")
+    suspend fun etaUpdate(@Path("token") token: String, @Body body: EtaUpdateReq): EtaStatusRes
+
+    /** 병원 응답·열람 여부 (F5-09). */
+    @GET("eta/{token}")
+    suspend fun etaStatus(@Path("token") token: String): EtaStatusRes
 }
 
 /** 보호자 폰이 "돌아가는 중"을 누르면 [returning] = true. */
@@ -68,9 +76,15 @@ data class EtaShareReq(
     val memo: String? = null,
     /** 오늘 이동 한 줄 요약. */
     val tripLine: String? = null,
+    /** 병원 사전 접수: 병원 접수함 링크도 만든다. */
+    val intake: Boolean = false,
 )
 
-@Serializable data class EtaShareRes(val token: String, val pageUrl: String, val expiresAt: String)
+@Serializable data class EtaShareRes(val token: String, val pageUrl: String, val expiresAt: String, val clinicToken: String? = null, val clinicUrl: String? = null)
+
+@Serializable data class EtaUpdateReq(val etaMinutes: Int, val arrived: Boolean = false)
+
+@Serializable data class EtaStatusRes(val etaMinutes: Int = 0, val arrived: Boolean = false, val reply: String? = null, val replyAt: String? = null, val seen: Boolean = false)
 
 @Serializable data class DeviceReq(val platform: String, val appVersion: String)
 @Serializable data class DeviceRes(val deviceId: String, val token: String)

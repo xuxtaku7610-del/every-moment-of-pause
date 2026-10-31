@@ -1,10 +1,13 @@
-"""시연 리허설 자동 실행 (docs/demo_script.md 순서, 1배속).
+"""시연 리허설 자동 실행 (docs/demo_script.md 순서, 1배속) — PT 핵심 3장면 + 여는·닫는 장면.
 
 에뮬레이터에 디버그 앱이 설치되어 있고 서버(:8000)가 떠 있어야 한다. 장면마다 기대 글자가 화면에 나올 때까지 기다리고
 artifacts/rehearsal/에 캡처, 장면별 걸린 시간을 artifacts/rehearsal/timing.md로 남긴다.
+병원 접수함은 노트북이 병원 역할: 접수함 페이지를 열고(Playwright가 있으면 캡처) "도착하면 바로 볼게요"를 누른다.
 
-    python scripts/rehearsal.py [--phone]     # --phone: 대기 페이지를 Playwright(설치된 Chrome)로 함께 캡처
+    python scripts/rehearsal.py [--phone]     # --phone: 접수함 페이지를 Playwright(설치된 Chrome)로 함께 캡처
+    python scripts/rehearsal.py --all         # 예비 장면(쉼표 추천·잠깐 대기)까지
 """
+import urllib.request
 import argparse
 import os
 import re
@@ -67,6 +70,7 @@ def shot(name: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phone", action="store_true")
+    ap.add_argument("--all", action="store_true")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     rows: list[tuple[str, float, str]] = []
@@ -80,7 +84,7 @@ def main() -> int:
 
     def depart():
         start(sim="pet-trip", onboard="done", scene="none", seek=0, action="pause", speed=1, demo=False)
-        if not wait_for("출발 전 체크리스트", 20):
+        if not wait_for("출발 전 체크", 20):
             return "막힘: 출발 체크 화면이 안 뜸"
         shot("01-depart")
         for label in ("하네스·켄넬", "물", "배변봉투"):
@@ -98,6 +102,106 @@ def main() -> int:
         if not wait_for("멀미 지수", 20):
             return "막힘: 주행 화면이 안 뜸"
         shot("02-highway")
+        return None
+
+    def logcat_clinic() -> str | None:
+        x = subprocess.run(["adb", "logcat", "-d", "-s", "Intake"], capture_output=True, env=ENV).stdout.decode("utf-8", "replace")
+        m = re.findall(r"clinic=(/clinic/[A-Za-z0-9_-]+)", x)
+        return m[-1] if m else None
+
+    def compare():
+        # PT 1: 고갯길 예보 → 고갯길 비교 크게 (55 → 30, +7분 12초)
+        start(seek=8748, action="play", speed=1)
+        if not wait_for("굽은 길", 40):
+            return "막힘: 예보가 40초 안에 안 나옴"
+        shot("03-forecast")
+        # 비교 화면은 정차 중에만 열린다 → 출발 전(0초, P단)으로 돌아가 연다
+        start(seek=0, action="pause")
+        time.sleep(2)
+        start(compare=True)
+        # 비교 화면은 Canvas라 uiautomator 글자로 잡히지 않는다 → 3초 뒤 캡처(눈으로 확인)
+        time.sleep(3)
+        shot("04-compare")
+        start(compare=False)
+        return None
+
+    def intake():
+        # PT 2: "콩이가 축 처졌어" → 동물병원으로 → 사전 접수 → 접수함 실시간 도착 → 병원 응답이 차 화면·음성으로
+        adb("logcat", "-c")
+        start(seek=2400, action="play", speed=1, cabin=24)
+        if not wait_for("멀미 지수", 20):
+            return "막힘: 주행 화면이 안 뜸"
+        start(say="콩이가 축 처졌어")
+        if not wait_for("괜찮아졌어요", 15):
+            return "막힘: 반려견 안내가 안 뜸"
+        shot("05-emergency")
+        xy = next((xy for t, xy in nodes() if t == "동물병원으로"), None)
+        if not xy:
+            return "막힘: 동물병원으로 버튼 없음"
+        tap(xy)
+        if not wait_for("사전 접수", 15):
+            return "막힘: 사전 접수 표시 없음"
+        shot("06-going-vet")
+        url = None
+        for _ in range(10):
+            url = logcat_clinic()
+            if url:
+                break
+            time.sleep(1)
+        if not url:
+            return "막힘: 접수함 링크 로그 없음"
+        base = "http://127.0.0.1:8000"
+        if a.phone:
+            clinic_shot(base + url, "07-clinic-inbox")
+        else:
+            urllib.request.urlopen(base + url).read()
+        urllib.request.urlopen(urllib.request.Request(base + url + "/reply?r=ready", method="POST")).read()
+        if not wait_for("바로 봐요", 30):
+            return "막힘: 병원 응답이 차 화면에 안 옴"
+        shot("08-clinic-reply")
+        if a.phone:
+            clinic_shot(base + url, "08b-clinic-replied")
+        return None
+
+    def clinic_shot(url: str, name: str) -> None:
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            # Playwright가 없으면 설치된 Chrome 헤드리스로 (390×844 폰 크기)
+            chrome = Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "Google/Chrome/Application/chrome.exe"
+            if chrome.exists():
+                subprocess.run([str(chrome), "--headless=new", "--hide-scrollbars", "--force-device-scale-factor=2", "--window-size=480,900",
+                                f"--screenshot={OUT / (name + '.png')}", url], capture_output=True, timeout=60)
+            else:
+                urllib.request.urlopen(url).read()
+            return
+        with sync_playwright() as p:
+            b = p.chromium.launch(channel="chrome")
+            pg = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+            pg.goto(url)
+            pg.screenshot(path=str(OUT / f"{name}.png"), full_page=True)
+            b.close()
+
+    def calibrate():
+        # PT 3: 쓸수록 맞춰짐 — 지난 여행 답 3개(시연용으로 미리 넣음) + 오늘 "네" → 4회째, 민감도 보통 → 조금 높음
+        start(calib="yes,yes,little")
+        start(seek=10843, action="play", speed=1)
+        xy = wait_for("내렸어요", 100)
+        if not xy:
+            return "막힘: 도착 체크가 100초 안에 안 나옴"
+        shot("09-arrival")
+        tap(xy)
+        if not wait_for("멀미했어요", 15):
+            return "막힘: 멀미 질문이 안 뜸"
+        shot("10-ask-motion")
+        yes = next((xy for t, xy in nodes() if t == "네"), None)
+        if yes:
+            tap(yes)
+        if not wait_for("맞춤 정도", 10):
+            return "막힘: 맞춤 정도 줄이 안 뜸"
+        time.sleep(2)
+        shot("11-calibrated")
+        start(calib="reset")
         return None
 
     def distress():
@@ -186,8 +290,11 @@ def main() -> int:
         shot("11-triplog")
         return None
 
-    for name, fn in [("출발 체크", depart), ("고속도로", highway), ("콩이가 이상해요", distress), ("쉼표 추천", suggest), ("휴게소 쉼표·잠깐 대기", rest),
-                     ("고갯길 예보·비교", forecast), ("도착 전 산책", walk), ("도착 체크·이동 기록", arrival)]:
+    scenes = [("출발 체크", depart), ("고속도로", highway), ("PT1 고갯길 비교", compare), ("PT2 이상 → 병원 사전 접수", intake),
+              ("PT3 쓸수록 맞춰짐", calibrate)]
+    if a.all:
+        scenes += [("(예비) 콩이가 헥헥거려", distress), ("(예비) 쉼표 추천", suggest), ("(예비) 휴게소·잠깐 대기", rest)]
+    for name, fn in scenes:
         step(name, fn)
     total = time.time() - t0
     lines = ["| 장면 | 걸린 시간(초) | 결과 |", "| --- | --- | --- |"] + [f"| {n} | {d:.0f} | {r} |" for n, d, r in rows]

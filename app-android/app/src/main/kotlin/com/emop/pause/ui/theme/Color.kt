@@ -5,9 +5,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
- * 색 토큰 v5 (docs/design/v5/STYLE_V5.md §2, DESIGNER_NOTES.md). 역할 고정:
- * 파랑(primary) = 주 버튼·경로·체크, 앰버(warning) = 멀미 주의·온도 경고에만, 민트(comfort) = 편안 상태에만.
- * 상태는 색만으로 구분하지 않고 글자를 함께 쓴다.
+ * 색 토큰 v6 (docs/design/v6/STYLE_V6.md §2 — v5 대체). 역할 고정, 강조색은 한 화면에 하나만 앞에 둔다:
+ * 파랑(primary) = 주 버튼·경로, 앰버(warning) = 주의·위험 예보, 초록(comfort) = 편안·정상, 네이비 = 깊은 강조(제목 아이콘·차트 기준선).
+ * 상태는 색만으로 구분하지 않고 글자를 함께 쓴다. 그림자는 쓰지 않고 바탕 명도·얇은 테두리로 나눈다.
  */
 @Immutable
 data class PauseColors(
@@ -15,9 +15,13 @@ data class PauseColors(
     val primaryPressed: Color,
     val onPrimary: Color,
     val primarySoft: Color,
+    /** 깊은 강조 (#1C3150). 넓은 면적에는 쓰지 않는다. */
+    val navy: Color,
     val bg: Color,
     val surface: Color,
     val elevated: Color,
+    /** 패널 안 한 단계 낮은 면 (그래프 바탕·입력칸). */
+    val surfaceAlt: Color,
     val text: Color,
     val sub: Color,
     val border: Color,
@@ -39,53 +43,58 @@ data class PauseColors(
 ) {
     companion object {
         val Light = PauseColors(
-            primary = Color(0xFF286FE5),
-            primaryPressed = Color(0xFF1F5BC0),
+            primary = Color(0xFF3478E5),
+            primaryPressed = Color(0xFF2560C2),
             onPrimary = Color(0xFFFFFFFF),
-            primarySoft = Color(0xFFE6EEFC),
-            bg = Color(0xFFF4F5F7),
+            primarySoft = Color(0xFFEAF1FC),
+            navy = Color(0xFF1C3150),
+            bg = Color(0xFFF5F6F8),
             surface = Color(0xFFFFFFFF),
             elevated = Color(0xFFFFFFFF),
-            text = Color(0xFF1A2430),
-            sub = Color(0xFF667384),
-            border = Color(0xFFD6DBE2),
-            disabled = Color(0xFFAEB6C2),
-            warning = Color(0xFFF59E0B),
-            warningInk = Color(0xFFA85C10),
-            warningSoft = Color(0xFFFDE8CC),
-            comfort = Color(0xFF137A60),
-            comfortSoft = Color(0xFFDDF3EC),
+            surfaceAlt = Color(0xFFF0F2F5),
+            text = Color(0xFF182230),
+            sub = Color(0xFF687586),
+            border = Color(0xFFDFE4EA),
+            disabled = Color(0xFFB9C2CD),
+            warning = Color(0xFFE99532),
+            // 앰버 글자: 흰 바탕 대비 4.5:1 이상이 되게 진하게 (#E99532 글자는 2.4:1)
+            warningInk = Color(0xFF9A5A10),
+            warningSoft = Color(0xFFFCF1E3),
+            comfort = Color(0xFF16866C),
+            comfortSoft = Color(0xFFE4F2EE),
             danger = Color(0xFFB3261E),
-            road = Color(0xFF5B6676),
-            roadEdge = Color(0xFFC9D2DC),
-            land = Color(0xFFDCE9DF),
-            sky = Color(0xFFE8F0FA),
-            scrim = Color(0x471A2430),
+            road = Color(0xFF465366),
+            roadEdge = Color(0xFFCDD4DD),
+            land = Color(0xFFE8ECF0),
+            sky = Color(0xFFF2F4F7),
+            scrim = Color(0x47182230),
             isDark = false,
         )
 
         val Dark = PauseColors(
-            primary = Color(0xFF69A9FF),
-            primaryPressed = Color(0xFF8BBDFF),
-            onPrimary = Color(0xFF10151D),
-            primarySoft = Color(0xFF1C2B44),
-            bg = Color(0xFF10151D),
-            surface = Color(0xFF19212D),
-            elevated = Color(0xFF222D3B),
-            text = Color(0xFFF4F6F8),
-            sub = Color(0xFFAAB5C3),
-            border = Color(0xFF3B4757),
-            disabled = Color(0xFF5A6677),
-            warning = Color(0xFFF4A344),
-            warningInk = Color(0xFFF4A344),
-            warningSoft = Color(0xFF3A2A17),
-            comfort = Color(0xFF59C9A5),
-            comfortSoft = Color(0xFF173A33),
+            primary = Color(0xFF5E97F0),
+            primaryPressed = Color(0xFF82AEF4),
+            onPrimary = Color(0xFF0E1420),
+            primarySoft = Color(0xFF1B2A42),
+            navy = Color(0xFFA9BCD8),
+            bg = Color(0xFF0F141B),
+            surface = Color(0xFF171E27),
+            elevated = Color(0xFF1E2631),
+            surfaceAlt = Color(0xFF1C242E),
+            text = Color(0xFFEEF2F6),
+            sub = Color(0xFF9AA7B6),
+            border = Color(0xFF2B3542),
+            disabled = Color(0xFF4F5B6A),
+            warning = Color(0xFFF0A54B),
+            warningInk = Color(0xFFF0A54B),
+            warningSoft = Color(0xFF33261A),
+            comfort = Color(0xFF3FB394),
+            comfortSoft = Color(0xFF15302A),
             danger = Color(0xFFF2B8B5),
-            road = Color(0xFF2A3442),
-            roadEdge = Color(0xFF3B4757),
-            land = Color(0xFF16241F),
-            sky = Color(0xFF141D2A),
+            road = Color(0xFF2C3746),
+            roadEdge = Color(0xFF3A4555),
+            land = Color(0xFF141B24),
+            sky = Color(0xFF121821),
             scrim = Color(0x8C000000),
             isDark = true,
         )
@@ -94,7 +103,7 @@ data class PauseColors(
 
 /** 앱 아이콘(12번) 색. 라이트·다크와 상관없이 같다. */
 object IconColors {
-    val bgTop = Color(0xFF286FE5)
+    val bgTop = Color(0xFF3478E5)
     val bgBottom = Color(0xFF1C53A6)
     val car = Color(0xFFFAA627)
 }
