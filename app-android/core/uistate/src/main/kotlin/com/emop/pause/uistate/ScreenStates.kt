@@ -306,7 +306,29 @@ data class TripLogUi(
     val events: String? = null,
     /** 개인 보정 한 줄 (UPGRADE 4): 답한 뒤 "콩이 맞춤 정도: 기록 4회, 민감도 보통 → 조금 높음". */
     val calibration: String? = null,
+    /** 상태 카드 제목 "오늘 콩이 상태". */
+    val petName: String = "",
+    /** 오늘 상태 (v7, 판정 규칙 UiMapper.petStatus). 기록이 없으면 확인 중. */
+    val status: PetStatusUi = PetStatusUi.CHECKING,
+    /** 상태 근거 한 줄: "헐떡임 1번 · 멀미 주의 1번". */
+    val statusReason: String? = null,
+    /** 도착 시점 멀미 지수 ("내렸어요" 때 엔진 값). 기록이 없으면 null. */
+    val arrivalIndex: Int? = null,
+    /** 그래프 표시: 휴식 구간·주행 중 증상 기록 (출발 뒤 분, 그래프 가로축과 같은 시계). */
+    val marks: List<TrendMarkUi> = emptyList(),
+    /** 병원 공유 요약 표 (값이 없는 줄은 뺀다). */
+    val vetRows: List<VetRowUi> = emptyList(),
 )
+
+/** 이동 기록 상태 4단계. 색은 상태마다 하나(초록·앰버·빨강·회색)이고 항상 아이콘·글자와 함께 쓴다. */
+enum class PetStatusUi { CHECKING, GOOD, CAUTION, ATTENTION }
+
+enum class TrendMarkKind { STOP, SYMPTOM }
+
+/** 그래프 표시 하나. [minute]은 출발 뒤 분(정차 포함), [lengthMin]은 휴식 구간 길이. */
+data class TrendMarkUi(val kind: TrendMarkKind, val minute: Int, val label: String, val lengthMin: Int = 0)
+
+data class VetRowUi(val key: String, val value: String)
 
 /** "오늘 멀미했어요?" 답. 건너뛰기는 기록하지 않는다. */
 enum class MotionAnswerUi { YES, LITTLE, NO }

@@ -4,11 +4,14 @@
     python scripts/ui_capture.py --pair before after   # artifacts/ui/v6/<화면>-before-after.png (앱 영역만 잘라 나란히)
     python scripts/ui_capture.py dark --dark 01 02      # 다크 테마 (cmd uimode night yes, 끝나면 되돌림)
     python scripts/ui_capture.py half --split half 01   # 실제 분할 창 1/2(1280dp)·1/3(853dp) — am task resize
+    python scripts/ui_capture.py --out v7 --size 1920x1080 w1920 03   # 화면 크기 바꿔 찍기 (adb wm size, 끝나면 항상 reset)
+    python scripts/ui_capture.py --out v7 --sheet sheet.png 03-triplog-before 03-triplog-after   # 찍은 그림을 앱 영역만 잘라 격자로
 
 주행·멀미 예보·쉼표·대기·도착·이동 기록은 **시뮬레이터 실제 값**(pet-trip 장면 점프), 나머지는 화면 계약 Fixtures 장면.
 에뮬레이터·디버그 앱·서버(:8000)가 떠 있어야 한다. 나란히 붙이기는 설치된 Chrome 헤드리스를 쓴다(없으면 건너뜀).
 """
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -24,6 +27,9 @@ CROP = "1682:1210:853:90"
 # 분할 창 오른쪽 끝(px): Pleos 앱 영역 x=853부터. 1/2 = 1280dp, 1/3 = 853dp (docs/BLOCKED.md 10/30)
 SPLIT_RIGHT = {"half": 2133, "third": 1706}
 FULL_RIGHT = 2535
+# 화면 폭별 앱 영역(x, y, w, h). 이 AVD 런처는 wm size로 바꿔도 왼쪽 차량 영역(853)·위 막대(90)·아래 조작 막대(140)를
+# 그대로 두고 앱 작업 영역만 안 고친다 → 1920×1080에서는 보이는 영역(853,90)-(1920,940)으로 작업을 맞춘다 (v7 검수 10/31).
+APP_AREA = {2560: (853, 90, 1682, 1210), 1920: (853, 90, 1067, 850)}
 
 
 def task_id() -> str | None:
@@ -85,7 +91,7 @@ def triplog() -> bool:
     xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
     if xy:
         r.tap(xy)
-    ok = r.wait_for("최고 지수", 15) is not None
+    ok = r.wait_for("동물병원 공유용 요약", 15) is not None
     time.sleep(3)
     return ok
 
@@ -121,18 +127,31 @@ SCREENS = {
 CHROME = Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "Google/Chrome/Application/chrome.exe"
 
 
+def screen_width(path: Path) -> int:
+    meta = path.with_suffix(".json")
+    if meta.exists():
+        return json.loads(meta.read_text(encoding="utf-8")).get("width", 2560)
+    return 2560
+
+
 def compose(images: list[tuple[str, Path]], out: Path, cols: int = 2, scale: float = 0.5) -> None:
-    """앱 영역만 잘라 격자로 붙인다(설치된 Chrome 헤드리스로 HTML을 찍는다). 위에 이름표."""
+    """앱 영역만 잘라 격자로 붙인다(설치된 Chrome 헤드리스로 HTML을 찍는다). 위에 이름표. 화면 폭이 달라도 칸 크기는 같다."""
     w, h, label = int(1682 * scale), int(1210 * scale), 44
-    cells = "".join(
-        f"<div class='c'><p>{name}</p><div class='v'><img src='{path.as_uri()}'></div></div>" for name, path in images
-    )
+
+    def cell(name: str, path: Path) -> str:
+        # 실제 픽셀 비율 그대로(같은 배율 scale) — 1920 앱 영역은 더 작게 보인다
+        sw = screen_width(path)
+        x, y, aw, ah = APP_AREA.get(sw, APP_AREA[2560])
+        return (f"<div class='c'><p>{name}</p><div class='v' style='width:{aw * scale}px;height:{ah * scale}px'><img src='{path.as_uri()}' "
+                f"style='left:{-x * scale}px;top:{-y * scale}px;width:{sw * scale}px'></div></div>")
+
+    cells = "".join(cell(n, p) for n, p in images)
     rows = (len(images) + cols - 1) // cols
     html = (
         "<html><body style='margin:0;background:#fff;font:600 22px sans-serif'>"
         f"<style>.c{{display:inline-block;vertical-align:top;margin:0 20px 20px 0}}p{{margin:8px 0;height:{label - 16}px}}"
         f".v{{width:{w}px;height:{h}px;overflow:hidden;position:relative;border:1px solid #DFE4EA}}"
-        f".v img{{position:absolute;left:{-853 * scale}px;top:{-90 * scale}px;width:{2560 * scale}px}}</style>{cells}</body></html>"
+        f".v img{{position:absolute}}</style>{cells}</body></html>"
     )
     tmp = OUT / "_compose.html"
     tmp.write_text(html, encoding="utf-8")
@@ -161,27 +180,55 @@ def main() -> int:
     ap.add_argument("--pair", nargs=2)
     ap.add_argument("--split", choices=list(SPLIT_RIGHT))
     ap.add_argument("--dark", action="store_true")
+    ap.add_argument("--out", default="v6", help="artifacts/ui/<이름>")
+    ap.add_argument("--size", help="예: 1920x1080 — adb shell wm size로 바꿔 찍고 끝나면 wm size reset")
+    ap.add_argument("--sheet", help="찍지 않고 screens(파일 이름, .png 생략)를 한 장으로: 2칸 격자")
     a = ap.parse_args()
+    global OUT
+    OUT = r.ROOT / "artifacts" / "ui" / a.out
     OUT.mkdir(parents=True, exist_ok=True)
     if a.pair:
         pair(*a.pair)
         return 0
+    if a.sheet:
+        # 첫 이름은 위치 인자 tag로 들어간다
+        compose([(n, OUT / f"{n}.png") for n in [a.tag, *a.screens] if n], OUT / a.sheet)
+        print(a.sheet)
+        return 0
     names = [n for n in SCREENS if not a.screens or any(n.startswith(s) or s in n for s in a.screens)]
-    if a.dark:
-        subprocess.run(["adb", "shell", "cmd", "uimode", "night", "yes"], capture_output=True, env=r.ENV)
-        time.sleep(2)
-    for n in names:
-        ok = SCREENS[n]()
+    width = int(a.size.split("x")[0]) if a.size else 2560
+    try:
+        if a.size:
+            subprocess.run(["adb", "shell", "wm", "size", a.size], capture_output=True, env=r.ENV)
+            time.sleep(6)
+        if a.dark:
+            subprocess.run(["adb", "shell", "cmd", "uimode", "night", "yes"], capture_output=True, env=r.ENV)
+            time.sleep(2)
+        for n in names:
+            ok = SCREENS[n]()
+            if a.size and width in APP_AREA:
+                x, y, w, h = APP_AREA[width]
+                tid = task_id()
+                if tid:
+                    subprocess.run(["adb", "shell", "am", "task", "resize", tid, str(x), str(y), str(x + w), str(y + h)], capture_output=True, env=r.ENV)
+                    time.sleep(4)
+            if a.split:
+                resize(SPLIT_RIGHT[a.split])
+            path = OUT / f"{n}-{a.tag}.png"
+            with open(path, "wb") as f:
+                f.write(subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, env=r.ENV).stdout)
+            path.with_suffix(".json").write_text(json.dumps({"width": width}), encoding="utf-8")
+            print(f"{n}: {'OK' if ok else '기대 글자 못 찾음'} → {path.name}", flush=True)
+    finally:
         if a.split:
-            resize(SPLIT_RIGHT[a.split])
-        path = OUT / f"{n}-{a.tag}.png"
-        with open(path, "wb") as f:
-            f.write(subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, env=r.ENV).stdout)
-        print(f"{n}: {'OK' if ok else '기대 글자 못 찾음'} → {path.name}", flush=True)
-    if a.split:
-        resize(FULL_RIGHT)
-    if a.dark:
-        subprocess.run(["adb", "shell", "cmd", "uimode", "night", "no"], capture_output=True, env=r.ENV)
+            resize(FULL_RIGHT)
+        if a.dark:
+            subprocess.run(["adb", "shell", "cmd", "uimode", "night", "no"], capture_output=True, env=r.ENV)
+        if a.size:
+            subprocess.run(["adb", "shell", "wm", "size", "reset"], capture_output=True, env=r.ENV)
+            print("wm size reset:", subprocess.run(["adb", "shell", "wm", "size"], capture_output=True, text=True, env=r.ENV).stdout.strip(), flush=True)
+            time.sleep(6)
+            resize(FULL_RIGHT)
     r.start(scene="none", compare=False)
     return 0
 

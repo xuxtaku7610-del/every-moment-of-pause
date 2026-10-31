@@ -163,9 +163,20 @@ object Fixtures {
         motionSeries = listOf(0, 3, 6, 9, 12, 14, 15, 9, 7, 10, 13, 15, 17, 30, 41, 46, 44, 30, 22),
         limitLine = "콩이는 1시간 10분쯤이 한계예요",
         vetSummary = listOf("콩이 이동 기록", "이동 시간 2시간 58분 · 휴식 2번", "멀미 주의 예보 최고 46 (0~100, 진단 아님)"),
-        symptoms = listOf(SymptomUi("침 흘림", true), SymptomUi("헐떡임", false), SymptomUi("구토", false), SymptomUi("괜찮았어요", false)),
+        symptoms = listOf(SymptomUi("침 흘림", true), SymptomUi("헐떡임", false), SymptomUi("구토", false), SymptomUi("낑낑거림", false), SymptomUi("괜찮았어요", false)),
         warnings = 1,
         history = listOf(HistoryUi("10월 26일", "강릉 · 2시간 58분 · 멀미 주의 1번"), HistoryUi("10월 19일", "속초 · 2시간 16분 · 편안")),
+        petName = "콩이",
+        status = PetStatusUi.CAUTION,
+        statusReason = "침 흘림 1번 · 멀미 주의 1번",
+        arrivalIndex = 22,
+        marks = listOf(TrendMarkUi(TrendMarkKind.STOP, 35, "휴식", 20), TrendMarkUi(TrendMarkKind.STOP, 60, "휴식", 15), TrendMarkUi(TrendMarkKind.SYMPTOM, 70, "침 흘림")),
+        vetRows = listOf(
+            VetRowUi("관찰 증상", "침 흘림"),
+            VetRowUi("멀미 지수", "최고 46 · 도착 시점 22 (0~100, 진단 아님)"),
+            VetRowUi("주의 도달", "출발 1시간 10분 뒤 · 1번"),
+            VetRowUi("주행", "2시간 58분 · 휴식 2번"),
+        ),
     )
 
     val pet = PetEditUi("콩이", SizeUi.SMALL, 9, TendencyUi.HIGH, 90, true, emptyList(), firstRun = false)

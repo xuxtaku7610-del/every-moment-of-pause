@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -73,8 +72,6 @@ import com.emop.pause.ui.components.StatusChip
 import com.emop.pause.ui.components.StatusIcon
 import com.emop.pause.ui.components.SuvIllustration
 import com.emop.pause.ui.components.ToggleRow
-import com.emop.pause.ui.components.TrendChart
-import com.emop.pause.ui.components.VDivider
 import com.emop.pause.ui.components.toneInk
 import com.emop.pause.ui.components.toneWord
 import com.emop.pause.ui.theme.Pause
@@ -83,7 +80,6 @@ import com.emop.pause.ui.theme.WidthClass
 import com.emop.pause.uistate.ArrivalUi
 import com.emop.pause.uistate.DepartUi
 import com.emop.pause.uistate.Fixtures
-import com.emop.pause.uistate.MotionAnswerUi
 import com.emop.pause.uistate.MotionQuiz
 import com.emop.pause.uistate.MotionTone
 import com.emop.pause.uistate.OnboardingUi
@@ -94,11 +90,9 @@ import com.emop.pause.uistate.RestUi
 import com.emop.pause.uistate.SettingsUi
 import com.emop.pause.uistate.SizeUi
 import com.emop.pause.uistate.TendencyUi
-import com.emop.pause.uistate.TripLogUi
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.VetsUi
 import com.emop.pause.uistate.WaitUi
-import com.emop.pause.uistate.motionTone
 
 /*
  * 정차 중 화면 v6 (docs/design/v6/STYLE_V6.md §7.3~7.12, docs/ui_contract.md).
@@ -481,121 +475,6 @@ fun ArrivalScreen(ui: ArrivalUi, on: On) {
     }
 }
 
-// ═════════════ 이동 기록 (F7) ═════════════
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun TripLogScreen(ui: TripLogUi, on: On) {
-    val c = Pause.colors
-    val d = Pause.dimens
-    // "확인"은 앱 바 오른쪽 — 아래 세 칸이 잘리지 않게 (v6 검수 10/31)
-    Page(ui.meta, on, scroll = false, trailing = {
-        Spacer(Modifier.width(d.gap))
-        PauseButton("기록 확인", { on(UiEvent.FinishTrip) }, compact = true)
-    }) { wc ->
-        // 개인 맞춤 보정 (UPGRADE 4): 도착 뒤 한 번만, 정차 중. 음성으로도 답할 수 있다.
-        ui.askMotion?.let { q ->
-            AlertStrip(Modifier.fillMaxWidth(), accent = c.primary, soft = c.primarySoft) {
-                val answers: @Composable RowScope.() -> Unit = {
-                    PauseButton("네", { on(UiEvent.AnswerMotion(MotionAnswerUi.YES)) }, Modifier.width(d.u(96f)), compact = true)
-                    PauseButton("조금", { on(UiEvent.AnswerMotion(MotionAnswerUi.LITTLE)) }, Modifier.width(d.u(96f)), kind = ButtonKind.SECONDARY, compact = true)
-                    PauseButton("아니요", { on(UiEvent.AnswerMotion(MotionAnswerUi.NO)) }, Modifier.width(d.u(96f)), kind = ButtonKind.SECONDARY, compact = true)
-                    if (wc == WidthClass.FULL) PauseButton("건너뛰기", { on(UiEvent.AnswerMotion(null)) }, kind = ButtonKind.QUIET, compact = true)
-                }
-                if (wc == WidthClass.FULL) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(d.unit)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(q, style = Pause.type.section, color = c.text)
-                            Text("답할수록 다음 예보가 이 아이에게 맞춰져요", style = Pause.type.sub, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        answers()
-                    }
-                } else {
-                    Text(q, style = Pause.type.section, color = c.text)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(d.unit)) { answers() }
-                }
-            }
-        }
-        // 위: 요약 수치 + 핵심 인사이트 한 줄 (수치와 아래 그래프가 같은 값을 말한다)
-        Panel(Modifier.fillMaxWidth(), pad = d.u(24f), spacing = d.gap) {
-            if (wc == WidthClass.THIRD) {
-                Row(Modifier.fillMaxWidth()) {
-                    Metric("총 주행 시간", hm(ui.durationMin), small = true, modifier = Modifier.weight(1f))
-                    Metric("휴식", "${ui.stops}", unit = "번", small = true, modifier = Modifier.weight(1f))
-                }
-                Row(Modifier.fillMaxWidth()) {
-                    Metric("멀미 주의", "${ui.warnings}", unit = "번", small = true, color = if (ui.warnings > 0) c.warningInk else c.text, modifier = Modifier.weight(1f))
-                    Metric("최고 지수", "${ui.motionPeak}", unit = "/ 100", small = true, color = toneInk(motionTone(ui.motionPeak)), modifier = Modifier.weight(1f))
-                }
-            } else Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                Metric("총 주행 시간", hm(ui.durationMin), small = true, modifier = Modifier.weight(1f))
-                VDivider()
-                Metric("휴식", "${ui.stops}", unit = "번", small = true, modifier = Modifier.weight(1f).padding(start = d.u(24f)))
-                VDivider()
-                Metric("멀미 주의", "${ui.warnings}", unit = "번", small = true, color = if (ui.warnings > 0) c.warningInk else c.text, modifier = Modifier.weight(1f).padding(start = d.u(24f)))
-                VDivider()
-                Metric("최고 지수", "${ui.motionPeak}", unit = "/ 100", small = true, color = toneInk(motionTone(ui.motionPeak)), modifier = Modifier.weight(1f).padding(start = d.u(24f)))
-            }
-            // 핵심 인사이트: 큰 배너 대신 왼쪽 선 한 줄
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                Box(Modifier.width(d.u(4f)).fillMaxHeight().background(c.navy))
-                Column(Modifier.padding(start = d.gap), verticalArrangement = Arrangement.spacedBy(d.u(2f))) {
-                    Text(ui.limitLine, style = Pause.type.section, color = c.text)
-                    listOfNotNull(ui.events, ui.calibration).takeIf { it.isNotEmpty() }?.let { lines ->
-                        Text(lines.joinToString("  ·  "), style = Pause.type.bodyStrong, color = if (ui.events != null) c.warningInk else c.primary)
-                    }
-                }
-            }
-        }
-        // 아래: 추이 그래프 · 관찰 기록 · 병원 공유 요약 세 칸이 한 화면에 (전체 창).
-        // 1/2 창은 그래프 | 관찰·요약(이 칸만 스크롤), 1/3 창은 관찰·요약만.
-        if (wc != WidthClass.FULL) {
-            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-                if (wc == WidthClass.HALF) Panel(Modifier.weight(0.5f).fillMaxHeight(), pad = d.u(20f), spacing = d.gapS) {
-                    SectionHeader("멀미 지수 추이")
-                    TrendChart(ui.motionSeries, Modifier.fillMaxWidth().weight(1f))
-                    Text("5분 최고값 · 진단 아님", style = Pause.type.caption, color = c.sub)
-                }
-                Column(Modifier.weight(0.5f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
-                    Panel(Modifier.fillMaxWidth(), pad = d.u(20f)) {
-                        SectionHeader("오늘의 관찰 기록")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
-                            ui.symptoms.forEach { s -> Choice(s.label, s.selected, { on(UiEvent.ToggleSymptom(s.label)) }) }
-                        }
-                    }
-                    Panel(Modifier.fillMaxWidth(), pad = d.u(20f), spacing = d.u(6f)) {
-                        SectionHeader("동물병원 공유용 요약")
-                        ui.vetSummary.drop(1).forEach { Text(it, style = Pause.type.sub, color = c.text) }
-                    }
-                }
-            }
-            return@Page
-        }
-        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-            Panel(Modifier.weight(0.38f).fillMaxHeight(), pad = d.u(24f), spacing = d.gapS) {
-                SectionHeader("멀미 지수 추이", trailing = "5분 최고값 · 진단 아님")
-                TrendChart(ui.motionSeries, Modifier.fillMaxWidth().weight(1f))
-                Text(ui.summary, style = Pause.type.sub, color = c.sub, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            Panel(Modifier.weight(0.28f).fillMaxHeight(), pad = d.u(20f)) {
-                SectionHeader("오늘의 관찰 기록")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
-                    ui.symptoms.forEach { s -> Choice(s.label, s.selected, { on(UiEvent.ToggleSymptom(s.label)) }) }
-                }
-            }
-            Panel(Modifier.weight(0.34f).fillMaxHeight().verticalScroll(rememberScrollState()), pad = d.u(20f), spacing = d.u(6f)) {
-                SectionHeader("동물병원 공유용 요약")
-                ui.vetSummary.drop(1).forEach { Text(it, style = Pause.type.sub, color = c.text) }
-                if (ui.history.isNotEmpty()) {
-                    Divider()
-                    Text("이전 기록", style = Pause.type.metricLabel, color = c.sub)
-                    ui.history.forEach { h -> KeyValue(h.date, h.line) }
-                }
-            }
-        }
-    }
-}
-
 // ═════════════ 반려견 프로필·설정·온보딩 (정차 중에만, DS-04) ═════════════
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -818,7 +697,6 @@ fun SettingsScreen(ui: SettingsUi, on: On, licenses: String) {
 
 @Preview(widthDp = 1680, heightDp = 1210) @Composable private fun PDepart() = PauseTheme(false, 2f) { DepartScreen(Fixtures.depart) {} }
 @Preview(widthDp = 1680, heightDp = 1210) @Composable private fun PWait() = PauseTheme(false, 2f) { WaitScreen(Fixtures.wait) {} }
-@Preview(widthDp = 1680, heightDp = 1210) @Composable private fun PLog() = PauseTheme(false, 2f) { TripLogScreen(Fixtures.tripLog) {} }
 
 /** 미리보기 전용 자리 표시 (사진이 없을 때의 일러스트 확인). */
 @Preview(widthDp = 400, heightDp = 400) @Composable private fun PDog() = PauseTheme(false, 2f) { DogIllustration(Modifier.fillMaxSize()) }

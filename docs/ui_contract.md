@@ -99,3 +99,12 @@ flowchart TD
 - `DriveContent.Forecast.series: List<Int>` — 엔진 예측 곡선(1분 간격, 0번 = 지금, 최대 21개). 그래프는 이 점만 잇는다. `peak` = 이 곡선의 최고.
 - `DriveUi.nextCurve: String?`("3.4km", 구간 안이면 "지금") · `DriveUi.recentMotion: List<Int>`(최근 30분, 1분 간격).
 - `TripLogUi.limitLine`은 이제 이번 여행 값을 먼저 보는 한 줄(`PetTripLog.insight`), `warnings`는 1초 값 기준 주의 횟수.
+
+## 2026-10-31 이동 기록 v7 추가 (모두 기본값 있음, 저장 데이터·서버 API 변경 없음)
+- `TripLogUi.petName` — 상태 카드 제목 "오늘 콩이 상태".
+- `TripLogUi.status: PetStatusUi`(CHECKING·GOOD·CAUTION·ATTENTION) + `statusReason`("헐떡임 1번 · 멀미 주의 1번") — 판정 `UiMapper.petStatus`·`statusReason` (test_plan F7-06).
+- `TripLogUi.arrivalIndex: Int?` — "내렸어요" 때 엔진 멀미 지수(`TripRecorder.motionNow`, `SavedTrip.arrivalIndex`, 기기에 따로 저장하지 않음). 기록이 없으면 null.
+- `TripLogUi.marks: List<TrendMarkUi>` — 그래프 표시: `STOP`(휴식 시작 분·길이) · `SYMPTOM`(주행 중 증상 기록, 주행 분 → 정차 포함 분 `UiMapper.elapsedMin`) (F7-08).
+- `TripLogUi.vetRows: List<VetRowUi>` — 병원 공유 요약 표 (F7-09). `vetSummary`(문자열 목록)는 그대로 둔다.
+- `TripLogUi.motionSeries`는 기록이 없으면 빈 목록(전에는 `[0, 0]`으로 채웠다) — 그래프가 "기록이 아직 없어요"를 그린다.
+- `UiEvent.ToggleSymptom`: "괜찮았어요"를 고르면 다른 증상이 풀리고, 다른 증상을 고르면 "괜찮았어요"가 풀린다(`UiMapper.toggleSymptom`, F7-07). 저장되는 증상 메모 글자(`symptomNote`)는 그대로.

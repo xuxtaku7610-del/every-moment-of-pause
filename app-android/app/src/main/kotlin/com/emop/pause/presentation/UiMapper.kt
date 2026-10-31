@@ -19,12 +19,15 @@ import com.emop.pause.engine.pause.PauseActivity
 import com.emop.pause.engine.pause.PauseCurator
 import com.emop.pause.engine.pause.PauseInput
 import com.emop.pause.engine.pet.CheckItem
+import com.emop.pause.engine.pet.LimitEstimate
+import com.emop.pause.engine.pet.PetTripRecord
 import com.emop.pause.engine.pet.WaitStatus
 import com.emop.pause.engine.pet.CabinHeat
 import com.emop.pause.engine.planner.Facility
 import com.emop.pause.engine.planner.Reason
 import com.emop.pause.engine.planner.RestStop
 import com.emop.pause.runtime.Snapshot
+import com.emop.pause.trip.StopVisit
 import com.emop.pause.trip.TripUi
 import com.emop.pause.trip.VetMemo
 import com.emop.pause.trip.VoicePhase
@@ -38,6 +41,7 @@ import com.emop.pause.uistate.DriveContent
 import com.emop.pause.uistate.DriveUi
 import com.emop.pause.uistate.MotionUi
 import com.emop.pause.uistate.PetEditUi
+import com.emop.pause.uistate.PetStatusUi
 import com.emop.pause.uistate.PetSummaryUi
 import com.emop.pause.uistate.PlaceUi
 import com.emop.pause.uistate.PlacesUi
@@ -47,6 +51,9 @@ import com.emop.pause.uistate.ShareUi
 import com.emop.pause.uistate.SymptomUi
 import com.emop.pause.uistate.SizeUi
 import com.emop.pause.uistate.TendencyUi
+import com.emop.pause.uistate.TrendMarkKind
+import com.emop.pause.uistate.TrendMarkUi
+import com.emop.pause.uistate.VetRowUi
 import com.emop.pause.uistate.VetUi
 import com.emop.pause.uistate.VetsUi
 import com.emop.pause.uistate.VoiceSheetState
@@ -373,4 +380,93 @@ object UiMapper {
         problems = d.problems(),
         firstRun = firstRun,
     )
+
+    // ───────────── 이동 기록 v7 (상태 판정·그래프 표시·병원 요약) ─────────────
+
+    /** 관찰 기록 칸 (이름 유지: "괜찮았어요"). */
+    val SYMPTOMS = listOf("침 흘림", "헐떡임", "구토", "낑낑거림", SYMPTOM_FINE)
+    const val SYMPTOM_FINE = "괜찮았어요"
+    /** 한 번이라도 있으면 "관찰 필요". 주행 중 기록 이름(PetDistress.label) 그대로. */
+    private val SEVERE = setOf("구토", "축 처짐·호흡 곤란")
+
+    /** 관찰 기록 고르기: "괜찮았어요"와 다른 증상은 서로 배타 (고르면 반대쪽이 풀린다). */
+    fun toggleSymptom(current: Set<String>, label: String): Set<String> = when {
+        label in current -> current - label
+        label == SYMPTOM_FINE -> setOf(SYMPTOM_FINE)
+        else -> current - SYMPTOM_FINE + label
+    }
+
+    /** 주행 중 기록 이름 → 관찰 칸 이름 ("침 흘림·하품" → "침 흘림"). 칸에 없는 기록은 그대로. */
+    fun symptomName(eventLabel: String): String = when (eventLabel) {
+        "침 흘림·하품" -> "침 흘림"
+        "낑낑·떨림" -> "낑낑거림"
+        else -> eventLabel
+    }
+
+    /**
+     * 증상별 횟수: 주행 중 기록은 한 번씩 세고, 도착 뒤 고른 칸은 같은 증상 기록이 없을 때만 1번으로 센다
+     * (같은 헐떡임을 운전 중 말하고 도착해 다시 고른 것을 두 번으로 세지 않는다). "괜찮았어요"는 세지 않는다. 순서 = 관찰 칸 순서.
+     */
+    fun symptomCounts(chips: Set<String>, events: List<String>): Map<String, Int> {
+        val counts = events.map(::symptomName).groupingBy { it }.eachCount().toMutableMap()
+        chips.filter { it != SYMPTOM_FINE }.forEach { counts[it] = max(counts[it] ?: 0, 1) }
+        return counts.entries.sortedBy { (k, _) -> SYMPTOMS.indexOf(k).let { if (it < 0) SYMPTOMS.size else it } }.associate { it.key to it.value }
+    }
+
+    /**
+     * 오늘 상태 (사용자 결정 10/31, 실제 기록만):
+     * 확인 중 = 측정 점 2개 미만이고 관찰 기록도 없음 · 관찰 필요 = 구토(또는 축 처짐)·같은 증상 2회 이상·도착 시점 지수 70 이상 ·
+     * 주의 = 도착 시점 지수 40 이상 또는 다른 증상 1회 · 양호 = 그 밖("괜찮았어요"만 골랐을 때 포함).
+     */
+    fun petStatus(points: Int, arrivalIndex: Int?, chips: Set<String>, events: List<String>): PetStatusUi {
+        if (points < 2 && chips.isEmpty() && events.isEmpty()) return PetStatusUi.CHECKING
+        val counts = symptomCounts(chips, events)
+        val index = arrivalIndex ?: 0
+        return when {
+            counts.keys.any { it in SEVERE } || counts.values.any { it >= 2 } || index >= MotionConstants.HIGH -> PetStatusUi.ATTENTION
+            index >= MotionConstants.CAUTION || counts.isNotEmpty() -> PetStatusUi.CAUTION
+            else -> PetStatusUi.GOOD
+        }
+    }
+
+    /** 상태 근거 한 줄: "헐떡임 1번 · 멀미 주의 1번". 확인 중이면 null. */
+    fun statusReason(status: PetStatusUi, chips: Set<String>, events: List<String>, cautions: Int): String? {
+        if (status == PetStatusUi.CHECKING) return null
+        val symptoms = symptomCounts(chips, events).map { (k, n) -> "$k ${n}번" }
+            .ifEmpty { if (SYMPTOM_FINE in chips) listOf(SYMPTOM_FINE) else listOf("증상 기록 없음") }
+        return (symptoms + (if (cautions > 0) "멀미 주의 ${cautions}번" else "멀미 주의 없음")).joinToString(" · ")
+    }
+
+    /** 오늘 주행 중 증상 기록 한 줄 (UPGRADE 7): "오늘 헐떡임 1회(출발 39분 뒤)". */
+    fun eventsLine(events: List<Pair<String, Int>>): String? =
+        events.groupBy { it.first }.map { (k, v) -> "$k ${v.size}회(출발 ${v.first().second}분 뒤)" }
+            .takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = "오늘 ")
+
+    /**
+     * 주행 분(정차 제외) → 출발 뒤 분(정차 포함, 그래프 가로축). 그 시각 전에 시작한 휴식 길이를 더한다.
+     * [stops]는 (출발 뒤 시작 분, 길이 분).
+     */
+    fun elapsedMin(drivingMin: Int, stops: List<Pair<Int, Int>>): Int {
+        var m = drivingMin
+        stops.sortedBy { it.first }.forEach { (start, len) -> if (start <= m) m += len }
+        return m
+    }
+
+    /** 그래프 표시: 휴식 구간(실제 정차 기록) + 주행 중 증상 기록. 출발 시각을 모르면 없음. */
+    fun trendMarks(startMinute: Int?, visits: List<StopVisit>, events: List<Pair<String, Int>>): List<TrendMarkUi> {
+        val start = startMinute ?: return emptyList()
+        val stops = visits.map { (it.arrivedMinute - start) to it.stayedMin }
+        return stops.filter { it.second > 0 }.map { (m, len) -> TrendMarkUi(TrendMarkKind.STOP, m, "휴식", len) } +
+            events.map { (label, min) -> TrendMarkUi(TrendMarkKind.SYMPTOM, elapsedMin(min, stops), symptomName(label)) }
+    }
+
+    /** 병원 공유 요약 표: 관찰 증상 → 주행 중 기록 → 멀미 지수 → 주의 도달 → 주행·휴식 → 평소 한계. 값이 없는 줄은 뺀다. */
+    fun vetRows(r: PetTripRecord, chips: Set<String>, eventsLine: String?, arrivalIndex: Int?, cautions: Int, limit: LimitEstimate?): List<VetRowUi> = buildList {
+        SYMPTOMS.filter { it in chips }.takeIf { it.isNotEmpty() }?.let { add(VetRowUi("관찰 증상", it.joinToString(", "))) }
+        eventsLine?.let { add(VetRowUi("주행 중 기록", it.removePrefix("오늘 "))) }
+        add(VetRowUi("멀미 지수", "최고 ${r.motionPeak}" + (arrivalIndex?.let { " · 도착 시점 $it" } ?: "") + " (0~100, 진단 아님)"))
+        add(VetRowUi("주의 도달", r.firstCautionMin?.let { "출발 ${duration(it)} 뒤 · ${max(cautions, 1)}번" } ?: "없음"))
+        add(VetRowUi("주행", "${duration(r.drivingMin)} · 휴식 ${r.stops}번"))
+        limit?.let { add(VetRowUi("평소 한계", "약 ${duration(it.minutes)} (기록 ${it.basedOn}번)")) }
+    }
 }

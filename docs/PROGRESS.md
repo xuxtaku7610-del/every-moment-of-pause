@@ -8,6 +8,19 @@
 2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
 3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
 
+## 이동 기록 v7 재설계 (2026-10-31 오후, 사용자 승인 계획 + 결정 1~6)
+- 화면: `ui/screens/TripLogScreen.kt`(새 파일, `PetScreens.kt`에서 분리). 오늘 상태 카드 → 통계 3칸 → 멀미 지수 추이(가장 넓게) → 관찰 기록 | 병원 공유 요약. 기존 기능(멀미 주의 횟수·날짜·기록 확인·질문·맞춤 정도·이전 기록·요약 문장) 모두 유지, 이벤트·저장 구조 그대로.
+- 상태 판정 `UiMapper.petStatus`(결정 1, 규칙 줄마다 테스트), 근거 줄에 멀미 주의 횟수(결정 2), "괜찮았어요" 배타(결정 3), 빨강 = 관찰 필요만(결정 4, STYLE_V6 §2.1, `attention*` 토큰), 표기 "도착 시점 지수"·"오늘 콩이 상태"(결정 6).
+- 그래프: 휴식 구간·증상 기록·도착 시점 점, 기록 없으면 0으로 채우지 않음. 부품 `TrendLegend`·`StatCard`·`SymptomTile`.
+- 창 폭 단계를 배율 2 기준 dp로 잼(`Page`) — 1920 화면에서도 같은 비율 창이 같은 단계.
+- 1920×1080(결정 5): `wm size`로 캡처하고 매번 `wm size reset`(마지막 확인 2560x1440). 이 AVD 런처는 왼쪽 차량 영역·조작 막대를 그대로 두어 앱 영역이 1067×850이 된다 → 이동 기록은 쌓기+스크롤(상태·통계가 첫 화면, 그래프부터 스크롤).
+- 검수 4회(잘림·그래프 높이·줄바꿈·질문 버튼), 캡처 `artifacts/ui/v7/`(전후 2560·1920·1/2·다크, 구토·괜찮았어요 고른 상태).
+- 검증: `./gradlew test` 종료 0(고유 297개, 실패 0, 새 `TripLogStatusTest` 12개), PT 리허설 5장면 OK 62초.
+
+## 커밋 대기열 (같이가개 8차 — 이동 기록 v7, 10/31 오후) — 7차(cceafe4) 다음에
+1. `[UI] 이동 기록 v7: 오늘 상태·통계·넓은 그래프·관찰·병원 요약` — `app-android/core/uistate app-android/app/src/main/kotlin/com/emop/pause/presentation/UiMapper.kt app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripRecorder.kt app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/src/test/kotlin/com/emop/pause/presentation/TripLogStatusTest.kt`
+2. `[DOC] v7 스타일·화면 계약·테스트 계획, 캡처 스크립트` — `docs/design/v6/STYLE_V6.md docs/ui_contract.md test_plan.md docs/demo_numbers.md docs/PROGRESS.md scripts/ui_capture.py`
+
 ## 숫자 맞추기·분할 창·다크 (2026-10-31, 사용자 결정 1~3 + 캡처 검수)
 - 결정 1: 장면 점프로 건너뛴 구간을 엔진이 1초씩 따라잡은 값(`TripCoordinator.replayed`)으로 이동 기록을 다시 쌓는다. 지나간 발표 장면의 증상(DemoScenes `say`)도 그 시각에 기록하고, 정차 이름은 휴게소 목록이 오면 채운다. 기록기는 5분 점을 그 안의 최고값으로 찍고, 멀미 주의는 1초 값과 히스테리시스로 센다(`TripRecorder.cautionCount`). 한 줄 문장은 `PetTripLog.insight`로 이번 여행 값을 먼저 본다.
 - 결정 2: 병원 접수함에 새 접수·변경 강조, 사용자가 켜는 알림 소리, 시연용 표시를 넣었다(`render_clinic` + `CLINIC_JS`, F5-11).

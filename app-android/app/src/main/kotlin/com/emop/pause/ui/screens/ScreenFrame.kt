@@ -54,7 +54,8 @@ internal fun Page(
     val c = Pause.colors
     val d = Pause.dimens
     BoxWithConstraints(Modifier.fillMaxSize().background(background ?: c.bg)) {
-        val wc = WidthClass.of(maxWidth)
+        // 창 단계는 배율 2 기준 dp로 잰다 — 1920×1080(배율 1.5)에서도 전체 창이 FULL (v7 검수)
+        val wc = WidthClass.of(maxWidth * (2f / d.scale))
         Column(Modifier.fillMaxSize()) {
             AppBar(meta, { on(UiEvent.LogoTap) }, title = title, trailing = trailing)
             val body = Modifier.fillMaxWidth().weight(1f).padding(start = d.margin, end = d.margin, bottom = d.margin, top = d.u(4f))

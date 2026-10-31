@@ -87,7 +87,8 @@ import java.util.UUID
 import javax.inject.Inject
 
 /** 저장한 이번 여행 기록 (이동 기록 화면). */
-data class SavedTrip(val id: String, val record: PetTripRecord, val series: List<Int>, val summary: String, val cautions: Int = 0)
+/** [arrivalIndex] = "내렸어요" 때 멀미 지수 (이동 기록 "도착 시점 지수", 기기에 따로 저장하지 않는다). */
+data class SavedTrip(val id: String, val record: PetTripRecord, val series: List<Int>, val summary: String, val cautions: Int = 0, val arrivalIndex: Int? = null)
 
 data class AppState(
     val overlay: Overlay = Overlay.NONE,
@@ -270,7 +271,7 @@ class MainViewModel @Inject constructor(
             is UiEvent.GoPlace -> goPlace(e.id)
             is UiEvent.GoVet -> goVet(e.id)
             UiEvent.ConfirmLeft -> confirmLeft()
-            is UiEvent.ToggleSymptom -> _app.update { a -> a.copy(symptoms = if (e.label in a.symptoms) a.symptoms - e.label else a.symptoms + e.label) }
+            is UiEvent.ToggleSymptom -> _app.update { a -> a.copy(symptoms = UiMapper.toggleSymptom(a.symptoms, e.label)) }
             UiEvent.FinishTrip -> finishTrip()
             is UiEvent.AnswerMotion -> answerMotion(e.answer)
             UiEvent.ResetCalibration -> {
@@ -573,7 +574,7 @@ class MainViewModel @Inject constructor(
             runCatching { petStore.saveTrip(id, record, System.currentTimeMillis(), log.motionSeries.mapIndexed { i, v -> i * TripRecorder.SAMPLE_MIN to v }) }
             refreshLimit()
             val summary = summarize(record, _app.value.limit)
-            _app.update { it.copy(saved = SavedTrip(id, record, log.motionSeries, summary, log.cautionCount), symptoms = emptySet(), askMotion = true) }
+            _app.update { it.copy(saved = SavedTrip(id, record, log.motionSeries, summary, log.cautionCount, log.motionNow.takeIf { log.motionSeries.isNotEmpty() }), symptoms = emptySet(), askMotion = true) }
             // 음성으로도 한 번 묻는다 (정차 중). 못 들으면 화면 버튼으로.
             val heard = trip.ask("오늘 ${trip.ui.value.pet.name} 멀미했어요? 네, 조금, 아니요로 말해 주세요.")
             MotionAnswerParser.parse(heard)?.let { answerMotion(it) }
@@ -633,19 +634,24 @@ class MainViewModel @Inject constructor(
         val today = LocalDate.now()
         val askMotion = if (a.askMotion) "오늘 ${t.pet.name} 멀미했어요?" else null
         // 오늘 증상 기록 (UPGRADE 7): "오늘 헐떡임 1회(출발 10분 뒤)"
-        val events = t.distressEvents.groupBy { it.first }.map { (k, v) -> "$k ${v.size}회(출발 ${v.first().second}분 뒤)" }
-            .takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = "오늘 ")
+        val events = UiMapper.eventsLine(t.distressEvents)
+        val series = saved?.series ?: log.motionSeries
+        val arrivalIndex = if (saved != null) saved.arrivalIndex else log.motionNow.takeIf { series.isNotEmpty() }
+        val cautions = saved?.cautions ?: log.cautionCount
+        val eventNames = t.distressEvents.map { it.first }
+        val status = UiMapper.petStatus(series.size, arrivalIndex, a.symptoms, eventNames)
         return TripLogUi(
             meta = "${today.monthValue}월 ${today.dayOfMonth}일, ${s.route?.destinationName ?: "목적지"}까지",
             summary = saved?.summary ?: "기록을 정리하는 중이에요.",
             durationMin = record.drivingMin,
             stops = record.stops,
             motionPeak = record.motionPeak,
-            motionSeries = (saved?.series ?: log.motionSeries).ifEmpty { listOf(0, 0) },
+            // 기록이 없으면 빈 그대로 (그래프가 "기록이 아직 없어요"를 그린다 — 0으로 채우지 않는다)
+            motionSeries = series,
             limitLine = PetTripLog.insight(t.pet.name, record, a.limit),
             vetSummary = PetTripLog.vetSummary(t.pet.name, record.copy(symptomNote = note), a.limit),
-            symptoms = SYMPTOMS.map { SymptomUi(it, it in a.symptoms) },
-            warnings = saved?.cautions ?: log.cautionCount,
+            symptoms = UiMapper.SYMPTOMS.map { SymptomUi(it, it in a.symptoms) },
+            warnings = cautions,
             askMotion = askMotion,
             events = events,
             calibration = if (a.askMotion) null else calibrationLine(t.pet.name, a),
@@ -653,6 +659,12 @@ class MainViewModel @Inject constructor(
                 val d = java.time.Instant.ofEpochMilli(r.startedMs).atZone(java.time.ZoneId.systemDefault())
                 HistoryUi("${d.monthValue}월 ${d.dayOfMonth}일", "${UiMapper.duration(r.drivingMin)} · 멀미 최고 ${r.motionPeak}")
             },
+            petName = t.pet.name,
+            status = status,
+            statusReason = UiMapper.statusReason(status, a.symptoms, eventNames, cautions),
+            arrivalIndex = arrivalIndex,
+            marks = UiMapper.trendMarks(log.startMinute, log.visits, t.distressEvents),
+            vetRows = UiMapper.vetRows(record, a.symptoms, events, arrivalIndex, cautions, a.limit),
         )
     }
 
@@ -766,8 +778,6 @@ class MainViewModel @Inject constructor(
             "헐떡임" to DistressKind.PANTING, "구토" to DistressKind.VOMIT, "침 흘림·하품" to DistressKind.NAUSEA,
             "낑낑·떨림" to DistressKind.ANXIOUS, "축 처짐" to DistressKind.EMERGENCY,
         )
-
-        val SYMPTOMS = listOf("침 흘림", "헐떡임", "구토", "낑낑거림", "괜찮았어요")
 
     }
 }

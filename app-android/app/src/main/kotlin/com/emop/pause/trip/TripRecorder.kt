@@ -37,6 +37,8 @@ data class TripLog(
     val drivingMin: Int = 0,
     /** 멀미 주의(40)에 들어간 횟수 (1초 값 기준, 35 아래로 내려갔다 다시 들어와야 한 번 더 센다). */
     val cautionCount: Int = 0,
+    /** 마지막 1초 멀미 지수 ("내렸어요" 때 읽으면 도착 시점 지수). */
+    val motionNow: Int = 0,
 )
 
 /**
@@ -124,7 +126,7 @@ class TripRecorder {
 
     fun log(): TripLog {
         val n = max(1, series.size - 1)
-        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin, cautionCount)
+        return TripLog(visits.toList(), series.toList(), marks.map { it.toFloat() / n }, peak, longest, distance, start, motionSeries.toList(), motionPeak, firstCautionMin, drivingMin, cautionCount, motionNow)
     }
 
     /** 목록이 비어 있으면 null(아직 모름), 3km 안에 휴게소가 없으면 "길가". */

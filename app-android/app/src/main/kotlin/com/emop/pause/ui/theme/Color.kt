@@ -6,7 +6,8 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * 색 토큰 v6 (docs/design/v6/STYLE_V6.md §2 — v5 대체). 역할 고정, 강조색은 한 화면에 하나만 앞에 둔다:
- * 파랑(primary) = 주 버튼·경로, 앰버(warning) = 주의·위험 예보, 초록(comfort) = 편안·정상, 네이비 = 깊은 강조(제목 아이콘·차트 기준선).
+ * 파랑(primary) = 주 버튼·경로, 앰버(warning) = 주의·위험 예보, 초록(comfort) = 편안·정상, 네이비 = 깊은 강조(제목 아이콘·차트 기준선),
+ * 차분한 빨강(attention) = 이동 기록 "관찰 필요" 상태에만(v7, 아이콘·글자와 함께).
  * 상태는 색만으로 구분하지 않고 글자를 함께 쓴다. 그림자는 쓰지 않고 바탕 명도·얇은 테두리로 나눈다.
  */
 @Immutable
@@ -34,6 +35,10 @@ data class PauseColors(
     val comfortSoft: Color,
     /** "내 데이터 삭제"만. */
     val danger: Color,
+    /** 이동 기록 "관찰 필요" 상태에만 (STYLE_V6 §2.1). 면은 [attentionSoft], 글자·아이콘은 [attentionInk]. */
+    val attention: Color,
+    val attentionInk: Color,
+    val attentionSoft: Color,
     val road: Color,
     val roadEdge: Color,
     val land: Color,
@@ -63,6 +68,10 @@ data class PauseColors(
             comfort = Color(0xFF16866C),
             comfortSoft = Color(0xFFE4F2EE),
             danger = Color(0xFFB3261E),
+            // 경고등 빨강보다 채도를 낮춘 벽돌색. 글자 대비 흰 바탕 6.4:1, 연한 면 5.6:1
+            attention = Color(0xFFC4473D),
+            attentionInk = Color(0xFFA63A31),
+            attentionSoft = Color(0xFFFBECEA),
             road = Color(0xFF465366),
             roadEdge = Color(0xFFCDD4DD),
             land = Color(0xFFE8ECF0),
@@ -91,6 +100,9 @@ data class PauseColors(
             comfort = Color(0xFF3FB394),
             comfortSoft = Color(0xFF15302A),
             danger = Color(0xFFF2B8B5),
+            attention = Color(0xFFE8857B),
+            attentionInk = Color(0xFFF09B92),
+            attentionSoft = Color(0xFF3A2220),
             road = Color(0xFF2C3746),
             roadEdge = Color(0xFF3A4555),
             land = Color(0xFF141B24),

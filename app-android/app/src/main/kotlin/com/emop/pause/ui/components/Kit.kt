@@ -60,12 +60,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.emop.pause.ui.theme.Pause
+import kotlin.math.abs
 import com.emop.pause.uistate.MotionTone
+import com.emop.pause.uistate.TrendMarkKind
+import com.emop.pause.uistate.TrendMarkUi
 
 /**
  * v6 부품 (docs/design/v6/STYLE_V6.md §6). 화면은 UiState만 보고 이 부품으로 그린다.
@@ -538,28 +542,53 @@ fun RecentChart(series: List<Int>, modifier: Modifier = Modifier, windowMin: Int
 }
 
 /**
- * 이동 중 지수 흐름 (v6): 5분 간격 실제 기록. 가로 = 출발 뒤 시간(30분 눈금), 세로 = 0~100, 주의 이상 띠, 최고 지점 값 표시.
+ * 이동 중 지수 흐름 (v6 → v7): 5분 간격 실제 기록. 가로 = 출발 뒤 시간(30분 눈금), 세로 = 0~100, 주의 이상 띠, 최고 지점 값.
+ * v7 표시: 휴식 구간(회색 면) · 주행 중 증상 기록(점선 + 이름) · 도착 시점 지수(네이비 점). 표시는 모두 [marks]로 받은 실제 기록만이고,
+ * 기록이 끝난 뒤로는 선을 긋지 않는다. 점이 2개 미만이면 축과 [emptyText]만.
  */
 @Composable
-fun TrendChart(series: List<Int>, modifier: Modifier = Modifier, sampleMin: Int = 5) {
+fun TrendChart(
+    series: List<Int>,
+    modifier: Modifier = Modifier,
+    sampleMin: Int = 5,
+    marks: List<TrendMarkUi> = emptyList(),
+    arrival: Int? = null,
+    emptyText: String = "기록이 아직 없어요",
+) {
     val c = Pause.colors
     val t = Pause.type
     val measurer = rememberTextMeasurer()
     val axisStyle = t.caption.copy(color = c.sub)
     val peakStyle = t.metricLabel.copy(color = c.warningInk)
+    val markStyle = t.caption.copy(color = c.text)
+    val arrivalStyle = t.metricLabel.copy(color = c.navy)
+    val emptyStyle = t.body.copy(color = c.sub)
     Canvas(modifier) {
         val left = 44.dp.toPx()
         val bottom = 30.dp.toPx()
-        val top = 24.dp.toPx()
-        val plotW = size.width - left
+        // 위 여백: 증상 이름 줄(있을 때만 넓게)
+        val top = (if (marks.any { it.kind == TrendMarkKind.SYMPTOM }) 34 else 24).dp.toPx()
+        val right = if (arrival != null) 12.dp.toPx() else 0f
+        val plotW = size.width - left - right
         val plotH = size.height - bottom - top
         val total = maxOf(1, (series.size - 1) * sampleMin)
-        fun x(m: Float) = left + plotW * (m / total)
+        fun x(m: Float) = left + plotW * (m / total).coerceIn(0f, 1f)
         fun y(v: Int) = top + plotH * (1f - v.coerceIn(0, 100) / 100f)
         drawRect(c.warningSoft, Offset(left, top), Size(plotW, y(40) - top))
+        // 휴식 구간: 그 시간에도 지수는 기록되므로 선은 그대로 두고 면만 깐다
+        if (series.size >= 2) marks.filter { it.kind == TrendMarkKind.STOP && it.minute < total }.forEach { m ->
+            val x0 = x(m.minute.toFloat())
+            val x1 = maxOf(x((m.minute + m.lengthMin).toFloat()), x0 + 4.dp.toPx())
+            drawRect(c.sub.copy(alpha = 0.14f), Offset(x0, top), Size(x1 - x0, plotH))
+            label(measurer, m.label, axisStyle, Offset((x0 + x1) / 2, top + 12.dp.toPx()), center = true)
+        }
         listOf(0, 40, 70, 100).forEach { g ->
-            drawLine(if (g == 0) c.sub.copy(alpha = 0.5f) else c.border, Offset(left, y(g)), Offset(size.width, y(g)), strokeWidth = if (g == 0) 2f else 1.5f)
+            drawLine(if (g == 0) c.sub.copy(alpha = 0.5f) else c.border, Offset(left, y(g)), Offset(left + plotW, y(g)), strokeWidth = if (g == 0) 2f else 1.5f)
             if (g > 0) label(measurer, "$g", axisStyle, Offset(left - 8.dp.toPx(), y(g)), alignRight = true)
+        }
+        if (series.size < 2) {
+            label(measurer, emptyText, emptyStyle, Offset(left + plotW / 2, top + plotH / 2), center = true)
+            return@Canvas
         }
         // 눈금 글자가 겹치지 않게: 글자 하나에 약 64dp를 두고 30분·1시간·2시간 중 고른다
         val maxLabels = maxOf(2, (plotW / 64.dp.toPx()).toInt())
@@ -570,7 +599,17 @@ fun TrendChart(series: List<Int>, modifier: Modifier = Modifier, sampleMin: Int 
             label(measurer, txt, axisStyle, Offset(x(m.toFloat()), size.height - bottom + 16.dp.toPx()), center = true)
             m += tick
         }
-        if (series.size < 2) return@Canvas
+        // 주행 중 증상 기록: 점선 + 위쪽 이름 (가까운 이름은 겹치지 않게 오른쪽으로 민다)
+        var lastRight = -1f
+        marks.filter { it.kind == TrendMarkKind.SYMPTOM && it.minute <= total }.sortedBy { it.minute }.forEach { e ->
+            val ex = x(e.minute.toFloat())
+            drawLine(c.warningInk.copy(alpha = 0.7f), Offset(ex, top), Offset(ex, top + plotH), strokeWidth = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f)))
+            drawCircle(c.warningInk, 4.dp.toPx(), Offset(ex, top))
+            val r = measurer.measure(e.label, markStyle)
+            val lx = maxOf(ex - r.size.width / 2f, lastRight + 6.dp.toPx()).coerceIn(0f, size.width - r.size.width)
+            drawText(r, topLeft = Offset(lx, top - 6.dp.toPx() - r.size.height))
+            lastRight = lx + r.size.width
+        }
         val pts = series.mapIndexed { i, v -> Offset(x((i * sampleMin).toFloat()), y(v)) }
         val p = Path().apply { pts.forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
         drawPath(p, c.primary, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
@@ -580,6 +619,105 @@ fun TrendChart(series: List<Int>, modifier: Modifier = Modifier, sampleMin: Int 
             drawCircle(c.warning, 6.dp.toPx(), pts[pk])
             label(measurer, "최고 ${series[pk]}", peakStyle, Offset(pts[pk].x, pts[pk].y - 16.dp.toPx()), center = true)
         }
+        // 도착 시점 지수: 기록 끝 자리에 네이비 점 (최고와 구분). 위가 좁으면 글자를 점 아래로
+        arrival?.let { a ->
+            val at = Offset(x(total.toFloat()), y(a))
+            drawCircle(c.surface, 9.dp.toPx(), at)
+            drawCircle(c.navy, 6.dp.toPx(), at)
+            // 최고 점과 가까우면 글자를 점 아래로 (최고 글자는 위)
+            val below = at.y - top < 28.dp.toPx() || abs(at.x - pts[pk].x) < 120.dp.toPx()
+            label(measurer, "도착 $a", arrivalStyle, Offset(at.x - 14.dp.toPx(), if (below) at.y + 18.dp.toPx() else at.y - 18.dp.toPx()), alignRight = true)
+        }
+    }
+}
+
+/** [TrendChart] 범례 한 줄: 무엇이 실제 기록인지 글자로 (색만으로 구분하지 않는다). */
+@Composable
+fun TrendLegend(modifier: Modifier = Modifier, symptoms: Boolean = true, stops: Boolean = true, arrival: Boolean = true) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(d.gapS), verticalAlignment = Alignment.CenterVertically) {
+        LegendItem("최고") { Box(Modifier.size(d.u(10f)).clip(CircleShape).background(c.warning)) }
+        if (arrival) LegendItem("도착 시점") { Box(Modifier.size(d.u(10f)).clip(CircleShape).background(c.navy)) }
+        if (symptoms) LegendItem("증상 기록") { Box(Modifier.width(d.u(3f)).height(d.u(14f)).background(c.warningInk)) }
+        if (stops) LegendItem("휴식") { Box(Modifier.size(d.u(14f)).clip(RoundedCornerShape(d.u(3f))).background(c.sub.copy(alpha = 0.2f))) }
+    }
+}
+
+@Composable
+private fun LegendItem(text: String, mark: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        mark()
+        Spacer(Modifier.width(Pause.dimens.u(6f)))
+        Text(text, style = Pause.type.caption, color = Pause.colors.sub, maxLines = 1)
+    }
+}
+
+/**
+ * 통계 칸 (v7 이동 기록): 아이콘 · 이름 | 값 한 줄. [vertical]이면 좁은 창용으로 이름 위·값 아래.
+ * 값은 (숫자, 단위) 묶음 — "2시간 39분"은 ("2","시간"),("39","분")으로 숫자만 크게 써서 좁은 칸에서도 잘리지 않게.
+ */
+@Composable
+fun StatCard(icon: ImageVector, label: String, parts: List<Pair<String, String?>>, modifier: Modifier = Modifier, color: Color = Pause.colors.text, vertical: Boolean = false) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Panel(modifier, pad = d.u(12f), spacing = d.u(2f)) {
+        if (vertical) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, Modifier.size(d.u(18f)), tint = c.sub)
+                Spacer(Modifier.width(d.u(6f)))
+                Text(label, style = Pause.type.metricLabel, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            StatValue(parts, color)
+        } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, Modifier.size(d.u(22f)), tint = c.sub)
+            Spacer(Modifier.width(d.unit))
+            Text(label, style = Pause.type.metricLabel, color = c.sub, maxLines = 1, modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(d.gapS))
+            StatValue(parts, color)
+        }
+    }
+}
+
+@Composable
+private fun StatValue(parts: List<Pair<String, String?>>, color: Color) {
+    Row(verticalAlignment = Alignment.Bottom) {
+        parts.forEachIndexed { i, (value, unit) ->
+            if (i > 0) Spacer(Modifier.width(Pause.dimens.u(6f)))
+            Text(value, style = Pause.type.metricSmall, color = color, maxLines = 1)
+            unit?.let {
+                Spacer(Modifier.width(Pause.dimens.u(3f)))
+                Text(it, style = Pause.type.unit, color = Pause.colors.sub, maxLines = 1, modifier = Modifier.padding(bottom = Pause.dimens.u(2f)))
+            }
+        }
+    }
+}
+
+/**
+ * 관찰 기록 칸 (v7): 아이콘 + 이름. 고르면 파랑으로 채운 면 + 흰 글자 + 체크 — 테두리만 바꾸는 [Choice]보다 멀리서도 구분된다.
+ * 높이 76dp 이상.
+ */
+@Composable
+fun SymptomTile(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    val shape = RoundedCornerShape(d.buttonRadius)
+    Row(
+        modifier
+            .heightIn(min = d.touch)
+            .clip(shape)
+            .background(if (selected) c.primary else c.surface)
+            .border(d.border, if (selected) c.primary else c.border, shape)
+            .clickable(role = Role.Checkbox, onClick = onClick)
+            .padding(horizontal = d.u(8f)),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(if (selected) Icons.Rounded.Check else icon, null, Modifier.size(d.u(18f)), tint = if (selected) c.onPrimary else c.sub)
+        Spacer(Modifier.width(d.u(4f)))
+        // 글자 15: 1/3 칸에 "괜찮았어요"까지 한 줄 (본문 16이면 잘림, v7 검수 1회차)
+        val style = Pause.type.body.copy(fontSize = Pause.type.sub.fontSize * 15 / 14)
+        Text(label, style = if (selected) style.copy(fontWeight = FontWeight.SemiBold) else style, color = if (selected) c.onPrimary else c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
