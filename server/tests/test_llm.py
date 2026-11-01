@@ -156,7 +156,7 @@ def test_f7_04_trip_summary_ok(db_engine):
 def test_f7_04_trip_summary_falls_back_to_template(db_engine, text):
     r = summary(db_engine, ollama_replying(text))
     assert r.status_code == 503
-    assert r.json()["fallback"] == "이번 이동은 3시간 10분, 휴식 2번, 주행 자극 최고 62였어요. 지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요."
+    assert r.json()["fallback"] == "이번 주행은 3시간 10분(휴식 제외), 휴식 2번, 주행 자극 최고 62였어요. 지난 여행들은 출발 약 1시간 10분 뒤 주행 자극이 보통 이상이 됐어요."
 
 
 def test_f7_04_trip_summary_rejects_names_and_bad_facts(db_engine):

@@ -211,7 +211,8 @@ object UiMapper {
             forecast != null -> DriveContent.Forecast(
                 title = MotionPhrases.title(forecast),
                 coach = MotionPhrases.coach(forecast),
-                level = motionTone(forecast.trajectory.maxOrNull() ?: forecast.predictedIndex),
+                // 예보 단계는 개인 보정 반영(personalPeak) — 화면 숫자가 아니라 "얼마나 일찍·세게 알릴지"에만 (결정 11/01)
+                level = motionTone(forecast.personalPeak),
                 basis = forecastBasis(t),
             )
             t.heading != null -> DriveContent.Heading(minutesTo(t.heading, t), t.heading.name)
@@ -241,6 +242,7 @@ object UiMapper {
             guide = guide(s, t),
             remain = remain(s.eta),
             arrive = arrive(s.clockMinute, s.eta),
+            destination = s.route?.destinationName?.takeIf { it.isNotBlank() },
             observation = observation(t.distressEvents),
             voiceHint = "“${name.ifEmpty { "반려견" }} 토했어”처럼 말하면 기록해요",
         )
@@ -500,6 +502,12 @@ object UiMapper {
         return m
     }
 
+    /**
+     * 리포트 한 줄의 "출발 X 뒤 주행 자극이 보통 이상" = 타임라인 첫 "흔들림 많은 구간"의 시작 (출발 뒤, 정차 포함).
+     * 한 계산만 쓴다 — 주행 분(정차 제외)을 따로 쓰면 캡처마다 2시간 14분·2시간 35분처럼 달라진다(11/01). 구간이 없으면 null.
+     */
+    fun firstStimulusMin(log: TripLog): Int? = log.segments.minOfOrNull { it.startMin }
+
     /** "2:14" (출발 뒤). */
     fun hm(min: Int): String = "${min / 60}:${"%02d".format(min % 60)}"
 
@@ -548,7 +556,7 @@ object UiMapper {
             add(VetRowUi("관찰 신고", "없음"))
         }
         val dist = distanceKm?.takeIf { it >= 1 }?.let { " · ${km(it)}" }.orEmpty()
-        add(VetRowUi("주행", "${duration(r.drivingMin)}$dist · 휴식 ${r.stops}번"))
+        add(VetRowUi("주행", "${duration(r.drivingMin)}(휴식 제외)$dist · 휴식 ${r.stops}번"))
         add(VetRowUi("주행 자극", "최고 ${r.motionPeak} (차량 흔들림 기준 · 반려견 측정 아님)"))
     }
 }

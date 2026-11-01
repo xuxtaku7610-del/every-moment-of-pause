@@ -35,9 +35,12 @@ class MotionCalibrationTest {
     }
 
     @Test
-    fun `F7-05 계수는 멀미 지수 민감도에 곱해지고, 화면 문구는 보통에서 바뀐 정도`() {
+    fun `F7-05 계수는 주행 자극 민감도에 곱하지 않고 개인 계수로만, 화면 문구는 보통에서 바뀐 정도`() {
         val p = PetProfile("콩이")
-        assertEquals(MotionConstants.sensitivity(p) * 1.3, MotionConstants.sensitivity(p.copy(motionScale = 1.3)), 1e-9)
+        // 결정 11/01: 화면의 주행 자극 숫자는 보정 전 값 — 계수는 예보 단계·쉼표 시각(personal)에만
+        assertEquals(MotionConstants.sensitivity(p), MotionConstants.sensitivity(p.copy(motionScale = 1.3)), 1e-9)
+        assertEquals(1.3, MotionConstants.personalScale(p.copy(motionScale = 1.3)), 1e-9)
+        assertEquals(MotionCalibration.MAX_SCALE, MotionConstants.personalScale(p.copy(motionScale = 9.0)), 1e-9)
         assertEquals("보통", MotionCalibration.label(1.0))
         assertEquals("조금 높음", MotionCalibration.label(1.15))
         assertEquals("낮음", MotionCalibration.label(0.7))

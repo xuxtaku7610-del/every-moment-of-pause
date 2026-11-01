@@ -14,6 +14,7 @@ room = "2.7.2"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
 coil = "2.7.0"
+zxing = "3.5.3"
 pleosVehicle = "2.3.2"
 pleosNaviHelper = "3.0.5"
 
@@ -31,6 +32,7 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 # TourAPI 대표 이미지 (7번 장소 화면, 메모리·디스크 캐시)
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.LocalCafe
 import androidx.compose.material.icons.rounded.Mic
@@ -79,9 +80,9 @@ fun DriveScreen(ui: DriveUi, on: On) {
                 // 1/3 창(내비 옆 기본): 위에서 아래로 예보 → 다음 회전 → 지금 할 일 → 관찰 상태
                 wc == WidthClass.THIRD -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(d.gapS)) {
                     (ui.content as? DriveContent.Forecast)?.let { ForecastStrip(it, Modifier.fillMaxWidth()) }
-                    // 쉼표 추천·"콩이가 이상해요"는 버튼 2개가 다 보여야 하므로 길 안내를 도착 한 줄로 줄인다
+                    // 쉼표 추천·"콩이가 이상해요"는 버튼 2개가 다 보여야 하므로, 회전 안내가 없을 때와 같이 길 안내를 도착 한 줄로 줄인다
                     val acting = ui.content is DriveContent.Suggest || ui.content is DriveContent.Distress
-                    if (acting) ArriveLine(ui) else GuideCard(ui, Modifier.fillMaxWidth(), compact = true)
+                    if (acting || ui.guide == null) ArriveLine(ui) else GuideCard(ui, Modifier.fillMaxWidth(), compact = true)
                     ContextPanel(ui, on, Modifier.fillMaxWidth().weight(1f), compact = true)
                     ObservationCard(ui, Modifier.fillMaxWidth())
                 }
@@ -90,8 +91,10 @@ fun DriveScreen(ui: DriveUi, on: On) {
                     (ui.content as? DriveContent.Forecast)?.let { ForecastStrip(it, Modifier.fillMaxWidth()) }
                     Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
                         Column(Modifier.weight(0.46f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(d.gap)) {
-                            GuideCard(ui, Modifier.fillMaxWidth().weight(1f), compact = false)
+                            if (ui.guide != null) GuideCard(ui, Modifier.fillMaxWidth().weight(1f), compact = false)
+                            else ArriveLine(ui)
                             ObservationCard(ui, Modifier.fillMaxWidth())
+                            if (ui.guide == null) Spacer(Modifier.weight(1f))
                         }
                         ContextPanel(ui, on, Modifier.weight(0.54f).fillMaxHeight(), compact = false)
                     }
@@ -142,13 +145,7 @@ private fun GuideCard(ui: DriveUi, modifier: Modifier, compact: Boolean) {
     val d = Pause.dimens
     val g = ui.guide
     Panel(modifier, pad = d.u(if (compact) 16f else 20f), spacing = d.gapS) {
-        if (g != null) GuideRow(g, compact) else {
-            Text("길 안내", style = Pause.type.metricLabel, color = c.sub)
-            Text(
-                if (ui.remain != null) "다음 회전 안내를 기다리는 중" else "내비에서 목적지를 정하면 보여요",
-                style = Pause.type.body, color = c.sub, maxLines = 2,
-            )
-        }
+        if (g != null) GuideRow(g, compact)
         if (!compact) Spacer(Modifier.weight(1f))
         if (ui.arrive != null || ui.remain != null) {
             Divider()
@@ -165,16 +162,31 @@ private fun GuideCard(ui: DriveUi, modifier: Modifier, compact: Boolean) {
     }
 }
 
-/** 1/3 창에서 버튼이 있는 상태일 때: 도착·남은 거리 한 줄만. */
+/**
+ * 회전 안내가 없을 때(고속도로 직진·안내 전)와 1/3 창에서 버튼이 있는 상태일 때: 목적지 · 남은 거리 · 도착 한 줄.
+ * 빈 카드("안내를 기다리는 중")를 두지 않는다. 목적지도 없으면 "기본 내비에서 목적지를 정하면 보여요".
+ */
 @Composable
 private fun ArriveLine(ui: DriveUi) {
     val c = Pause.colors
     val d = Pause.dimens
-    if (ui.arrive == null && ui.remain == null) return
-    Row(Modifier.fillMaxWidth().padding(horizontal = d.unit), verticalAlignment = Alignment.CenterVertically) {
-        ui.arrive?.let { Text("도착 $it", style = Pause.type.bodyStrong, color = c.text, maxLines = 1) }
-        Spacer(Modifier.weight(1f).width(d.unit))
-        ui.remain?.let { Text(it, style = Pause.type.sub, color = c.sub, maxLines = 1) }
+    Panel(Modifier.fillMaxWidth(), pad = d.u(16f)) {
+        if (ui.arrive == null && ui.remain == null) {
+            Text("기본 내비에서 목적지를 정하면 보여요", style = Pause.type.body, color = c.sub, maxLines = 2)
+            return@Panel
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Flag, null, Modifier.size(d.u(24f)), tint = c.navy)
+            Spacer(Modifier.width(d.unit))
+            Text(
+                listOfNotNull(ui.destination, ui.remain).joinToString(" · "),
+                Modifier.weight(1f), style = Pause.type.bodyStrong.copy(lineBreak = LineBreak.Heading), color = c.text, maxLines = 2,
+            )
+            ui.arrive?.let {
+                Spacer(Modifier.width(d.gapS))
+                Text("도착 $it", style = Pause.type.bodyStrong, color = c.primary, maxLines = 1, softWrap = false)
+            }
+        }
     }
 }
 
@@ -298,9 +310,12 @@ private fun SuggestPanel(ui: DriveUi, s: DriveContent.Suggest, on: On, modifier:
         Text(if (s.urgent) "운전자 쉬어 갈 때" else "쉼표 추천", style = Pause.type.metricLabel, color = if (s.urgent) c.warningInk else c.primary)
         Column {
             Text(s.place, style = Pause.type.title, color = c.text, maxLines = 2)
-            s.direction?.let { Text(it, style = Pause.type.sub, color = c.sub, maxLines = 1) }
+            if (!compact) s.direction?.let { Text(it, style = Pause.type.sub, color = c.sub, maxLines = 1) }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f))) {
+        // 1/3 창은 큰 수치 두 칸이 높이를 넘어 잘린다 → "18분 뒤 · 8km" 한 줄 (11/01)
+        if (compact) {
+            Text(listOfNotNull("${s.minutes}분 뒤", s.distance).joinToString(" · "), style = Pause.type.section, color = c.text, maxLines = 1)
+        } else Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f))) {
             Metric("도착까지", "${s.minutes}", unit = "분", small = true)
             s.distance?.let { dist ->
                 val num = dist.takeWhile { it.isDigit() || it == '.' }

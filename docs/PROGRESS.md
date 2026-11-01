@@ -8,6 +8,16 @@
 2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
 3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
 
+## 마지막 UI 수정 (2026-11-01, 사용자 결정 2개 + 캡처 검수 6건, 11/8 UI 동결)
+- 결정 1 개인 보정 안 ①: 엔진이 두 값을 낸다 — `MotionState.index`(보정 전, 화면·기록·비교) / `personal`(개인 보정 × "이상해요" 가중, PetRestPlanner·PetDistress). 예보는 `trajectory`(보정 전) + `personalPredicted`·`personalPeak`(안내 문구·예보 단계). `MotionConstants.sensitivity`에서 보정 계수를 빼고 `personalScale`로. DemoNumbersTest DM-08(계수 상한으로 돌려도 분마다 같은 숫자). PT3 리포트 보정 뒤에도 최고 55.
+- 결정 2: 점프 전 실시간 신고(`DistressRecord.live`·`simSec`)를 `LiveReports.carry`로 골라 따라잡기 중 그 시각에 다시 넣는다. RestructureTest F7-10, 리허설 PT3가 "구토 신고"를 확인.
+- 주행: 회전 안내가 없으면 카드 대신 "강릉 · 184km · 2시간 3분 · 도착 오전 11:33" 한 줄(`ArriveLine`, `DriveUi.destination`). 시뮬레이터 모드도 기본 내비 TBT를 받는다(`SignalRuntime.simGuide`) — 캡처는 기본 내비 안내를 실제로 걸고 찍음(방법 docs/recording.md). 1/3 창 쉼표 추천은 큰 수치 두 칸 → "32분 뒤 · 48km" 한 줄(잘림 해결).
+- 리포트: 한 줄 문장 시각 = 타임라인 첫 흔들림 구간(`UiMapper.firstStimulusMin`, 10/31 캡처의 2시간 14분/35분 → 2시간 34분 하나). 병원 공유·오늘 요약·기록 요약 "주행 X(휴식 제외)"(앱·서버 템플릿).
+- 동물병원: `KeyValue` 긴 값은 이름 아래 줄로(줄임표 없음). 링크 QR: 대기(보호자 폰)·도착 예정 링크·병원 접수함·보호자 링크(`ui/components/Qr.kt`, zxing-core 3.5.3, 서버 주소 앞부분이 없으면 글자만).
+- 출발 전: 어절 줄바꿈("급속충전기"), 체크 칸 줄을 높이에 고르게 나눔.
+- 버그: 0초 점프 뒤 출발 전 화면이 기본 프로필·쉼표 0번으로 남음(경쟁 조건) → 빈 따라잡기 뒤 지금 프레임을 다시 읽음.
+- 검증: `./gradlew test` 종료 0, pytest 81 통과, PT 리허설 5장면 OK 68초(`--phone`). 캡처 `artifacts/ui/v8/` 시트 5장 새로, README 스크린샷 `docs/screens/v8/`(18장). docs/demo_numbers.md "2026-11-01 최종" 표.
+
 ## 서비스 구조 재정비 8단계 (2026-10-31 저녁~, `_private/RESTRUCTURE_PROMPT.md`, 사용자 결정 1~6)
 기준 문서: [docs/states.md](states.md) (8개 상태·전환·데이터 출처). 결정: 위치 기록 없음(거리만), 시연 접수함은 가상 "시연용 제휴 동물병원"만, 개인 보정 = 신고 자동 + 높음 구간 뒤 30분 조용하면 약하게(0.4), 주행 자극 단계 낮음/보통/높음(40·70), 온보딩 "흔들림에 예민한 정도(보호자 응답)", 분할 창은 주행 중만(정차 화면은 전체 창 기준, 좁은 창에서도 버튼 글자 줄임표 금지).
 
@@ -37,7 +47,14 @@
   - 문서: [states.md](states.md)(8개 상태·전환·데이터 출처), [wording.md](wording.md)(옛 표현 → 새 표현), test_plan(F1-11·F5-12·F7-05b·F7-06·F7-08·F7-09·ST-01~03), ui_contract(v8 계약), STYLE_V6(v8 화면), BLOCKED(분할 창 해결, 보정이 주행 자극 숫자를 바꾸는 문제·점프 뒤 실시간 신고·1920), demo_numbers, CLAUDE.md 결정. README·architecture·flowchart·demo_script·motion_model 등은 문구표대로 정리.
   - 캡처 `artifacts/ui/v8/`: `sheet-drive-nav.png`(주행, 분할 창), `sheet-vet.png`, `sheet-stopped.png`, `sheet-report.png`, `sheet-rehearsal.png`.
 
-## 커밋 대기열 (같이가개 9차 — 서비스 구조 재정비, 10/31 저녁) — 8차 다음에
+## 커밋 대기열 (같이가개 10차 — 마지막 UI 수정, 11/01) — 9차(a013157) 다음에
+1. `[RS] 개인 보정은 예보·쉼표에만, 점프 뒤 실시간 신고 유지` — `app-android/engine app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/runtime app-android/core/uistate app-android/app/src/test`
+2. `[UI] 길 안내 한 줄·쉼표 추천 잘림·링크 QR·출발 전 줄바꿈` — `app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/build.gradle.kts app-android/gradle/libs.versions.toml`
+3. `[RS] 서버 요약 "(휴식 제외)"` — `server/app/llm/phrases.py server/tests`
+4. `[DOC] 발표 숫자 최종, README v8 스크린샷, 녹화 방법` — `README.md docs test_plan.md scripts`
+(1·2번은 화면 계약(`ScreenStates.kt`)을 함께 바꾸므로 `git add -A` 한 번으로 묶어도 된다. 새 파일: `ui/components/Qr.kt`, `docs/screens/v8/`. `CLAUDE.md`는 gitignore.)
+
+## 커밋 대기열 (같이가개 9차 — 처리됨: 사용자가 `a013157`로 커밋)
 1. `[RS] 주행 자극·관찰 상태 분리, 8개 상태, 개인 보정 자동` — `app-android/core app-android/engine app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/kotlin/com/emop/pause/runtime app-android/data app-android/app/src/test`
 2. `[RS] 주행 화면(분할 창)·병원 이동·정차 화면·도착 후 리포트` — `app-android/app/src/main/kotlin/com/emop/pause/ui`
 3. `[RS] 서버 문구` — `server/app/llm/phrases.py server/tests`
@@ -53,7 +70,7 @@
 - 검수 4회(잘림·그래프 높이·줄바꿈·질문 버튼), 캡처 `artifacts/ui/v7/`(전후 2560·1920·1/2·다크, 구토·괜찮았어요 고른 상태).
 - 검증: `./gradlew test` 종료 0(고유 297개, 실패 0, 새 `TripLogStatusTest` 12개), PT 리허설 5장면 OK 62초.
 
-## 커밋 대기열 (같이가개 8차 — 이동 기록 v7, 10/31 오후) — 7차(cceafe4) 다음에
+## 커밋 대기열 (같이가개 8차 — 처리됨: `e674119`)
 1. `[UI] 이동 기록 v7: 오늘 상태·통계·넓은 그래프·관찰·병원 요약` — `app-android/core/uistate app-android/app/src/main/kotlin/com/emop/pause/presentation/UiMapper.kt app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripRecorder.kt app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/src/test/kotlin/com/emop/pause/presentation/TripLogStatusTest.kt`
 2. `[DOC] v7 스타일·화면 계약·테스트 계획, 캡처 스크립트` — `docs/design/v6/STYLE_V6.md docs/ui_contract.md test_plan.md docs/demo_numbers.md docs/PROGRESS.md scripts/ui_capture.py`
 
@@ -69,7 +86,7 @@
 - 문서: docs/demo_numbers.md(장면·화면·엔진·대본 숫자), demo_script·motion_model·BLOCKED·test_plan(DM-06·DM-07·F5-11)·STYLE_V6.
 - 검증: `./gradlew test` 종료 0 (실패 0), pytest 통과, PT 리허설 5장면 OK 61초.
 
-## 커밋 대기열 (같이가개 7차 — 숫자 맞추기·접수함 알림·분할 창, 10/31) — 6차 다음에
+## 커밋 대기열 (같이가개 7차 — 처리됨: `cceafe4`)
 1. `[UP] 예보 순항 속도·예측 곡선, 다음 굽은 길` — `app-android/engine/motion scenarios/pet-trip.json scripts/gen_demo_data.py docs/plan/motion_model.md`
 2. `[UP] 장면 점프 기록 채우기, 이동 기록 숫자 일치` — `app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/engine/pet app-android/core/uistate app-android/app/src/test test_plan.md`
 3. `[UP] 병원 접수함 알림·시연용 표시` — `server/app/api/eta.py server/app/pages.py server/tests/test_clinic.py`

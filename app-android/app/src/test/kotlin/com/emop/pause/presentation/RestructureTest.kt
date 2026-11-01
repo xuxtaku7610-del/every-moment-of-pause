@@ -15,6 +15,7 @@ import com.emop.pause.runtime.Snapshot
 import com.emop.pause.runtime.SourceMode
 import com.emop.pause.trip.AutoCalibration
 import com.emop.pause.trip.DistressRecord
+import com.emop.pause.trip.LiveReports
 import com.emop.pause.trip.StimulusSegment
 import com.emop.pause.trip.StopVisit
 import com.emop.pause.trip.TripLog
@@ -121,6 +122,20 @@ class RestructureTest {
     }
 
     @Test
+    fun `F7-08 한 줄 문장의 시각은 타임라인 흔들림 구간 시각과 같은 계산 (주행 분을 따로 쓰지 않는다)`() {
+        // 주행 134분에 처음 보통(정차 제외 시계)이어도 리포트는 정차 포함 시계 하나 — 타임라인 첫 구간 시작
+        val l = log.copy(firstCautionMin = 134, segments = listOf(StimulusSegment(154, 170, 55), StimulusSegment(171, 175, 48)))
+        val first = UiMapper.firstStimulusMin(l)
+        assertEquals(154, first)
+        val stimulusRow = UiMapper.timeline(l, emptyList(), null).first { it.kind == TimelineKind.STIMULUS }
+        assertEquals(stimulusRow.minute, first)
+        val line = com.emop.pause.engine.pet.PetTripLog.insight("콩이", PetTripRecord(0, 163, first, 55, 1), null)
+        assertTrue(line.startsWith("이번엔 출발 2시간 34분 뒤"), line)
+        assertEquals("2:34", stimulusRow.time)
+        assertNull(UiMapper.firstStimulusMin(l.copy(segments = emptyList())))
+    }
+
+    @Test
     fun `F7-08 출발 시각을 모르면 타임라인·표시 없음, 그래프 표시는 휴식·신고·흔들림 구간`() {
         assertTrue(UiMapper.timeline(log.copy(startMinute = null), emptyList(), null).isEmpty())
         val marks = UiMapper.trendMarks(540, log.visits, listOf(DistressRecord("침 흘림·하품", 100)), log.segments)
@@ -134,6 +149,28 @@ class RestructureTest {
         )
     }
 
+    @Test
+    fun `F7-10 장면 점프 때 실시간 신고는 지우지 않고 이어서 - 같은 여행, 점프 끝 시각 안쪽만`() {
+        // PT3: 2,400초 대본 신고(헐떡임) 뒤 2,410초에 보호자가 "콩이 토했어" → 10,843초 도착으로 점프
+        val scripted = DistressRecord("헐떡임", 39, DistressKind.PANTING, simSec = 2400)
+        val live = DistressRecord("구토", 39, DistressKind.VOMIT, simSec = 2410, live = true)
+        val carried = LiveReports.carry(listOf(scripted, live), sameTrip = true, untilSec = 10_843)
+        assertEquals(mapOf(2410 to listOf(live)), carried, "대본 신고는 대본으로 다시 쌓고, 실시간 신고만 이어서")
+        // 뒤로 점프(신고 전 시각)·다른 시나리오면 남기지 않는다
+        assertTrue(LiveReports.carry(listOf(live), sameTrip = true, untilSec = 2_400).isEmpty())
+        assertTrue(LiveReports.carry(listOf(live), sameTrip = false, untilSec = 10_843).isEmpty())
+        // 실차(시뮬레이터 시각 없음)는 점프가 없다
+        assertTrue(LiveReports.carry(listOf(live.copy(simSec = null)), sameTrip = true, untilSec = 10_843).isEmpty())
+        // 다시 넣은 신고는 리포트 타임라인·병원 공유·오늘 요약에 그대로 남는다
+        val events = listOf(scripted, live)
+        val tl = UiMapper.timeline(log, events, "강릉").filter { it.kind == TimelineKind.REPORT }.map { it.title }
+        assertEquals(listOf("헐떡임 신고", "구토 신고"), tl)
+        val share = UiMapper.reportShare(PetTripRecord(0, 163, 125, 55, 1), events, 194.0).first { it.key == "관찰 신고" }.value
+        assertTrue("구토 1회" in share && "헐떡임 1회" in share, share)
+        val today = com.emop.pause.trip.VetMemo.tripLine(163, 1, 55, events.map { UiMapper.symptomName(it.label) })!!
+        assertTrue(today.endsWith("관찰 신고 헐떡임 1회, 구토 1회"), today)
+    }
+
     // ───── F7-09 병원 공유 내용 ─────
 
     @Test
@@ -141,7 +178,7 @@ class RestructureTest {
         val r = PetTripRecord(0, drivingMin = 163, firstCautionMin = 125, motionPeak = 55, stops = 1)
         val rows = UiMapper.reportShare(r, listOf(DistressRecord("헐떡임", 39), DistressRecord("헐떡임", 70)), 193.6).associate { it.key to it.value }
         assertEquals("헐떡임 2회 (출발 39분 뒤, 주행 중)", rows["관찰 신고"])
-        assertEquals("2시간 43분 · 194km · 휴식 1번", rows["주행"])
+        assertEquals("2시간 43분(휴식 제외) · 194km · 휴식 1번", rows["주행"])
         assertEquals("최고 55 (차량 흔들림 기준 · 반려견 측정 아님)", rows["주행 자극"])
         assertEquals("없음", UiMapper.reportShare(r, emptyList(), null).first().value)
     }
@@ -232,7 +269,7 @@ class RestructureTest {
         assertNull(c("뭐라고?"))
         assertNull(c(null))
         val memo = com.emop.pause.trip.VetMemo(chips = setOf("구토"), text = "두 번", include = true)
-        val rows = UiMapper.vetPreview("콩이", memo, "이동 39분 · 주행 자극 최고 4 · 관찰 신고 헐떡임 1회", 4).associate { it.key to it.value }
+        val rows = UiMapper.vetPreview("콩이", memo, "주행 39분(휴식 제외) · 주행 자극 최고 4 · 관찰 신고 헐떡임 1회", 4).associate { it.key to it.value }
         assertEquals("콩이", rows["반려견"])
         assertEquals("구토", rows["증상"])
         assertEquals("두 번", rows["메모"])

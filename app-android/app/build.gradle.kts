@@ -101,6 +101,8 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.coil.compose)
+    // 대기·도착 예정·병원 접수함 링크 QR (순수 Java, 인코더만 씀)
+    implementation(libs.zxing.core)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
 

@@ -149,7 +149,18 @@ data class DistressRecord(
     val clockMinute: Int? = null,
     val speedKph: Float? = null,
     val stimulus: Int? = null,
+    /** 시뮬레이터 시각(초). 실차는 null. */
+    val simSec: Int? = null,
+    /** 보호자가 실제로 말한 신고(발표 대본 장면이 아님) — 장면 점프 뒤에도 이어서 남긴다 (결정 11/01). */
+    val live: Boolean = false,
 )
+
+/** 장면 점프 때 이어서 남길 실시간 신고 (사용자 결정 11/01): 같은 여행(시나리오)이고 점프 끝 시각 안쪽인 것만, 시뮬레이터 초별로. */
+internal object LiveReports {
+    fun carry(events: List<DistressRecord>, sameTrip: Boolean, untilSec: Int): Map<Int, List<DistressRecord>> =
+        if (!sameTrip) emptyMap()
+        else events.filter { it.live && it.kind != null && it.simSec != null && it.simSec <= untilSec }.groupBy { it.simSec!! }
+}
 
 /** 점프로 따라잡은 1초 한 장: 그 시각 신호 + 엔진 결과 (이동 기록을 실제로 달린 것과 같게 채운다). */
 data class ReplayTick(val s: Snapshot, val ui: TripUi)
@@ -293,26 +304,32 @@ class TripCoordinator @Inject constructor(
 
     // ───────────── "콩이가 이상해요" (UPGRADE 7) ─────────────
 
-    /** 점프로 지나간 발표 장면의 "콩이가 이상해요"(DemoScenes `say`): 안내·음성·장소 없이 증상 기록과 잠시 오른 민감도만 남긴다. */
-    private fun replayDistress(kind: DistressKind, cabinTempC: Float?, s: Snapshot) {
+    /**
+     * 점프로 지나간 "콩이가 이상해요" — 발표 장면(DemoScenes `say`)과 점프 전에 보호자가 실제로 말한 신고([live]):
+     * 안내·음성·장소 없이 증상 기록과 잠시 오른 민감도만 남긴다.
+     */
+    private fun replayDistress(kind: DistressKind, cabinTempC: Float?, s: Snapshot, live: Boolean = false) {
         val t = _ui.value
         val drivingMin = (t.motion.drivingSec / 60).toInt()
         val signals = DistressSignals(
             cabinTempC = cabinTempC ?: s.sample.hvacTempC,
             month = java.time.LocalDate.now().monthValue,
             drivingMin = drivingMin,
-            motionIndex = t.motion.index,
-            motionRising = t.motion.index >= MotionConstants.CAUTION || (t.forecast?.predictedIndex ?: 0) > t.motion.index,
+            motionIndex = t.motion.personal,
+            motionRising = t.motion.personal >= MotionConstants.CAUTION || (t.forecast?.personalPredicted ?: 0) > t.motion.personal,
         )
         val advice = PetDistress.advise(kind, signals)
         if (advice.boost > 1.0) brain?.boost(advice.boost, s.nowMs)
-        _ui.update { it.copy(distressEvents = it.distressEvents + record(kind, drivingMin, s, t)) }
-        // 점프로 지나간 장면의 신고는 개인 보정에 넣지 않는다 (발표 점프를 반복할 때마다 표본이 쌓여 숫자가 바뀌지 않게)
+        _ui.update { it.copy(distressEvents = it.distressEvents + record(kind, drivingMin, s, t).copy(live = live)) }
+        // 점프로 지나간 장면의 신고는 개인 보정에 넣지 않는다(실시간 신고는 말한 때 이미 넣었다) (발표 점프를 반복할 때마다 표본이 쌓여 숫자가 바뀌지 않게)
         auto.onReport(kind, t.motionRecent.maxOrNull() ?: t.motion.index)
     }
 
     private fun record(kind: DistressKind, drivingMin: Int, s: Snapshot, t: TripUi) =
-        DistressRecord(PetDistress.label(kind), drivingMin, kind, s.clockMinute, s.sample.speedKph, t.motion.index)
+        DistressRecord(
+            PetDistress.label(kind), drivingMin, kind, s.clockMinute, s.sample.speedKph, t.motion.index,
+            simSec = s.simTimeSec.toInt().takeIf { s.source == SourceMode.SIMULATION },
+        )
 
     /** 개인 보정 자동 표본 (신고·높음 구간 뒤 조용함). ViewModel이 받아 기기에 저장한다. */
     private val auto = AutoCalibration()
@@ -335,8 +352,8 @@ class TripCoordinator @Inject constructor(
             cabinTempC = cabin,
             month = java.time.LocalDate.now().monthValue,
             drivingMin = drivingMin,
-            motionIndex = t.motion.index,
-            motionRising = t.motion.index >= MotionConstants.CAUTION || (t.forecast?.predictedIndex ?: 0) > t.motion.index,
+            motionIndex = t.motion.personal,
+            motionRising = t.motion.personal >= MotionConstants.CAUTION || (t.forecast?.personalPredicted ?: 0) > t.motion.personal,
         )
         val advice = PetDistress.advise(kind, signals)
         val stop = DistressStops.pick(advice.action, t.stops, t.traveledKm)
@@ -351,7 +368,7 @@ class TripCoordinator @Inject constructor(
             it.copy(
                 distress = DistressState(kind, advice, stop, vet, minutes),
                 careId = advice.care,
-                distressEvents = it.distressEvents + record(kind, drivingMin, s, t),
+                distressEvents = it.distressEvents + record(kind, drivingMin, s, t).copy(live = true),
             )
         }
         auto.onReport(kind, t.motionRecent.maxOrNull() ?: t.motion.index)?.let { _calibration.tryEmit(it) }
@@ -463,11 +480,18 @@ class TripCoordinator @Inject constructor(
     /**
      * 발표 모드 점프: 건너뛴 구간을 음성 없이 따라잡는다. 그 사이 제안은 없었던 것으로 보고,
      * 지나간 발표 장면의 증상(DemoScenes `say`, 예: 2,400초 "콩이가 헥헥거려")은 그 시각에 있었던 것으로 기록한다.
+     * 점프 전에 보호자가 실제로 말한 신고(예: PT3 "콩이 토했어")도 지우지 않고 그 시각에 다시 넣는다 — 리포트·병원 요약에 이어서 남는다.
      */
     private fun replay(frames: List<Snapshot>) {
         voiceJob?.cancel()
         scope.launch { speech.clear() }
         val started = android.os.SystemClock.elapsedRealtime()
+        val first = frames.firstOrNull()
+        val live = LiveReports.carry(
+            _ui.value.distressEvents,
+            sameTrip = first != null && (first.source to first.scenarioName) == tripKey,
+            untilSec = frames.lastOrNull()?.simTimeSec?.toInt() ?: -1,
+        )
         reset()
         val scripted = if (frames.firstOrNull()?.scenarioName == DemoScenes.SCENARIO) {
             DemoScenes.JUMPS.mapNotNull { j -> j.say?.let(PetDistress::classify)?.let { j.tSec to (it to j.cabinTempC) } }.toMap()
@@ -482,11 +506,18 @@ class TripCoordinator @Inject constructor(
                 }
             }
             scripted[s.simTimeSec.toInt()]?.let { (kind, cabin) -> if (brain != null) replayDistress(kind, cabin, s) }
+            live[s.simTimeSec.toInt()]?.forEach { r -> if (brain != null) replayDistress(r.kind!!, null, s, live = true) }
             ticks += ReplayTick(s, _ui.value)
         }
         brain?.policy?.onAccepted()
         android.util.Log.i("PauseReplay", "frames=${frames.size} ms=${android.os.SystemClock.elapsedRealtime() - started}")
         _replayed.tryEmit(ticks)
+        // 처음(0초)으로 점프하면 따라잡을 프레임이 없다. 멈춘 시뮬레이터는 새 프레임을 보내지 않으므로, 위 reset()이
+        // 먼저 읽은 출발 준비(프로필·쉼표 계획)를 지운 채 남지 않게 지금 프레임을 한 번 더 읽는다 (11/01 경쟁 조건)
+        if (frames.isEmpty()) scope.launch {
+            delay(REPLAY_SETTLE_MS)
+            runtime.snapshot.value.takeIf { it.source == SourceMode.SIMULATION && it.simTimeSec < 1.0 }?.let { onSnapshot(it) }
+        }
     }
 
     private fun onSnapshot(s: Snapshot) = onSnapshot(s, silent = false)
@@ -593,7 +624,7 @@ class TripCoordinator @Inject constructor(
             else -> "없음 (진행 방위만)"
         }
         _ui.update { it.copy(shapeSource = shapeLabel) }
-        // 개인 보정 계수(UPGRADE 4)를 반려견 프로필에 실어 멀미 엔진 민감도에 곱한다
+        // 개인 보정 계수(UPGRADE 4)를 반려견 프로필에 싣는다 — 엔진은 예보 단계·쉼표 시각에만 곱하고 주행 자극 숫자는 보정 전 값 (결정 11/01)
         val b = TripBrain(setup.copy(pet = setup.pet.copy(motionScale = motionScale)), shape, s.route?.shapeStartM ?: 0, guidance, demoGuidance) { stops }
         brain = b
         _ui.update { it.copy(passengers = setup.passengers, sleepHours = setup.sleepHours, pet = setup.pet) }
@@ -811,6 +842,9 @@ class TripCoordinator @Inject constructor(
     }
 
     private companion object {
+        /** 0초 점프 뒤 지금 프레임을 다시 읽기 전 기다림 (시뮬레이터 seek가 끝나도록). */
+        private const val REPLAY_SETTLE_MS = 300L
+
         const val REPLY_WAIT_MS = 8_000L
         const val DICTATE_MS = 10_000L
         const val REPLAN_MS = 5 * 60_000L

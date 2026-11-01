@@ -33,7 +33,7 @@ data class VetMemo(
             else Shared(CHIPS.filter { it in m.chips }, m.text.trim().ifEmpty { null }, tripLine)
 
         /**
-         * 이동 기록에서 한 줄: "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회". 아직 움직이지 않았으면 null.
+         * 이동 기록에서 한 줄: "주행 2시간 10분(휴식 제외) · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회". 아직 움직이지 않았으면 null.
          * 주행 자극은 차량 흔들림(반려견 측정 아님) — 관찰 신고(보호자 음성)와 따로 쓴다. [cautionCount]는 예전 호출과 맞추려고 남겨 둔다.
          */
         @Suppress("UNUSED_PARAMETER")
@@ -44,7 +44,7 @@ data class VetMemo(
             val time = if (h > 0) "${h}시간 ${m}분" else "${m}분"
             val ev = events.groupingBy { it }.eachCount().map { (k, n) -> "$k ${n}회" }
             val obs = if (ev.isEmpty()) "관찰 신고 없음" else "관찰 신고 " + ev.joinToString(", ")
-            return listOf("이동 $time", "주행 자극 최고 $peak", obs).joinToString(" · ")
+            return listOf("주행 $time(휴식 제외)", "주행 자극 최고 $peak", obs).joinToString(" · ")
         }
     }
 }

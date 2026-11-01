@@ -1,5 +1,7 @@
 package com.emop.pause.ui.screens
 
+import androidx.compose.ui.text.style.LineBreak
+import com.emop.pause.ui.components.LinkQr
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -108,15 +110,16 @@ fun DepartScreen(ui: DepartUi, on: On) {
     // 정차 화면 = 전체 창이 기준(프로필 · 체크 · 경로 3칸). 분할 창으로 볼 때는 같은 순서로 쌓고 스크롤 — 글자를 자르지 않는다.
     Page(ui.meta, on, scroll = false) { wc ->
         if (wc == WidthClass.FULL) {
+            // 세 칸은 화면 높이를 채우고, 가운데 체크 칸은 줄을 높이에 고르게 나눈다 — 체크 칸 아래가 비지 않게(11/01)
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
                 DepartPet(ui, on, Modifier.weight(0.28f).fillMaxHeight(), wide = true)
-                DepartChecks(ui, on, Modifier.weight(0.38f).fillMaxHeight())
+                DepartChecks(ui, on, Modifier.weight(0.38f).fillMaxHeight(), wide = true)
                 DepartRoute(ui, on, Modifier.weight(0.34f).fillMaxHeight(), wide = true)
             }
         } else {
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
                 DepartPet(ui, on, Modifier.fillMaxWidth(), wide = false)
-                DepartChecks(ui, on, Modifier.fillMaxWidth())
+                DepartChecks(ui, on, Modifier.fillMaxWidth(), wide = false)
                 DepartRoute(ui, on, Modifier.fillMaxWidth(), wide = false)
             }
         }
@@ -132,7 +135,7 @@ private fun DepartPet(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
             PetPhoto(Modifier.size(d.u(120f)).align(Alignment.CenterHorizontally))
             Spacer(Modifier.height(d.unit))
             Text(ui.pet.name, style = Pause.type.title, color = c.text, modifier = Modifier.align(Alignment.CenterHorizontally))
-            Text(ui.pet.line, style = Pause.type.sub, color = c.sub, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Text(ui.pet.line, style = Pause.type.sub.copy(lineBreak = wordWrap), color = c.sub, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         } else Row(verticalAlignment = Alignment.CenterVertically) {
             PetPhoto(Modifier.size(d.u(72f)))
             Spacer(Modifier.width(d.gap))
@@ -152,20 +155,26 @@ private fun DepartPet(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
 }
 
 @Composable
-private fun DepartChecks(ui: DepartUi, on: On, m: Modifier) {
+private fun DepartChecks(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
     val c = Pause.colors
     val d = Pause.dimens
     Panel(m, pad = d.u(24f), spacing = d.gapS) {
         SectionHeader("출발 전 체크", trailing = "${ui.checks.count { it.checked }} / ${ui.checks.size}")
         Divider()
+        // 넓은 창은 체크 줄을 칸 높이에 고르게 나눈다(누르기 쉽게, 아래 빈 공간 없이)
         ui.checks.forEachIndexed { i, ch ->
             if (i > 0) Divider()
-            ChecklistRow(ch.label, ch.checked, { on(UiEvent.ToggleCheck(ch.kind)) })
+            Box(if (wide) Modifier.fillMaxWidth().weight(1f) else Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                ChecklistRow(ch.label, ch.checked, { on(UiEvent.ToggleCheck(ch.kind)) })
+            }
         }
         Divider()
-        Text(ui.rationale, style = Pause.type.sub, color = c.sub)
+        Text(ui.rationale, style = Pause.type.sub.copy(lineBreak = wordWrap), color = c.sub)
     }
 }
+
+/** 한국어 단어(어절) 단위 줄바꿈 — "급속충전기"가 글자 중간에서 끊기지 않게. */
+private val wordWrap = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase)
 
 @Composable
 private fun DepartRoute(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
@@ -182,7 +191,7 @@ private fun DepartRoute(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
         ui.plan.take(3).forEach { p ->
             Column {
                 Text(p.eta, style = Pause.type.bodyStrong, color = c.text, maxLines = 1)
-                Text(p.name + (p.facilities.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""), style = Pause.type.sub, color = c.sub, maxLines = 2)
+                Text(p.name + (p.facilities.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""), style = Pause.type.sub.copy(lineBreak = wordWrap), color = c.sub)
             }
         }
         if (wide) Spacer(Modifier.weight(1f))
@@ -312,10 +321,10 @@ fun WaitScreen(ui: WaitUi, on: On) {
                 )
                 Text(ui.elapsed, style = Pause.type.metric, color = c.text)
                 if (wide) Spacer(Modifier.weight(1f))
-                Text(
-                    ui.share.url?.let { "보호자 폰: $it" + if (ui.share.connected) "" else " (연결 확인 중)" } ?: "폰 공유 연결 안 됨 — 차 화면 안내는 계속돼요",
-                    style = Pause.type.sub, color = c.sub,
-                )
+                // 보호자 폰 주소는 QR로 (글자 주소는 작게 함께) — 차 밖에서 폰 카메라로 바로 연다
+                ui.share.url?.let { url ->
+                    LinkQr("보호자 폰" + if (ui.share.connected) "" else " (연결 확인 중)", url, "폰 카메라로 찍으면 대기 화면이 열려요", Modifier.fillMaxWidth())
+                } ?: Text("폰 공유 연결 안 됨 — 차 화면 안내는 계속돼요", style = Pause.type.sub, color = c.sub)
             }
             Panel(right, pad = d.u(24f), spacing = d.gapS) {
                 SectionHeader("차 안 상태")
@@ -491,8 +500,8 @@ private fun IntakePanel(ui: VetsUi, on: On, m: Modifier) {
                 StatusChip(if (ik.replied) "병원 응답" else "접수함 전송", if (ik.busy) MotionTone.CAUTION else null)
             }
             Text(ik.status, style = Pause.type.bodyStrong, color = if (ik.busy) c.warningInk else c.text)
-            KeyValue("병원 접수함", ik.clinicUrl, valueColor = c.primary)
-            ui.shareUrl?.let { KeyValue("보호자 링크", it) }
+            LinkQr("병원 접수함", ik.clinicUrl, "병원 쪽 화면에서 열어요", Modifier.fillMaxWidth())
+            ui.shareUrl?.let { LinkQr("보호자 링크", it, "보호자 폰으로 찍어 도착 예정을 봐요", Modifier.fillMaxWidth(), size = d.u(112f)) }
             Text("링크는 보호자가 병원에 문자로 보내요. 2시간 뒤 사라져요.", style = Pause.type.caption, color = c.sub)
         }
     }
@@ -514,7 +523,7 @@ private fun ContactPanel(ui: VetsUi, on: On, m: Modifier) {
         ui.tripLine?.let { KeyValue("오늘 요약", it) }
         Divider()
         PauseButton("도착 예정 링크 만들기", { v?.let { on(UiEvent.ShareVetEta(it.id)) } }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Send, enabled = v != null)
-        ui.shareUrl?.let { KeyValue("도착 예정 링크", it, valueColor = c.primary) }
+        ui.shareUrl?.let { LinkQr("도착 예정 링크", it, "보호자 폰으로 찍어 병원에 보내요", Modifier.fillMaxWidth()) }
         Text("링크에는 도착 예정 시각만 있어요(위치 없음). 보호자가 병원에 문자로 보내요.", style = Pause.type.caption, color = c.sub)
     }
 }

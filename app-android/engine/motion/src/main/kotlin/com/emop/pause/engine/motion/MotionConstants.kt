@@ -73,7 +73,10 @@ object MotionConstants {
     /** 같은 구간 예보를 다시 말하지 않는 시간(분) (F1-10). */
     const val FORECAST_COOLDOWN_MIN = 10
 
-    /** 프로필 민감도 S (§5). 곱으로 합친다. */
+    /**
+     * 프로필 민감도 S (§5). 곱으로 합친다. 개인 보정 계수([PetProfile.motionScale])는 넣지 않는다 —
+     * 화면의 주행 자극 숫자는 보정 전 값이고, 보정은 [personalScale]로 예보 단계·쉼표 시각에만 쓴다 (사용자 결정 11/01).
+     */
     fun sensitivity(p: PetProfile): Double {
         val size = when (p.size) {
             PetSize.SMALL -> 1.2
@@ -90,6 +93,9 @@ object MotionConstants {
             MotionTendency.NORMAL -> 1.0
             MotionTendency.HIGH -> 1.5
         }
-        return size * age * tendency * p.motionScale.coerceIn(MotionCalibration.MIN_SCALE, MotionCalibration.MAX_SCALE)
+        return size * age * tendency
     }
+
+    /** 개인 보정 계수 (MotionCalibration, 0.6~1.6). [MotionState.personal]·[MotionForecast.personalMax]에만 곱한다. */
+    fun personalScale(p: PetProfile): Double = p.motionScale.coerceIn(MotionCalibration.MIN_SCALE, MotionCalibration.MAX_SCALE)
 }

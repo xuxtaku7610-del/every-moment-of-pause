@@ -146,12 +146,12 @@ object Fixtures {
         memo = listOf("구토", "설사", "헐떡임", "축 처짐", "떨림", "기타").map { SymptomUi(it, it == "구토") },
         memoText = "구토 두 번, 물은 조금 마셨어요",
         memoInclude = true,
-        tripLine = "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회",
+        tripLine = "주행 2시간 10분(휴식 제외) · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회",
         preview = listOf(
             VetRowUi("반려견", "콩이"),
             VetRowUi("증상", "구토"),
             VetRowUi("메모", "구토 두 번, 물은 조금 마셨어요"),
-            VetRowUi("오늘 요약", "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회"),
+            VetRowUi("오늘 요약", "주행 2시간 10분(휴식 제외) · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회"),
             VetRowUi("도착 예정", "약 4분 뒤 (자동 갱신)"),
             VetRowUi("보내지 않음", "위치·경로·사진"),
         ),
@@ -162,6 +162,8 @@ object Fixtures {
         items = listOf(VetUi("v1", "강릉 ○○동물병원", "1.5km", "강원특별자치도 강릉시", "033-000-0000", false, minutes = 5, status = "영업 중")),
         note = "지방행정 인허가 데이터(동물병원) · 영업시간은 데이터에 없어요. 가기 전에 전화로 확인해 주세요.",
         preview = emptyList(),
+        // 도착 예정 링크를 만든 뒤 (QR로 보인다, 11/01)
+        shareUrl = "http://192.168.0.10:8000/eta/k3J9x2",
     )
 
     val arrival = ArrivalUi("콩이 내렸나요?", strong = false, detail = "내린 뒤 확인을 눌러 주세요.")
@@ -189,10 +191,10 @@ object Fixtures {
             TrendMarkUi(TrendMarkKind.HIGH, 140, "흔들림 많음", 18),
         ),
         insight = "이번엔 출발 2시간 20분 뒤 주행 자극이 보통 이상이 됐어요.",
-        summary = "이번 이동은 2시간 58분, 휴식 1번, 주행 자극 최고 55였어요.",
+        summary = "이번 주행은 2시간 39분(휴식 제외), 휴식 1번, 주행 자극 최고 55였어요.",
         share = listOf(
             VetRowUi("관찰 신고", "헐떡임 1회 (출발 39분 뒤, 주행 중)"),
-            VetRowUi("주행", "2시간 43분 · 194km · 휴식 1번"),
+            VetRowUi("주행", "2시간 43분(휴식 제외) · 194km · 휴식 1번"),
             VetRowUi("주행 자극", "최고 55 (차량 흔들림 기준 · 반려견 측정 아님)"),
         ),
         history = listOf(HistoryUi("10월 26일", "강릉 · 2시간 58분 · 신고 없음"), HistoryUi("10월 19일", "속초 · 2시간 16분 · 신고 1건")),

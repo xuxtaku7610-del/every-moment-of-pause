@@ -184,7 +184,7 @@ class PetTripLogTest {
     fun `F7-03 병원용 요약 - 반려견 측정 아님 표기와 관찰 신고`() {
         val t = PetTripRecord(0, 130, 75, 62, 2, "출발 1시간쯤 침을 많이 흘림")
         val lines = PetTripLog.vetSummary("콩이", t, LimitEstimate(70, 3))
-        assertEquals("이동 시간 2시간 10분 · 휴식 2번", lines[1])
+        assertEquals("주행 시간 2시간 10분(휴식 제외) · 휴식 2번", lines[1])
         assertTrue(lines.any { "반려견 측정 아님" in it })
         assertTrue(lines.last().startsWith("관찰 신고: 출발 1시간쯤"))
     }

@@ -234,15 +234,25 @@ fun Metric(
     }
 }
 
+/** 이 글자 수를 넘는 값은 이름 아래 줄로 내린다. */
+private const val KEY_VALUE_INLINE = 18
+
 /** 이름 · 값 한 줄 (패널 안 목록). */
 @Composable
 fun KeyValue(key: String, value: String, modifier: Modifier = Modifier, valueColor: Color = Pause.colors.text) {
     val c = Pause.colors
-    // 값은 줄임표 대신 2줄까지 (오른쪽 정렬) — 좁은 창에서도 내용이 잘리지 않게
+    // 값은 줄이지 않는다: 짧으면 오른쪽 정렬 한 줄, 길면(요약 문장·링크) 이름 아래 전체 폭으로 줄바꿈 (11/01 줄임표 없앰)
+    if (value.length > KEY_VALUE_INLINE) {
+        Column(modifier.fillMaxWidth()) {
+            Text(key, style = Pause.type.sub, color = c.sub, maxLines = 1)
+            Text(value, style = Pause.type.bodyStrong.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph.copy(wordBreak = androidx.compose.ui.text.style.LineBreak.WordBreak.Phrase)), color = valueColor)
+        }
+        return
+    }
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Text(key, style = Pause.type.sub, color = c.sub, maxLines = 1)
         Spacer(Modifier.width(Pause.dimens.gap))
-        Text(value, style = Pause.type.bodyStrong, color = valueColor, maxLines = 2, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+        Text(value, style = Pause.type.bodyStrong, color = valueColor, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
     }
 }
 

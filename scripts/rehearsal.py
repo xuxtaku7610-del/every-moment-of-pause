@@ -209,6 +209,9 @@ def main() -> int:
         tap(xy)
         if not wait_for("맞춤 정도", 15):
             return "막힘: 리포트에 맞춤 정도 줄이 안 뜸"
+        # 점프 전에 말한 실시간 신고(구토)가 리포트 타임라인에 이어서 남는다 (결정 11/01)
+        if not wait_for("구토 신고", 10):
+            return "막힘: 점프 뒤 리포트에 실시간 신고(구토)가 없음"
         time.sleep(2)
         shot("11-calibrated")
         start(calib="reset")

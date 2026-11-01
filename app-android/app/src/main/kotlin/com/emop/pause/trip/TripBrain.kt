@@ -117,7 +117,7 @@ class TripBrain(
     private var lastRecentMs: Long? = null
     private var lastCurveMs: Long? = null
 
-    /** "콩이가 이상해요"(불안·멀미 초기) 뒤 [minutes]분 동안 멀미 예보 민감도를 [factor]배로 (UPGRADE 7). */
+    /** "콩이가 이상해요" 뒤 [minutes]분 동안 예보 단계·쉼표 시각의 민감도를 [factor]배로 (UPGRADE 7). 화면 숫자는 그대로. */
     fun boost(factor: Double, nowMs: Long, minutes: Int = BOOST_MIN) {
         motion.boost = factor
         boostUntilMs = nowMs + minutes * 60_000L
@@ -163,7 +163,7 @@ class TripBrain(
         if (due && loaded && i.mode == AppMode.DRIVING && heading == null && pending == null && !awaitingReply && policy.canSuggest(i.nowMs, f.level)) {
             lastEvalMs = i.nowMs
             val kmPerMin = i.eta?.takeIf { it.remainTimeSec > 0 }?.let { it.remainDistanceM / 1000.0 / (it.remainTimeSec / 60.0) } ?: 0.0
-            val d = PetRestPlanner.plan(PetPlannerInput(stops(), traveledKm, kmPerMin, f, n.needs, m.index, preferred, lastSuggestedId))
+            val d = PetRestPlanner.plan(PetPlannerInput(stops(), traveledKm, kmPerMin, f, n.needs, m.personal, preferred, lastSuggestedId))
             if (d !is PlanDecision.NoNeed) pending = d
         }
         val road = routeM?.let { at -> motion.shape?.let { sh -> List(ROAD_SAMPLES) { k -> sh.curvatureAt(at + k * ROAD_STEP_M).toFloat() } } }.orEmpty()

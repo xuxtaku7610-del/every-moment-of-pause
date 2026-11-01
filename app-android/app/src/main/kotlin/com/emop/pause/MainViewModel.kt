@@ -623,7 +623,7 @@ class MainViewModel @Inject constructor(
 
     /** 기록 요약 (F7-04): 서버 LLM 2.5초, 실패하면 템플릿. 반려견 이름·증상은 보내지 않는다. */
     private suspend fun summarize(r: PetTripRecord, limit: LimitEstimate?): String {
-        val template = "이번 이동은 ${UiMapper.duration(r.drivingMin)}, 휴식 ${r.stops}번, 주행 자극 최고 ${r.motionPeak}였어요." +
+        val template = "이번 주행은 ${UiMapper.duration(r.drivingMin)}(휴식 제외), 휴식 ${r.stops}번, 주행 자극 최고 ${r.motionPeak}였어요." +
             (limit?.let { " 지난 여행들은 출발 약 ${UiMapper.duration(it.minutes)} 뒤 주행 자극이 보통 이상이 됐어요." } ?: "")
         val session = server.session ?: return template
         val text = withTimeoutOrNull(2_500) {
@@ -642,8 +642,6 @@ class MainViewModel @Inject constructor(
         // 리포트는 한 시계(출발 뒤, 정차 포함)로 말한다 — 타임라인·한 줄·병원 공유가 같은 시각을 쓰게
         val stops = log.startMinute?.let { st -> log.visits.map { (it.arrivedMinute - st) to it.stayedMin } }.orEmpty()
         val onClock = t.distressEvents.map { it.copy(drivingMin = UiMapper.elapsedMin(it.drivingMin, stops)) }
-        // 처음 보통에 닿은 때 = 타임라인 첫 "흔들림 많은 구간"의 시작 (같은 분이 두 곳에 다르게 찍히지 않게)
-        val firstOnClock = log.segments.firstOrNull()?.startMin ?: record.firstCautionMin?.let { UiMapper.elapsedMin(it, stops) }
         return TripLogUi(
             meta = "${today.monthValue}월 ${today.dayOfMonth}일, ${dest ?: "목적지"}까지",
             petName = t.pet.name,
@@ -655,7 +653,7 @@ class MainViewModel @Inject constructor(
             // 기록이 없으면 빈 그대로 (그래프가 "기록이 아직 없어요"를 그린다 — 0으로 채우지 않는다)
             stimulusSeries = saved?.series ?: log.motionSeries,
             marks = UiMapper.trendMarks(log.startMinute, log.visits, t.distressEvents, log.segments),
-            insight = PetTripLog.insight(t.pet.name, record.copy(firstCautionMin = firstOnClock), a.limit),
+            insight = PetTripLog.insight(t.pet.name, record.copy(firstCautionMin = UiMapper.firstStimulusMin(log)), a.limit),
             summary = saved?.summary ?: "기록을 정리하는 중이에요.",
             share = UiMapper.reportShare(record, onClock, log.distanceKm),
             history = a.history.filter { it.startedMs != record.startedMs }.take(3).map { r ->

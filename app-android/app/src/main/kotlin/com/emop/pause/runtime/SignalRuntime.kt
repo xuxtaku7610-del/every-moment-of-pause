@@ -103,6 +103,8 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
     private var fillPlayer: ScenarioPlayer? = null
     private var navi: PleosNaviSource? = null
     private var simNavi: SimNaviSource? = null
+    /** 시뮬레이터 모드에서도 기본 내비가 안내 중이면 회전 안내(TBT)만 실제 NaviHelper 값으로 받는다 (시연 촬영, docs/recording.md). */
+    private var simGuide: PleosNaviSource? = null
 
     /** 지금 공급원의 내비 (경유지 추가에 쓴다). */
     val naviSource: NaviSource? get() = simNavi ?: navi
@@ -119,8 +121,19 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
         val sn = SimNaviSource(p)
         player = p
         simNavi = sn
+        // 기본 내비 안내가 없으면 null → 주행 화면은 목적지 한 줄(또는 시연 안내 "시연")로 줄어든다
+        val g = runCatching { PleosNaviSource(context).also { it.start() } }.getOrNull()
+        simGuide = g
         job = scope.launch {
-            combine(p.frame, p.speed, p.playing, sn.waypoints) { f, speed, playing, wps -> SimTick(f, speed, playing, wps) }
+            g?.let { n ->
+                launch {
+                    while (true) {
+                        delay(NAVI_REFRESH_MS)
+                        n.refresh()
+                    }
+                }
+            }
+            combine(p.frame, p.speed, p.playing, sn.waypoints, g?.guide() ?: flowOf(null)) { f, speed, playing, wps, guide -> SimTick(f, speed, playing, wps, guide) }
                 .collect { publishSim(p.scenario, it) }
         }
     }
@@ -273,12 +286,13 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
         vehicleTrip.value = phase
     }
 
-    private data class SimTick(val f: SimFrame, val speed: Int, val playing: Boolean, val waypoints: List<String>)
+    private data class SimTick(val f: SimFrame, val speed: Int, val playing: Boolean, val waypoints: List<String>, val guide: NextGuide? = null)
 
     private fun publishSim(scenario: Scenario, tick: SimTick) {
-        val (f, speed, playing, waypoints) = tick
+        val (f, speed, playing, waypoints, guide) = tick
         reduceSim(f)
-        _snapshot.value = simSnapshot(scenario, f, speed, playing, waypoints)
+        // 내비 안내는 주행 중 장면에만 (정차·도착 장면에 남은 회전 안내를 붙이지 않는다)
+        _snapshot.value = simSnapshot(scenario, f, speed, playing, waypoints).let { if (guide != null && f.trip == TripPhase.ACTIVE) it.copy(guide = guide) else it }
     }
 
     private fun simSnapshot(scenario: Scenario, f: SimFrame, speed: Int, playing: Boolean, waypoints: List<String>): Snapshot {
@@ -320,6 +334,8 @@ class SignalRuntime @Inject constructor(@param:ApplicationContext private val co
         aaos?.stop()
         fillPlayer?.pause()
         navi?.stop()
+        simGuide?.let { runCatching { it.stop() } }
+        simGuide = null
         uxRestrictions?.release()
         player = null
         simNavi = null

@@ -27,7 +27,10 @@ data class MotionInput(
     val routeM: Double? = null,
 )
 
-/** 지금 상태. [index]는 0~100 "주의 예보" 지수 (의학적 진단 아님). */
+/**
+ * 지금 상태. [index]는 0~100 주행 자극(차량 흔들림 기준, 반려견 측정 아님) — 화면·기록·비교에 쓰는 보정 전 값.
+ * [personal]은 같은 누적량에 개인 보정·"콩이가 이상해요" 가중을 곱한 값으로, 쉼표 시각(PetRestPlanner)에만 쓴다.
+ */
 data class MotionState(
     val index: Int = 0,
     val level: MotionLevel = MotionLevel.LOW,
@@ -40,6 +43,8 @@ data class MotionState(
     val firstCautionDrivingSec: Long? = null,
     /** 횡가속을 무엇으로 구했는지: 방위 · 경로 형상 · 없음(종방향만). */
     val lateralSource: LateralSource = LateralSource.NONE,
+    /** 개인 보정·가중 반영 지수 (화면에 보이지 않음). */
+    val personal: Int = 0,
 )
 
 enum class LateralSource { HEADING, SHAPE, NONE }
@@ -49,12 +54,15 @@ data class MotionForecast(
     val startInM: Double,
     val lengthM: Double,
     val durationSec: Int,
-    /** 지금 속도 그대로 구간 끝까지 갔을 때 예상 지수. */
+    /** 지금 속도 그대로 구간 끝까지 갔을 때 예상 지수 (보정 전). */
     val predictedIndex: Int,
     /** 구간 최대 곡률에서 편안한 횡가속([MotionConstants.A_COMFORT])이 되는 속도. */
     val recommendedKph: Int,
-    /** 지금부터 1분 간격 예상 지수([MotionConstants.FORECAST_MIN]+1개, 0번 = 지금). 화면 그래프는 이 점을 그대로 잇는다. */
+    /** 지금부터 1분 간격 예상 지수([MotionConstants.FORECAST_MIN]+1개, 0번 = 지금, 보정 전). 화면 그래프는 이 점을 그대로 잇는다. */
     val trajectory: List<Int> = emptyList(),
+    /** 개인 보정 반영 — 구간 끝 예상(운전 안내 문구)·1분 간격 최고(예보 단계). 화면 숫자에는 쓰지 않는다. 보정이 없으면 위 값과 같다. */
+    val personalPredicted: Int = predictedIndex,
+    val personalPeak: Int = trajectory.maxOrNull() ?: predictedIndex,
 )
 
 /**
@@ -67,15 +75,17 @@ data class MotionForecast(
  */
 class MotionComfortEngine private constructor(
     private val sensitivity: Double,
+    /** 개인 보정 계수 — [MotionState.personal]에만 곱한다. */
+    private val personalScale: Double,
     val shape: RouteShapeProvider?,
     val sampleHz: Double,
 ) {
     constructor(profile: PetProfile = PetProfile.DEFAULT, shape: RouteShapeProvider? = null, sampleHz: Double = 1.0) :
-        this(MotionConstants.sensitivity(profile), shape, sampleHz)
+        this(MotionConstants.sensitivity(profile), MotionConstants.personalScale(profile), shape, sampleHz)
 
     /**
-     * 잠시 민감도를 올린다 (UPGRADE 7 "콩이가 이상해요" — 불안·멀미 초기 신호 뒤 부드러운 주행 안내). 1.0 = 그대로.
-     * 지수·예보 모두에 곱해진다. TripBrain이 시간이 지나면 1.0으로 되돌린다.
+     * 잠시 민감도를 올린다 (UPGRADE 7 "콩이가 이상해요" — 불안 신호 뒤 부드러운 주행 안내). 1.0 = 그대로.
+     * 개인 지수([MotionState.personal])·예보 단계에만 곱해진다 — 화면의 주행 자극 숫자는 그대로. TripBrain이 시간이 지나면 1.0으로 되돌린다.
      */
     var boost: Double = 1.0
         set(v) { field = v.coerceIn(1.0, 2.0) }
@@ -126,10 +136,11 @@ class MotionComfortEngine private constructor(
         val tau = if (moving) MotionConstants.TAU_DRIVE_SEC else MotionConstants.TAU_REST_SEC
         dose = dose * exp(-dt / tau) + (fx * fx + fy * fy) * dt
         val msdv = sqrt(dose)
-        val index = (100 * (1 - exp(-sensitivity * boost * msdv / MotionConstants.INDEX_SCALE_MSDV))).roundToInt().coerceIn(0, 100)
+        val index = indexOf(sensitivity, msdv)
+        val personal = indexOf(sensitivity * personalScale * boost, msdv)
         val driving = state.drivingSec + if (moving) dt.roundToInt() else 0
         val firstCaution = state.firstCautionDrivingSec ?: driving.takeIf { index >= MotionConstants.CAUTION }
-        state = MotionState(index, motionLevelOf(index), msdv, max(state.peak, index), driving, firstCaution, src)
+        state = MotionState(index, motionLevelOf(index), msdv, max(state.peak, index), driving, firstCaution, src, personal)
         return state
     }
 
@@ -146,14 +157,16 @@ class MotionComfortEngine private constructor(
         val length = max(RouteShape.STEP_M, segEnd - start)
         // 계획은 20분 범위와 구간 끝 중 먼 쪽까지 (그 뒤는 지금 속도로 직선)
         val plan = naturalPlan(sh, atM, max(end, segEnd), start, segEnd, v)
-        val (predicted, traj) = simulate(plan, atM, segEnd)
+        val sim = simulate(plan, atM, segEnd)
         return MotionForecast(
             startInM = start - atM,
             lengthM = length,
             durationSec = travelSec(plan, atM, start, segEnd).roundToInt(),
-            predictedIndex = predicted,
+            predictedIndex = sim.end,
             recommendedKph = (sqrt(MotionConstants.A_COMFORT / kMax) * 3.6).roundToInt(),
-            trajectory = traj,
+            trajectory = sim.traj,
+            personalPredicted = sim.personalEnd,
+            personalPeak = sim.personalPeak,
         )
     }
 
@@ -237,9 +250,11 @@ class MotionComfortEngine private constructor(
 
     /**
      * 지금 상태를 복사해 "안내 없이" 계획대로 달린다. 1분마다 지수를 찍고(앞으로 [MotionConstants.FORECAST_MIN]분),
-     * 구간 끝([segEnd])에 닿았을 때 지수를 함께 돌려준다. 원래 상태는 건드리지 않는다.
+     * 구간 끝([segEnd])에 닿았을 때 지수와 그때까지 개인 지수 최고를 함께 돌려준다. 원래 상태는 건드리지 않는다.
      */
-    private fun simulate(plan: DoubleArray, fromM: Double, segEnd: Double): Pair<Int, List<Int>> {
+    private class Sim(val end: Int, val traj: List<Int>, val personalEnd: Int, val personalPeak: Int)
+
+    private fun simulate(plan: DoubleArray, fromM: Double, segEnd: Double): Sim {
         val copy = fork()
         val dt = 1.0 / sampleHz
         val perMin = (60 * sampleHz).roundToInt()
@@ -247,6 +262,8 @@ class MotionComfortEngine private constructor(
         val lastM = fromM + (plan.size - 1) * RouteShape.STEP_M
         val traj = mutableListOf(state.index)
         var atEnd: Int? = null
+        var personalEnd: Int? = null
+        var personalPeak = state.personal
         var s = fromM
         var t = (lastMs ?: 0L)
         var n = 0
@@ -256,14 +273,23 @@ class MotionComfortEngine private constructor(
             t += (dt * 1000).toLong()
             n++
             copy.update(MotionInput(t, (vs * 3.6).toFloat(), routeM = s))
-            if (atEnd == null && s >= segEnd) atEnd = copy.state.index
-            if (n <= horizon && n % perMin == 0) traj += copy.state.index
+            if (atEnd == null && s >= segEnd) {
+                atEnd = copy.state.index
+                personalEnd = copy.state.personal
+            }
+            if (n <= horizon && n % perMin == 0) {
+                traj += copy.state.index
+                personalPeak = max(personalPeak, copy.state.personal)
+            }
         }
-        return (atEnd ?: copy.state.index) to traj
+        return Sim(atEnd ?: copy.state.index, traj, personalEnd ?: copy.state.personal, personalPeak)
     }
 
+    private fun indexOf(s: Double, msdv: Double): Int =
+        (100 * (1 - exp(-s * msdv / MotionConstants.INDEX_SCALE_MSDV))).roundToInt().coerceIn(0, 100)
+
     /** 예보용 복사본: 방위 대신 경로 형상으로 이어서 계산한다. */
-    private fun fork(): MotionComfortEngine = MotionComfortEngine(sensitivity, shape, sampleHz).also {
+    private fun fork(): MotionComfortEngine = MotionComfortEngine(sensitivity, personalScale, shape, sampleHz).also {
         it.boost = boost
         it.bandX = bandX.copy()
         it.bandY = bandY.copy()

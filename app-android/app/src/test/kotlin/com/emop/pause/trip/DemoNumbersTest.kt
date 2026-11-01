@@ -3,6 +3,7 @@ package com.emop.pause.trip
 import com.emop.pause.core.model.EtaInfo
 import com.emop.pause.data.BundledRestStops
 import com.emop.pause.data.alongRoute
+import com.emop.pause.engine.motion.MotionCalibration
 import com.emop.pause.engine.motion.MotionCompare
 import com.emop.pause.engine.motion.MotionConstants
 import com.emop.pause.engine.motion.RouteShape
@@ -80,5 +81,61 @@ class DemoNumbersTest {
         assertTrue(log.motionSeries.size >= (scenario.durationSec - 60) / 60 / TripRecorder.SAMPLE_MIN - 2, "점 ${log.motionSeries.size}개")
         assertEquals(1, log.visits.size)
         assertEquals("횡성휴게소", log.visits.first().name)
+    }
+
+    /** 장면 값만 뽑는 짧은 재생 (보정 계수만 바꿔 두 번 돌린다). */
+    private class Run(val index: List<Int>, val personal: List<Int>, val forecastPeak: List<Int>, val personalPeak: List<Int>, val log: TripLog)
+
+    private fun run(scale: Double): Run {
+        val route = scenario.route
+        val stops = BundledRestStops.parse(File("../../server/app/data/sample_reststops.json").readText())
+            .alongRoute(route.points.map { it.toModel() }, route.totalDistanceM.toDouble())
+        val setup = PresetStore.fromScenario(scenario.setup).let { it.copy(pet = it.pet.copy(motionScale = scale)) }
+        val brain = TripBrain(setup, shape, route.shapeStartM) { stops }
+        val recorder = TripRecorder()
+        var mode = ModeState()
+        val index = mutableListOf<Int>()
+        val personal = mutableListOf<Int>()
+        val fPeak = mutableListOf<Int>()
+        val pPeak = mutableListOf<Int>()
+        for (t in 0..scenario.durationSec) {
+            val f = ScenarioPlayer.frameAt(scenario, t.toDouble())
+            val now = t * 1000L
+            mode = AppModeReducer.reduce(mode, ModeInput(now, f.driveState, f.trip, f.sample.gear, f.sample.speedKph, f.sample.charging))
+            val eta = if (f.remainDistanceM != null && f.remainTimeSec != null) EtaInfo(f.remainDistanceM!!, f.remainTimeSec!!) else null
+            val s = brain.tick(BrainInput(now, 540 + t / 60, mode.mode, f.driveState, f.sample, scenario.capabilities, eta, route.totalDistanceM))
+            s.speakForecast?.let { brain.onForecastSpoken(now) }
+            s.pending?.let { brain.onShown(now); brain.onDeclined(now) }
+            if (f.trip != com.emop.pause.core.model.TripPhase.NOT_STARTED) {
+                recorder.onMotion(s.motion.index, s.motion.drivingSec, s.motion.firstCautionDrivingSec)
+                recorder.tick(540 + t / 60, mode.mode, mode.pauseCause, s.fatigue?.score, s.fatigue?.continuousDriveMinutes, s.traveledKm, stops)
+            }
+            if (t % 60 == 0) {
+                index += s.motion.index
+                personal += s.motion.personal
+                s.forecast?.let { fPeak += it.trajectory.max(); pPeak += it.personalPeak }
+            }
+        }
+        return Run(index, personal, fPeak, pPeak, recorder.log())
+    }
+
+    @Test
+    fun `DM-08 개인 보정은 주행 자극 숫자·그래프·비교를 바꾸지 않고 예보 단계에만 쓴다`() {
+        // 사용자 결정 11/01 안 ①: 화면 숫자는 보정 전 값. PT3 보정(민감도 높음, 계수 상한)으로 돌려도 같은 길이면 같은 숫자.
+        val plain = run(1.0)
+        val tuned = run(MotionCalibration.MAX_SCALE)
+        assertEquals(plain.index, tuned.index, "분마다 주행 자극")
+        assertEquals(plain.log.motionPeak, tuned.log.motionPeak, "리포트 최고")
+        assertEquals(plain.log.motionSeries, tuned.log.motionSeries, "리포트 그래프")
+        assertEquals(plain.forecastPeak, tuned.forecastPeak, "예보 곡선(숫자)")
+        val pet = scenario.setup.pet!!.toModel()
+        val c1 = MotionCompare.run(shape, pet)
+        val c2 = MotionCompare.run(shape, pet.copy(motionScale = MotionCalibration.MAX_SCALE))
+        assertEquals(c1.unguidedFinal to c1.guidedFinal, c2.unguidedFinal to c2.guidedFinal, "고갯길 비교")
+        // 보정이 없으면 개인 지수 = 주행 자극, 보정이 있으면 개인 지수·예보 단계만 높아진다
+        assertEquals(plain.index, plain.personal)
+        assertEquals(plain.forecastPeak, plain.personalPeak)
+        assertTrue(tuned.personal.zip(tuned.index).all { (p, i) -> p >= i } && tuned.personal.max() > tuned.index.max(), "개인 지수 ${tuned.personal.max()} > ${tuned.index.max()}")
+        assertTrue(tuned.personalPeak.max() > tuned.forecastPeak.max())
     }
 }

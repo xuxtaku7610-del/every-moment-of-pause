@@ -25,28 +25,24 @@
 | 달릴 때 | **"콩이가 이상해요"**: "콩이 토했어" 같은 음성 신고를 기록하고 1줄 안내, 심하면 동물병원(사전 접수는 시연용 제휴 동물병원만, 보내기 전 동의) |
 | 도착 | **"콩이 내렸나요?"** → **도착 후 기록 리포트**: 시간순 타임라인, 주행 자극 그래프(차량 기준), 관찰 신고 |
 
-### 화면 (디자인 v6, Pleos Connect 에뮬레이터 2026-10-30)
-앱 영역만 잘랐다(왼쪽 차량 패널·아래 공조 바는 Pleos 시스템 UI). 주행·예보·쉼표·대기·도착·리포트는 **시뮬레이터 실제 엔진 값**, 프로필·장소·병원·온보딩은 발표 모드 장면. 기준은 [docs/design/v6/STYLE_V6.md](docs/design/v6/STYLE_V6.md)(v5는 대체됨), 바꾸기 전/후는 `python scripts/ui_capture.py` → `artifacts/ui/v6/`.
+### 화면 (v8 재정비, Pleos Connect 에뮬레이터 2026-11-01 · UI 동결 11/8)
+주행 장면은 **실제 분할 창**(왼쪽 같이가개 1/3 + 오른쪽 Pleos 기본 내비)으로 찍었다. 기본 내비가 강릉씨티호텔로 안내 중이고, 다음 회전 카드("좌회전 80m · 기업지원허브 방면")는 NaviHelper `onTBTInfo` 실제 값이다(내비 화면과 같다). 주행·예보·쉼표·대기·리포트 숫자는 **시뮬레이터 실제 엔진 값**, 프로필·장소·병원 목록·온보딩·주행 자극 보기는 발표 모드 장면. 앱 영역만 잘랐다(왼쪽 차량 패널·아래 공조 바는 Pleos 시스템 UI). 기준 문서는 [docs/states.md](docs/states.md)·[docs/wording.md](docs/wording.md), 캡처 방법은 [docs/recording.md](docs/recording.md)·`python scripts/ui_capture.py` → `artifacts/ui/v8/`.
 
-| 출발 체크 | 주행 기본 | 주행 자극 예보 |
+| 출발 전 (전체 창) | 주행 · 기본 내비 옆 1/3 | 굽은 길 예보 (숫자 없음) |
 | --- | --- | --- |
-| ![출발 체크](docs/screens/v6/01-depart.png) | ![주행 기본](docs/screens/v6/02-drive.png) | ![주행 자극 예보](docs/screens/v6/03-forecast.png) |
-| **쉼표 추천** | **콩이가 이상해요** | **쉼표 (정차)** |
-| ![쉼표 추천](docs/screens/v6/04-suggest.png) | ![콩이가 이상해요](docs/screens/v6/07-distress.png) | ![쉼표](docs/screens/v6/05-rest.png) |
-| **잠깐 대기 (차 화면)** | **함께 가는 장소** | **동물병원 · 사전 접수** |
-| ![잠깐 대기](docs/screens/v6/05-wait.png) | ![함께 가는 장소](docs/screens/v6/07-places.png) | ![동물병원](docs/screens/v6/08-vets.png) |
-| **도착 체크** | **도착 후 기록 리포트** | **반려견 프로필** |
-| ![도착 체크](docs/screens/v6/09-arrival.png) | ![도착 후 기록 리포트](docs/screens/v6/10-triplog.png) | ![반려견 프로필](docs/screens/v6/11-pet.png) |
+| ![출발 전](docs/screens/v8/01-depart.png) | ![주행](docs/screens/v8/02-drive-nav.png) | ![예보](docs/screens/v8/03-forecast-nav.png) |
+| **쉼표 추천 (1/3 창, 음성 실패 시 버튼)** | **콩이가 이상해요 (음성 신고)** | **병원 가는 길 (사전 접수 보냄)** |
+| ![쉼표 추천](docs/screens/v8/04-suggest-third.png) | ![콩이가 이상해요](docs/screens/v8/07-distress-nav.png) | ![병원 가는 길](docs/screens/v8/15-going-vet-nav.png) |
+| **쉼표 (정차)** | **잠깐 대기 · 보호자 폰 QR** | **동물병원 · 시연용 제휴 사전 접수** |
+| ![쉼표](docs/screens/v8/05-rest.png) | ![잠깐 대기](docs/screens/v8/06-wait.png) | ![동물병원](docs/screens/v8/08-vets.png) |
+| **실제 병원 (전화 · 도착 예정 링크 QR)** | **병원 접수함 (폰, 시연용)** | **도착 체크** |
+| ![실제 병원](docs/screens/v8/08c-vets-call.png) | ![병원 접수함](docs/screens/v8/08b-clinic-inbox.png) | ![도착 체크](docs/screens/v8/09-arrival.png) |
+| **도착 후 기록 리포트** | **리포트 (점프 뒤 실시간 신고 유지 · 보정 뒤에도 최고 55)** | **주행 자극 보기 (정차 중)** |
+| ![리포트](docs/screens/v8/10-report.png) | ![리포트 보정 뒤](docs/screens/v8/10b-report-calibrated.png) | ![주행 자극 보기](docs/screens/v8/13-stimulus.png) |
+| **반려견 프로필** | **온보딩** | **고갯길 비교 (발표 모드)** |
+| ![프로필](docs/screens/v8/11-pet.png) | ![온보딩](docs/screens/v8/11-onboarding.png) | ![고갯길 비교](docs/screens/v8/12-compare.png) |
 
-| 온보딩 | 고갯길 비교 (발표 모드) | 병원 접수함 (폰, 병원 응답 뒤) |
-| --- | --- | --- |
-| ![온보딩](docs/screens/v6/11-onboarding.png) | ![고갯길 비교](docs/screens/v6/12-compare.png) | ![병원 접수함](docs/screens/v6/08b-clinic-inbox.png) |
-
-v6 캡처는 2026-10-31 재정비(주행 자극·관찰 상태 분리, 도로 그림·관찰 체크 칸 삭제) 전 화면이라 다시 찍어야 한다. v5 캡처(분할 창 포함)는 `docs/screens/v5/`에 이력으로 남겼다.
-
-| 실제 분할 창 1/2 (1280dp) | 실제 분할 창 1/3 (853dp) |
-| --- | --- |
-| ![1/2 창](docs/screens/v5/14-split-half-real.jpg) | ![1/3 창](docs/screens/v5/14-split-third-suggest.jpg) |
+QR 주소의 `http://192.168.0.10:8000`은 캡처용 예시 주소다(`--es shareBase`로 노트북의 같은 Wi-Fi 주소를 넣는다). 이전 캡처는 `docs/screens/v6/`(재정비 전)·`docs/screens/v5/`(분할 창 첫 확인)에 이력으로 남겼다.
 
 ### 실차 확인 필요 (2026-10-30 기준)
 에뮬레이터에서 확인한 것과 실차에서만 확인할 수 있는 것을 나눈다. 시연은 앱 시뮬레이터(시나리오)와 발표 모드로 한다.

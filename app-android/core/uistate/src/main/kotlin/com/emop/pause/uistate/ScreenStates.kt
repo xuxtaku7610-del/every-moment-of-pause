@@ -125,6 +125,8 @@ data class DriveUi(
     val remain: String? = null,
     /** 도착 예정 "오후 7:44". */
     val arrive: String? = null,
+    /** 목적지 이름 (기본 내비). 회전 안내가 없을 때 길 안내 카드를 "강릉 · 184km · 2시간 3분 · 도착 오전 11:33" 한 줄로 줄인다. */
+    val destination: String? = null,
     /** 콩이 관찰 상태 한 줄 (음성 신고만). */
     val observation: ObservationUi = ObservationUi("관찰 기록 없음"),
     /** 음성 힌트 한 줄 ("“콩이 토했어”라고 말하면 기록해요"). */
@@ -300,7 +302,7 @@ data class VetsUi(
     val memoInclude: Boolean = false,
     /** 음성 메모를 듣는 중. */
     val memoListening: Boolean = false,
-    /** 오늘 이동 한 줄 요약 (공유에 함께 붙는다): "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회". */
+    /** 오늘 이동 한 줄 요약 (공유에 함께 붙는다): "주행 2시간 10분(휴식 제외) · 주행 자극 최고 46 · 관찰 신고 헐떡임 1회". */
     val tripLine: String? = null,
     /** 병원 사전 접수 (UPGRADE 3): 만들었으면 접수함 링크·상태. */
     val intake: IntakeUi? = null,

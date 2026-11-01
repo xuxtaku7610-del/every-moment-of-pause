@@ -51,13 +51,13 @@ def duration_ko(minutes: int) -> str:
 def summary_user_prompt(facts: dict) -> str:
     limit = duration_ko(facts["limitMin"]) if facts.get("limitMin") else "아직 모름"
     return (
-        f"이동 시간: {duration_ko(facts['durationMin'])}\n휴식: {facts['stops']}번\n"
+        f"주행 시간(휴식 제외): {duration_ko(facts['durationMin'])}\n휴식: {facts['stops']}번\n"
         f"주행 자극 최고값(0~100, 차량 흔들림): {facts['motionPeak']}\n지난 여행 보통 도달 시간: {limit}"
     )
 
 
 def summary_fallback(facts: dict) -> str:
-    base = f"이번 이동은 {duration_ko(facts['durationMin'])}, 휴식 {facts['stops']}번, 주행 자극 최고 {facts['motionPeak']}였어요."
+    base = f"이번 주행은 {duration_ko(facts['durationMin'])}(휴식 제외), 휴식 {facts['stops']}번, 주행 자극 최고 {facts['motionPeak']}였어요."
     return base + (f" 지난 여행들은 출발 약 {duration_ko(facts['limitMin'])} 뒤 주행 자극이 보통 이상이 됐어요." if facts.get("limitMin") else "")
 
 

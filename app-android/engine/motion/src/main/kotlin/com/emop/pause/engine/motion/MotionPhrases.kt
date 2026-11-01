@@ -25,7 +25,7 @@ object MotionPhrases {
 
     /** 예보 운전 안내 1줄 ([LINE_CHARS] 이하): 단계별로 "천천히 가면 덜 흔들려요" / "39km/h 아래로 천천히 가요". */
     @Suppress("UNUSED_PARAMETER")
-    fun coach(f: MotionForecast, petName: String = ""): String = when (motionLevelOf(f.predictedIndex)) {
+    fun coach(f: MotionForecast, petName: String = ""): String = when (motionLevelOf(f.personalPredicted)) {
         MotionLevel.LOW -> "지금처럼 부드럽게 가요"
         MotionLevel.CAUTION -> "천천히 가면 덜 흔들려요"
         MotionLevel.HIGH -> "${f.recommendedKph}km/h 아래로 천천히 가요"

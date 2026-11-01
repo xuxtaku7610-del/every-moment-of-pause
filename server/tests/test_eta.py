@@ -20,7 +20,7 @@ def client(db_engine):
 
 def test_f5_05_eta_share_page_without_location(client, db_engine):
     h = register(client)
-    body = {"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"], "memo": "구토 두 번, 물은 조금", "tripLine": "이동 2시간 10분 · 주행 자극 최고 46 · 관찰 신고 없음"}
+    body = {"petName": "콩이", "vetName": "강릉동물병원", "etaMinutes": 12, "symptoms": ["구토"], "memo": "구토 두 번, 물은 조금", "tripLine": "주행 2시간 10분(휴식 제외) · 주행 자극 최고 46 · 관찰 신고 없음"}
     r = client.post(f"{V1}/eta", json=body, headers=h)
     assert r.status_code == 201
     token = r.json()["token"]
