@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,18 +18,26 @@ android {
 
     defaultConfig {
         applicationId = "com.emop.pause"
-        // 버전 체계 (COMMERCIAL_READINESS K P0): versionName은 0.x.y로 사람이 올리고,
+        // 버전 체계 (COMMERCIAL_READINESS K P0): versionName은 사람이 올리고(제출본 1.0.0),
         // versionCode는 커밋 수로 자동 증가한다(git이 없으면 1). 같은 커밋에서 다시 빌드해도 값이 같다.
         versionCode = gitCommitCount.get() + 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
     }
 
-    // 릴리스 서명 (COMMERCIAL_READINESS S P1, docs/release.md): keystore는 저장소 밖, 비밀번호는 환경 변수로만.
-    // 네 값이 모두 있을 때만 서명 설정을 만든다. 없으면 assembleRelease는 서명 안 된 APK를 만든다.
-    val ks = providers.environmentVariable("PAUSE_KEYSTORE").orNull
-    val ksPass = providers.environmentVariable("PAUSE_KEYSTORE_PASSWORD").orNull
-    val keyAlias = providers.environmentVariable("PAUSE_KEY_ALIAS").orNull
-    val keyPass = providers.environmentVariable("PAUSE_KEY_PASSWORD").orNull
+    // 릴리스 서명 (COMMERCIAL_READINESS S P1, docs/release.md): keystore는 저장소 밖(C:\keys\).
+    // 값은 local.properties(gitignore)의 pause.keystore·pause.keyAlias·pause.keystorePassword·pause.keyPassword,
+    // 또는 환경 변수 PAUSE_KEYSTORE·PAUSE_KEY_ALIAS·PAUSE_KEYSTORE_PASSWORD·PAUSE_KEY_PASSWORD(환경 변수가 우선).
+    // 네 값이 모두 있을 때만 서명 설정을 만든다. 없으면 릴리스 패키징 전에 안내와 함께 멈춘다(아래 taskGraph).
+    val localProps = Properties().apply {
+        rootProject.file("local.properties").takeIf { it.isFile }?.reader(Charsets.UTF_8)?.use { load(it) }
+    }
+    fun secret(env: String, key: String): String? =
+        providers.environmentVariable(env).orNull?.takeIf { it.isNotBlank() }
+            ?: localProps.getProperty(key)?.takeIf { it.isNotBlank() }
+    val ks = secret("PAUSE_KEYSTORE", "pause.keystore")
+    val ksPass = secret("PAUSE_KEYSTORE_PASSWORD", "pause.keystorePassword")
+    val keyAlias = secret("PAUSE_KEY_ALIAS", "pause.keyAlias")
+    val keyPass = secret("PAUSE_KEY_PASSWORD", "pause.keyPassword")
     val release = if (ks != null && ksPass != null && keyAlias != null && keyPass != null) {
         signingConfigs.create("release") {
             storeFile = file(ks)
@@ -48,7 +58,7 @@ android {
         }
         release {
             signingConfig = release
-            // R8 축소는 `-Ppause.minify=true`일 때만 (실기기 검증 전까지 기본 끔, docs/release.md).
+            // R8 축소는 `-Ppause.minify=true`일 때만. 제출본은 끈 채로 둔다(시연 직전 Hilt·Room 위험, docs/release.md).
             isMinifyEnabled = providers.gradleProperty("pause.minify").orNull == "true"
             isShrinkResources = isMinifyEnabled
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -69,6 +79,28 @@ android {
     sourceSets.getByName("main").assets.srcDir("../../content/care")
     androidResources {
         ignoreAssetsPatterns += listOf("!_sheet.png", "!app_icon.png", "!app_icon_foreground.png", "!road_drive.png", "!README.md", "!pet_placeholder.png")
+    }
+}
+
+// 릴리스 APK 이름: gatigage-v1.0.0.apk (docs/release.md)
+@Suppress("DEPRECATION")
+android.applicationVariants.configureEach {
+    if (buildType.name == "release") {
+        val name = "gatigage-v$versionName.apk"
+        outputs.configureEach { (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = name }
+    }
+}
+
+// 서명 값이 없으면 릴리스 패키징 전에 멈춘다. `./gradlew test`처럼 패키징하지 않는 작업은 그대로 돈다.
+gradle.taskGraph.whenReady {
+    if (android.buildTypes.getByName("release").signingConfig == null &&
+        allTasks.any { it.project == project && it.name in setOf("packageRelease", "bundleRelease") }
+    ) {
+        throw GradleException(
+            "릴리스 서명 값이 없습니다. docs/release.md 1~2단계대로 C:\\keys\\ 에 keystore를 만들고 " +
+                "app-android/local.properties 에 pause.keystore · pause.keyAlias · pause.keystorePassword · pause.keyPassword " +
+                "네 줄을 넣으세요(또는 환경 변수 PAUSE_KEYSTORE · PAUSE_KEY_ALIAS · PAUSE_KEYSTORE_PASSWORD · PAUSE_KEY_PASSWORD).",
+        )
     }
 }
 
