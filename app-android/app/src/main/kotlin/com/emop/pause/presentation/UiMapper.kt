@@ -28,6 +28,8 @@ import com.emop.pause.engine.planner.RestStop
 import com.emop.pause.runtime.Snapshot
 import com.emop.pause.trip.StopVisit
 import com.emop.pause.trip.TripUi
+import com.emop.pause.trip.NearbyKind
+import com.emop.pause.uistate.NearbyKindUi
 import com.emop.pause.trip.VetMemo
 import com.emop.pause.trip.VoicePhase
 import com.emop.pause.uistate.ActivityKind
@@ -186,7 +188,7 @@ object UiMapper {
     /** 쉼표 추천 이유 → 화면 알약. 실제 기여 순, 최대 2개 (F2-03). */
     fun reasonText(r: Reason, petName: String): String = when (r) {
         Reason.Motion -> "흔들리는 길을 오래 달렸어요"
-        Reason.PottyDue -> "$petName 산책 시간"
+        Reason.PottyDue -> "배변 시간이 다가와요"
         Reason.Fatigue -> "운전자 쉬어 갈 때"
         is Reason.HasFacility -> r.facility.labelKo
     }
@@ -208,6 +210,15 @@ object UiMapper {
             asking != null -> DriveContent.Suggest(
                 asking.minutesAway, asking.stop.name, asking.reasons.take(2).map { reasonText(it, name) },
                 distance = kmTo(asking.stop, t), direction = s.route?.destinationName?.let { "$it 방향" },
+            )
+            // 주변 추천 (UI v9, 일반 도로에서만 — 코디네이터가 고속도로·예보·쉼표 추천 중에는 띄우지 않는다)
+            t.nearby != null -> DriveContent.Nearby(
+                when (t.nearby.place.kind) {
+                    NearbyKind.WALK -> NearbyKindUi.WALK
+                    NearbyKind.SHOP -> NearbyKindUi.SHOP
+                    NearbyKind.VET -> NearbyKindUi.VET
+                },
+                t.nearby.title, t.nearby.reason, line = t.nearby.line,
             )
             // 주행 자극 예보 (상태 3): 경고 한 줄만 — 숫자·그래프는 정차 중 "주행 자극 보기"에서
             forecast != null -> DriveContent.Forecast(
@@ -404,11 +415,17 @@ object UiMapper {
     fun places(along: Found<PetPlace>?, near: Found<PetPlace>?, loading: Boolean): PlacesUi {
         val items = near?.items.orEmpty().map { p -> place(p, "목적지에서 ${km(p.offKm ?: 0.0)}") } +
             along?.items.orEmpty().map { p -> place(p, "경로에서 ${km(p.offKm ?: 0.0)} · ${km(p.alongKm ?: 0.0)} 지점") }
-        val sample = items.any { it.sample } || listOfNotNull(along, near).any { it.source == PlaceSource.BUNDLED }
+        // 내장 데이터도 이제 실제 TourAPI 데이터(data/embedded, 11/03) — 샘플 행이 있을 때만 "샘플"이라고 한다
+        val sample = items.any { it.sample }
+        val bundled = listOfNotNull(along, near).any { it.source == PlaceSource.BUNDLED }
         return PlacesUi(
             "함께 가는 장소",
             items.distinctBy { it.id },
-            if (sample) "샘플 데이터예요. 서버에 관광공사 반려동물 동반여행 데이터를 넣으면 실제 장소로 바뀌어요." else "한국관광공사 반려동물 동반여행 정보 (동반 조건은 현지 사정에 따라 바뀔 수 있어요)",
+            when {
+                sample -> "샘플 데이터예요. 서버에 관광공사 반려동물 동반여행 데이터를 넣으면 실제 장소로 바뀌어요."
+                bundled -> "한국관광공사 반려동물 동반여행 정보 (앱 내장 데이터 · 동반 조건은 현지 사정에 따라 바뀔 수 있어요)"
+                else -> "한국관광공사 반려동물 동반여행 정보 (동반 조건은 현지 사정에 따라 바뀔 수 있어요)"
+            },
             loading,
             credit = if (items.any { it.imageUrl != null }) "사진 한국관광공사" else null,
         )

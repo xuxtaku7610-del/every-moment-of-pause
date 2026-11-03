@@ -23,6 +23,7 @@ object DrivingRules {
         else -> when (val c = ui.content) {
             is DriveContent.Suggest -> if (c.urgent) 1 else 2
             is DriveContent.Distress -> 2
+            is DriveContent.Nearby -> 2
             else -> 0
         }
     }
@@ -59,6 +60,11 @@ object DrivingRules {
                 block("이유", c.reasons.joinToString(" · "))
             }
             is DriveContent.Heading -> place(c.place)
+            is DriveContent.Nearby -> {
+                block("주변 추천", c.title)
+                block("거리", c.line)
+                block("이유", c.reason)
+            }
         }
         block("결과", ui.toast)
         block("관찰 상태", ui.observation.line)

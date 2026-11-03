@@ -31,6 +31,7 @@ data class PetPlannerInput(
  * - 그 외: 휴게소만, 점수 = 시각 맞춤 + 멀미(가까울수록) + 운전자 피로 + 반려견 시설 충족 − 휴식 간격 페널티 ([ScoringPolicy.PET]).
  *   멀미가 주의 이상이면 15분 안(높음이면 5분 안)을 목표 시각으로 잡고, 반려견 놀이터를 원하는 시설에 더한다.
  * - 이유: 실제 점수 기여 상위 1~2개만 (멀미 · 배변 시각 · 시설 · 피로). 직전 제안은 15% 이상 나은 곳이 있어야 바꾼다.
+ * - 배변 임박(15분 안): 30분 안 휴게소면 이유 첫 줄 "배변 시간이 다가와요", 더 멀면 놀이터 있는 더 가까운 휴게소로 바꾼다 (F2-16).
  */
 object PetRestPlanner {
     const val MOTION_CAUTION = 40
@@ -93,9 +94,27 @@ object PetRestPlanner {
             Scored(s, b, reasonsOf(b, present, wantedSum, pottyDue, policy))
         }
         val chosenId = policy.stabilize(scored.map { it.stop.id to it.b.total }, input.previousStopId)
-        val best = scored.first { it.stop.id == chosenId }
+        var best = scored.first { it.stop.id == chosenId }
+        // 배변 임박(사용자 결정 11/03): 고속도로에서는 설 곳이 휴게소뿐이라 주변 산책로 대신 쉼표 추천에 합친다.
+        // 고른 휴게소가 30분 넘게 남았으면 반려견 놀이터가 있는 더 가까운 휴게소를 다시 찾고(졸음쉼터는 산책 장소가 아니다 — 후보가 휴게소뿐),
+        // 30분 안이면 이유 첫 줄을 "배변 시간이 다가와요"로 둔다.
+        val walk = input.needs.firstOrNull { it.kind == NeedKind.PET_WALK }
+        if (walk != null && walk.dueInMin <= POTTY_SOON_MIN) {
+            if (minutesTo(best.stop) > POTTY_REACH_MIN) {
+                scored.filter { Facility.PET_ZONE in it.stop.facilities && minutesTo(it.stop) <= POTTY_REACH_MIN }
+                    .minByOrNull { it.stop.distanceAlongRouteKm }?.let { best = it }
+            }
+            if (minutesTo(best.stop) <= POTTY_REACH_MIN) {
+                best = best.copy(reasons = (listOf<Reason>(Reason.PottyDue) + best.reasons.filter { it != Reason.PottyDue }).take(RestPlanner.MAX_REASONS))
+            }
+        }
         return suggest(best.stop, input.traveledKm, kmPerMin, best.reasons, best.b.total, fatigueFirst = false)
     }
+
+    /** 배변·산책 시각까지 이만큼 남으면 "배변 임박" (분). */
+    const val POTTY_SOON_MIN = 15
+    /** 배변 임박일 때 이 시간 안의 휴게소만 "배변 시간" 쉼표로 본다 (분). */
+    const val POTTY_REACH_MIN = 30.0
 
     /** 원하는 시설과 가중치: 배변·산책 니즈 → 놀이터, 충전 니즈 → 급속충전, 멀미 → 놀이터(안정·산책), 프로필 선호. */
     internal fun desiredFacilities(input: PetPlannerInput, motion: Int): Map<Facility, Double> {

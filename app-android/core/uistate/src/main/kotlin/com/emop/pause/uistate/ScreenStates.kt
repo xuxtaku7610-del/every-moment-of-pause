@@ -91,7 +91,16 @@ sealed interface DriveContent {
      * [target]은 버튼에 싣는 장소 이름(14자), 없으면 "알겠어요".
      */
     data class Distress(val line: String, val target: String?, val minutes: Int?, val vet: Boolean = false) : DriveContent
+
+    /**
+     * 주행 중 주변 추천 (UI v9, 일반 도로에서만): 아이콘 + [title](장소 이름) + [line]("9.7km 앞 · 반려견 동반 쇼핑") + 이유 한 줄 + 버튼 2개(들를게요·괜찮아요).
+     * 장소 이름은 실제 데이터(TourAPI·인허가)만. 고속도로에서는 뜨지 않는다(휴게소 쉼표 추천만).
+     */
+    data class Nearby(val kind: NearbyKindUi, val title: String, val reason: String, val line: String = "") : DriveContent
 }
+
+/** 주변 추천 종류: 산책로·공원 · 반려견 동반 쇼핑 · 동물병원. */
+enum class NearbyKindUi { WALK, SHOP, VET }
 
 /**
  * 일반 주행 (상태 2, 분할 창 1/3·1/2가 기본): 다음 회전·남은 거리·도착(NaviHelper 실제 값) / 다음 쉼표 / 콩이 관찰 상태 한 줄 / 음성 힌트.
@@ -390,7 +399,29 @@ data class ArrivalUi(
     /** 경고 카드 제목: 온도가 있으면 단계별("실내 31℃ — 매우 더워요!"), 없으면 여름에만 일반 문구. 실내 온도는 신호가 있을 때만 [cabin]. */
     val warning: String? = null,
     val cabin: String? = null,
+    /** 질문 아래 오늘 이동 요약 한 줄 (UI v9): "오늘 194km · 2시간 58분 · 휴식 1번 · 관찰 신고 1건" — 값이 있는 것만. */
+    val tripLine: String? = null,
 )
+
+/**
+ * 도착 요약 (UI v9 7번): [내렸어요] 뒤 첫 화면. 체크 아이콘 + [TITLE] + [lead] + 4칸(이동 거리·이동 시간·휴식·관찰 신고) + 사진 +
+ * [이동 기록 보기](기존 리포트). 반려견 상태를 판정하지 않는다 — 관찰 신고는 횟수만.
+ */
+data class SummaryUi(
+    /** "콩이와의 이동을 정리했어요". */
+    val lead: String,
+    /** "194km" (모르면 null → "-"). */
+    val distance: String?,
+    /** "2시간 58분" (정차 포함). */
+    val duration: String,
+    val stops: Int,
+    val reports: Int,
+) {
+    companion object {
+        const val TITLE = "오늘도 함께해서 고마워요"
+        const val OPEN_REPORT = "이동 기록 보기"
+    }
+}
 
 /**
  * 도착 후 기록 리포트 (상태 8, 기존 이동 기록 대체). 주인공은 **시간순 타임라인** — 출발 → 주행 자극 높은 구간 → 관찰 신고 → 휴식 →
@@ -497,8 +528,8 @@ data class SettingsUi(
 
 val DATA_CREDITS = listOf(
     "고갯길 시연 경로(대관령 옛길): © OpenStreetMap contributors, ODbL 1.0 — openstreetmap.org/copyright",
-    "반려동물 동반 여행지·장소 사진: 한국관광공사 TourAPI 반려동물 동반여행 (서버에 데이터가 없으면 샘플)",
-    "동물병원: 지방행정 인허가 데이터(동물병원) — 영업 상태만 있고 영업시간은 없음 (파일이 없으면 샘플)",
+    "반려동물 동반 여행지·장소: 한국관광공사 TourAPI 반려동물 동반여행 (앱 내장 327곳, 2026-11-03 기준 · 사진은 서버 연결 때만)",
+    "동물병원: 행정안전부 지방행정 인허가 데이터(동물병원) — 영업 중 5,063곳 앱 내장(2026-11-03 기준), 영업 상태만 있고 영업시간은 없음",
     "아이콘: Material Symbols Rounded (Apache-2.0), Microsoft Fluent UI Emoji Flat (MIT)",
     "글꼴: Pretendard (SIL OFL 1.1)",
 )

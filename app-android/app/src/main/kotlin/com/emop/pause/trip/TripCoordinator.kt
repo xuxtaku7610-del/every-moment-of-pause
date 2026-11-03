@@ -9,6 +9,7 @@ import com.emop.pause.engine.motion.MotionForecast
 import com.emop.pause.engine.motion.MotionPhrases
 import com.emop.pause.engine.motion.MotionState
 import com.emop.pause.data.PetPlaceRepository
+import com.emop.pause.data.RouteGeo
 import com.emop.pause.core.model.LatLng
 import com.emop.pause.engine.motion.RouteShape
 import com.emop.pause.engine.motion.TbtRouteShape
@@ -143,6 +144,8 @@ data class TripUi(
     val distressEvents: List<DistressRecord> = emptyList(),
     /** 시뮬레이터 주행 화면 "다음 회전" (시연 데이터). 실차는 Snapshot.guide. */
     val demoTurn: RouteTurn? = null,
+    /** 주행 중 주변 추천 (UI v9, 일반 도로에서만) — 지금 묻고 있는 장소 하나. */
+    val nearby: NearbyOffer? = null,
 )
 
 /**
@@ -237,8 +240,12 @@ class TripCoordinator @Inject constructor(
     @Volatile var voiceEnabled: Boolean = true
 
     private val waitMode = WaitMode()
-    /** 도착 10분 전 산책 제안을 이번 여행에서 했는지 (F4-03). */
-    private var walkSuggested = false
+    /** 주행 중 주변 추천 (UI v9, F4-10~15): 일반 도로에서만, 한 번에 하나, 같은 곳 다시 안 뜸, 15분 간격. 도착 전 산책(F4-03)도 여기로. */
+    private val nearbyPick = NearbyPick()
+    /** 고속도로 판단 = 최근 5분 평균 속도 80km/h 이상 (TBT에 도로 이름이 없어서, 사용자 결정 11/03). */
+    private val highway = HighwayGuess()
+    /** 병원으로 가는 중 (ViewModel이 알려 준다) — 주변 추천을 띄우지 않는다. */
+    @Volatile var goingVet: Boolean = false
     private val boarding = BoardingCheck()
     /** 기기에 저장된 반려견 프로필 (실차). 시뮬레이션은 시나리오 값을 쓴다. */
     @Volatile private var savedPet: PetProfile? = null
@@ -603,10 +610,24 @@ class TripCoordinator @Inject constructor(
             replanDriving(s, state)
         }
         lastMode = s.mode
-        if (ArrivalWalk.due(s.mode, s.eta?.remainTimeSec, walkSuggested)) {
-            walkSuggested = true
-            // 점프로 따라잡는 중에는 지나간 것으로만 친다.
-            if (!silent) s.route?.destination?.let { dest -> scope.launch { suggestWalk(dest) } }
+        highway.add(s.nowMs, s.sample.speedKph)
+        if (s.mode == AppMode.DRIVING && state.pending == null) {
+            val now = _ui.value
+            val why = nearbyPick.due(
+                NearbyInput(
+                    s.nowMs, highway.highway(),
+                    busy = voiceJob?.isActive == true || now.asking != null || now.distress != null || now.nearby != null || goingVet ||
+                        state.forecast?.let { it.startInM <= UiMapper.FORECAST_SHOW_M } == true,
+                    reports = now.distressEvents.size,
+                    emergency = now.distressEvents.any { it.emergency != null },
+                    remainKm = s.eta?.remainDistanceM?.let { it / 1000.0 },
+                ),
+            )
+            if (why != null) {
+                nearbyPick.onSearched(why)
+                // 점프로 따라잡는 중에는 지나간 것으로만 친다 (목적지 추천은 한 번뿐이라 지나가면 끝).
+                if (!silent) voiceJob = scope.launch { offerNearby(s, why) }
+            }
         }
         if (s.source == SourceMode.VEHICLE && lastSaveMs.let { it == null || s.nowMs - it >= TripResume.SAVE_INTERVAL_MS }) {
             lastSaveMs = s.nowMs
@@ -794,7 +815,8 @@ class TripCoordinator @Inject constructor(
         scope.launch { speech.clear() }
         brain = null
         stops = emptyList()
-        walkSuggested = false
+        nearbyPick.reset()
+        highway.reset()
         previewFor = null
         waitMode.stop()
         boarding.reset()
@@ -847,11 +869,66 @@ class TripCoordinator @Inject constructor(
     /** 증상 메모 받아쓰기 한 번 (UPGRADE 3, 정차 중 화면 버튼). 못 들으면 null. */
     suspend fun dictate(): String? = runCatching { speechIn.listen(DICTATE_MS) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
 
-    private suspend fun suggestWalk(dest: LatLng) {
-        val place = ArrivalWalk.pick(petPlaces.near(dest, ArrivalWalk.RADIUS_M, ArrivalWalk.CATEGORIES).items) ?: return
-        val line = ArrivalWalk.phrase(_ui.value.pet.name, place)
-        showToast(line)
-        say(line)
+    /**
+     * 주변 추천 하나 (UI v9): 후보를 받아 고르고, 쉼표 추천과 같은 응답 창(음성 8초 → 버튼)으로 묻는다.
+     * [들를게요] = 쉼표 추천과 같은 경유지 추가(`addWaypoint`). 후보 이름은 실제 데이터(서버 TourAPI·인허가)만 — 내장 샘플은 버린다.
+     */
+    private suspend fun offerNearby(s: Snapshot, why: NearbyWhy) {
+        val offer = runCatching { nearbyPick.pick(why, nearbyCandidates(s, why)) }.getOrNull()
+        if (offer == null) {
+            if (why == NearbyWhy.REPORT_VET) nearbyPick.onEmpty(s.nowMs)
+            return
+        }
+        currentCoroutineContext().ensureActive()
+        if (_ui.value.asking != null || _ui.value.distress != null) return
+        nearbyPick.onShown(offer, runtime.snapshot.value.nowMs)
+        android.util.Log.i("PauseNearby", "offer why=$why kind=${offer.place.kind} name=${offer.place.name} ahead=${offer.place.aheadKm} sim=${runtime.snapshot.value.simTimeSec.toInt()}")
+        val turn = gate.begin()
+        _ui.update { it.copy(nearby = offer) }
+        val answer = try {
+            gate.await(turn, voiceEnabled) { say(offer.phrase(_ui.value.pet.name)) }
+        } finally {
+            if (gate.isCurrent(turn)) _ui.update { it.copy(nearby = null) }
+        }
+        if (answer == Reply.YES) {
+            val p = offer.place
+            val added = runtime.naviSource?.addWaypoint(p.lat, p.lng, p.name)
+            val line = if (added?.isSuccess == true) "경로에 ${Josa.eulReul(p.name)} 넣었어요." else "경유지를 넣지 못했어요. 기본 내비에서 ${Josa.eulReul(p.name)} 찾아 주세요."
+            showToast(line)
+            say(line)
+        }
+    }
+
+    /** 후보: 병원은 지금 위치 근처 → 경로에 투영해 앞 거리·경로 거리, 목적지는 반경 3km 산책로·쇼핑. 위치는 계산에만 쓰고 저장하지 않는다. */
+    private suspend fun nearbyCandidates(s: Snapshot, why: NearbyWhy): List<NearbyPlace> {
+        val route = s.route ?: return emptyList()
+        val points = route.points
+        val geo = RouteGeo.length(points)
+        val scale = if (geo > 0) route.totalDistanceM / geo else 1.0
+        val traveled = _ui.value.traveledKm
+        fun ahead(lat: Double, lng: Double): Pair<Double, Double>? {
+            if (points.size < 2) return null
+            val p = RouteGeo.project(points, lat, lng)
+            return (p.alongM * scale / 1000 - traveled) to p.offsetM / 1000
+        }
+        return when (why) {
+            NearbyWhy.REPORT_VET -> {
+                val at = here(s) ?: return emptyList()
+                petPlaces.vetsNear(at, VET_LOOKUP).items
+                    // 농장 동물 전문 병원은 반려견 추천에서 뺀다 (동물병원 적재 규칙과 같은 이름 규칙)
+                    .filter { "산업동물" !in it.name }
+                    .mapNotNull { v -> ahead(v.lat, v.lng)?.let { (a, o) -> NearbyPlace(v.id, v.name, NearbyKind.VET, v.lat, v.lng, a, o, sample = v.sample || v.partner) } }
+            }
+            NearbyWhy.DESTINATION -> petPlaces.near(route.destination, (NearbyPick.DEST_RADIUS_KM * 1000).toInt(), NearbyPick.PLACE_CATEGORIES).items.mapNotNull { p ->
+                val kind = when (p.category) {
+                    "walk" -> NearbyKind.WALK
+                    "shop" -> NearbyKind.SHOP
+                    else -> return@mapNotNull null
+                }
+                val (a, o) = ahead(p.lat, p.lng) ?: return@mapNotNull null
+                NearbyPlace(p.id, p.name, kind, p.lat, p.lng, a.coerceAtLeast(0.1), o, fromDestKm = p.offKm, sample = p.sample)
+            }
+        }
     }
 
     private fun showToast(text: String) {
@@ -887,6 +964,8 @@ class TripCoordinator @Inject constructor(
         private const val REPLAY_SETTLE_MS = 300L
 
         const val DICTATE_MS = 10_000L
+        /** 주변 추천 병원 후보를 몇 곳 받아 경로에 투영할지. */
+        const val VET_LOOKUP = 20
         const val REPLAN_MS = 5 * 60_000L
         const val TOAST_MS = 8_000L
         const val RESUME_PHRASE = "이어서 안내할게요."

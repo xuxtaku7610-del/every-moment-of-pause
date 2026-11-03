@@ -18,14 +18,15 @@ val copyRestStops by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("generated/restStopAssets"))
     rename { "reststops_default.json" }
 }
-// 반려동물 동반 장소·동물병원 샘플도 같은 방식으로 묶는다 (서버 없이 F4·F5, PetPlaceRepository).
+// 반려동물 동반 장소·동물병원은 서버 DB의 **실제 데이터**를 내보낸 파일을 묶는다 (UI v9 마무리 — 제출 APK가 서버 없이도
+// 주변 추천·가장 가까운 병원을 보인다). 만들기: scripts/export_embedded_places.py → data/embedded/. 휴게소는 샘플 그대로.
 val copyPetPlaces by tasks.registering(Copy::class) {
-    from(rootProject.file("../server/app/data/sample_pet_places.json"))
+    from(file("embedded/pet_places.json"))
     into(layout.buildDirectory.dir("generated/petPlaceAssets"))
     rename { "pet_places_default.json" }
 }
 val copyVets by tasks.registering(Copy::class) {
-    from(rootProject.file("../server/app/data/sample_vets.json"))
+    from(file("embedded/vets.json"))
     into(layout.buildDirectory.dir("generated/vetAssets"))
     rename { "vets_default.json" }
 }

@@ -35,6 +35,17 @@ object Fixtures {
         content = DriveContent.Suggest(9, "횡성휴게소", listOf("흔들리는 길을 오래 달렸어요", "반려견 놀이터"), distance = "8km", direction = "강릉 방향"),
     )
 
+    /** 주변 추천 (UI v9): 목적지 10km 안, 실제 TourAPI 쇼핑 장소 이름. */
+    val nearby = drive.copy(
+        meta = "강릉까지 15분",
+        content = DriveContent.Nearby(NearbyKindUi.SHOP, "야옹아멍멍해봐 강릉내곡점", "목적지에서 1.4km", line = "9.7km 앞 · 반려견 동반 쇼핑"),
+        guide = GuideUi(GuideIconUi.RIGHT, "600m", "강릉 시내 방면", demo = true),
+        remain = "10km · 15분",
+        arrive = "오후 12:00",
+        nextStop = null, nextStopName = null, nextStopMin = null, nextStopFacilities = emptyList(),
+        observation = observed,
+    )
+
     val urgent = drive.copy(content = DriveContent.Suggest(6, "둔내 졸음쉼터", listOf("졸음 위험"), urgent = true, distance = "5km"))
 
     val restricted = suggest.copy(restricted = true)
@@ -173,7 +184,9 @@ object Fixtures {
         shareUrl = "http://192.168.0.10:8000/eta/k3J9x2",
     )
 
-    val arrival = ArrivalUi("콩이 내렸나요?", strong = false, detail = "내린 뒤 확인을 눌러 주세요.")
+    val arrival = ArrivalUi("콩이 내렸나요?", strong = false, detail = "내린 뒤 확인을 눌러 주세요.", tripLine = "오늘 194km · 2시간 58분 · 휴식 1번 · 관찰 신고 1건")
+
+    val summary = SummaryUi("콩이와의 이동을 정리했어요", "194km", "2시간 58분", stops = 1, reports = 1)
 
     val arrivalHot = ArrivalUi("콩이 내렸나요?", strong = true, detail = "차 안이 금방 더워져요. 꼭 확인해 주세요.", warning = "실내 28℃ — 더워지고 있어요", cabin = "실내 28℃")
 
@@ -249,6 +262,7 @@ object Fixtures {
         Scene.STIMULUS -> Screen.Stimulus(stimulus)
         Scene.FORECAST -> Screen.Drive(forecast)
         Scene.SUGGEST -> Screen.Drive(suggest)
+        Scene.NEARBY -> Screen.Drive(nearby)
         Scene.URGENT -> Screen.Drive(urgent)
         Scene.RESTRICTED -> Screen.Drive(restricted)
         Scene.VET_DRIVE -> Screen.Drive(vetDrive)
@@ -265,6 +279,7 @@ object Fixtures {
         Scene.EMERGENCY_CARD -> Screen.Emergency(emergencyCard)
         Scene.ARRIVAL -> Screen.Arrival(arrival)
         Scene.ARRIVAL_HOT -> Screen.Arrival(arrivalHot)
+        Scene.SUMMARY -> Screen.Summary(summary)
         Scene.TRIPLOG -> Screen.TripLog(tripLog)
         Scene.PET -> Screen.PetProfile(pet)
         Scene.SETTINGS -> Screen.Settings(settings)

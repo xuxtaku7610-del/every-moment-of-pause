@@ -146,7 +146,8 @@ class LlmCallLog(Base):
     created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
 
 
-PLACE_CATEGORIES = ("restaurant", "cafe", "lodging", "tour", "walk")
+# shop = TourAPI 쇼핑(콘텐츠 타입 38, 반려동물 용품점·마켓) — 주행 중 주변 추천 "마켓" (UI v9, 마이그레이션 0006)
+PLACE_CATEGORIES = ("restaurant", "cafe", "lodging", "tour", "walk", "shop")
 
 
 class PetPlace(Base):

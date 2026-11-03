@@ -29,12 +29,16 @@ object DemoScenes {
         DemoJump("콩이가 이상해요", 2_400, expectMode = AppMode.DRIVING, say = "콩이가 헥헥거려", cabinTempC = 31f),
         // 약 3,460초에 반려견 맞춤 쉼표(횡성휴게소, 놀이터·운전 피로)를 제안한다 — PetTripScenarioTest가 확인
         DemoJump("쉼표 추천", 3_420, expectMode = AppMode.DRIVING),
+        // UI v9 (사용자 결정 11/03): 배변 15분 전 + 횡성휴게소 30분 안 → 쉼표 추천 이유 첫 줄 "배변 시간이 다가와요".
+        // 점프 따라잡기가 3460·4060초 제안을 "나중에"로 지나가므로 약 4,660초에 다시 묻는다 — NearbyScenarioTest가 확인
+        DemoJump("배변 임박 쉼표", 4_620, expectMode = AppMode.DRIVING),
         DemoJump("휴게소 쉼표", 5_240, expectMode = AppMode.PAUSE, expectCause = PauseCause.REST),
         DemoJump("잠깐 대기", 5_540, expectMode = AppMode.PAUSE, expectCause = PauseCause.REST, say = "잠깐 다녀올게"),
         // 고갯길 3km 앞: 예보 "3.2km 뒤 굽은 길 12분" (5km 안·300m 밖 구간만, 굽이 한두 개짜리 구간은 건너뜀)
         DemoJump("고갯길 예보", 8_748, expectMode = AppMode.DRIVING),
-        // 남은 시간이 10분 안으로 들어오는 약 9,672초에 "곧 도착해요. 근처 … 산책 어때요?" (F4-03)
-        DemoJump("도착 전 산책", 9_660, expectMode = AppMode.DRIVING),
+        // UI v9 주변 추천: 일반 도로(최근 5분 평균 80km/h 미만) + 목적지 10km 안(약 10,071초) → 목적지 3km 산책로, 없으면 반려견 동반 쇼핑
+        // (실제 TourAPI: 야옹아멍멍해봐 강릉내곡점). 기존 "도착 전 산책"(F4-03)을 이 카드로 합쳤다.
+        DemoJump("주변 추천", 10_040, expectMode = AppMode.DRIVING),
         // 도착 후 P단 60초가 지나면 "콩이 내렸나요?"
         DemoJump("도착 체크", 10_843, expectMode = AppMode.ARRIVED),
     )

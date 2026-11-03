@@ -6,7 +6,7 @@ import com.emop.pause.uistate.DriveContent
 import com.emop.pause.uistate.ServiceState
 
 /** 어떤 화면을 그릴지 (상태 값은 ViewModel이 채운다). */
-enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, TRIPLOG, STIMULUS, PET, SETTINGS, ONBOARDING, EMERGENCY }
+enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, SUMMARY, TRIPLOG, STIMULUS, PET, SETTINGS, ONBOARDING, EMERGENCY }
 
 /** 정차 중에 위로 여는 화면. */
 enum class Overlay { NONE, PET, SETTINGS, PLACES, VETS, STIMULUS, EMERGENCY }
@@ -28,6 +28,8 @@ object ScreenRouter {
         val needsProfile: Boolean = false,
         val waiting: Boolean = false,
         val leftConfirmed: Boolean = false,
+        /** 도착 요약에서 [이동 기록 보기]를 눌렀음 (UI v9). */
+        val reportOpen: Boolean = false,
         /** CarUxRestrictions NO_SETUP·NO_KEYBOARD가 아님 (UxPolicy.setupAllowed). */
         val setupAllowed: Boolean = true,
     )
@@ -52,7 +54,12 @@ object ScreenRouter {
             AppMode.PREPARE -> Route.DEPART
             AppMode.DRIVING -> Route.DRIVE
             AppMode.PAUSE -> Route.REST
-            AppMode.ARRIVED -> if (i.leftConfirmed) Route.TRIPLOG else Route.ARRIVAL
+            // 내렸어요 → 도착 요약(UI v9) → [이동 기록 보기] → 리포트
+            AppMode.ARRIVED -> when {
+                !i.leftConfirmed -> Route.ARRIVAL
+                i.reportOpen -> Route.TRIPLOG
+                else -> Route.SUMMARY
+            }
         }
     }
 
@@ -75,7 +82,7 @@ object ScreenRouter {
         }
         Route.WAIT -> ServiceState.WAIT
         Route.VETS -> if (goingVet) ServiceState.VET else ServiceState.STOPPED
-        Route.ARRIVAL, Route.TRIPLOG -> ServiceState.REPORT
+        Route.ARRIVAL, Route.SUMMARY, Route.TRIPLOG -> ServiceState.REPORT
         Route.REST, Route.STIMULUS, Route.PLACES, Route.PET, Route.SETTINGS, Route.SCENE, Route.EMERGENCY -> ServiceState.STOPPED
     }
 

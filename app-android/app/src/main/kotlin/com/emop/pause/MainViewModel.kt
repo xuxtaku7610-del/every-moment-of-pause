@@ -66,6 +66,8 @@ import com.emop.pause.uistate.SettingsUi
 import com.emop.pause.uistate.SignalRowUi
 import com.emop.pause.uistate.SymptomUi
 import com.emop.pause.uistate.TripLogUi
+import com.emop.pause.uistate.SummaryUi
+import com.emop.pause.engine.pet.Josa
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.UxPolicy
 import com.emop.pause.uistate.DriveContent
@@ -119,6 +121,8 @@ data class AppState(
     val quiz: List<Int?> = List(MotionQuiz.questions.size) { null },
     /** 안내를 시작한 동물병원 (주행 중엔 1순위 한 곳 2줄로 보인다). */
     val goingVet: Vet? = null,
+    /** 도착 요약에서 [이동 기록 보기]를 눌렀음 (UI v9) — 새 여행이면 false. */
+    val reportOpen: Boolean = false,
     /** 병원으로 주행을 시작했는지 — 그 뒤 멈추면 병원 안내를 끝낸다. */
     val vetDriving: Boolean = false,
     /** 도착 예정 공유 링크. */
@@ -216,6 +220,9 @@ class MainViewModel @Inject constructor(
                     // 새 여행(출발 전)이면 지난 병원 안내는 끝낸다 (긴급 도움 "경로 안내" 뒤 출발하지 않고 새 여행을 시작한 경우, 11/03)
                     else if (s.mode == AppMode.PREPARE) _app.update { it.copy(goingVet = null, vetDriving = false) }
                 }
+                trip.goingVet = _app.value.goingVet != null
+                // 새 여행(출발 전)이면 도착 요약 → 리포트 열림을 처음으로
+                if (s.mode == AppMode.PREPARE && _app.value.reportOpen) _app.update { it.copy(reportOpen = false) }
                 tickIntake(s)
                 val hint = demoTripHint.update(
                     System.currentTimeMillis(),
@@ -243,6 +250,7 @@ class MainViewModel @Inject constructor(
                 needsProfile = needsProfile,
                 waiting = t.wait.active,
                 leftConfirmed = t.leftConfirmed,
+                reportOpen = a.reportOpen,
                 setupAllowed = UxPolicy.setupAllowed(ux),
             ),
         )
@@ -275,7 +283,8 @@ class MainViewModel @Inject constructor(
                     vetLoading = a.loading,
                 ),
             )
-            Route.ARRIVAL -> Screen.Arrival(UiMapper.arrival(t))
+            Route.ARRIVAL -> Screen.Arrival(UiMapper.arrival(t).copy(tripLine = arrivalLine(t)))
+            Route.SUMMARY -> Screen.Summary(summaryUi(t))
             Route.TRIPLOG -> Screen.TripLog(tripLog(s, t, a))
             Route.STIMULUS -> Screen.Stimulus(UiMapper.stimulus(t, recorder.log().motionPeak.takeIf { t.motion.drivingSec > 0 }))
             Route.PET -> Screen.PetProfile(UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = false).copy(calibration = calibrationLine(t.pet.name, a)))
@@ -310,6 +319,8 @@ class MainViewModel @Inject constructor(
             UiEvent.LogoTap -> onLogoTap()
             UiEvent.AcceptSuggestion -> reply("응")
             UiEvent.DeclineSuggestion -> reply("나중에")
+            UiEvent.AcceptNearby -> reply("응")
+            UiEvent.DeclineNearby -> reply("나중에")
             is UiEvent.ToggleCheck -> trip.toggleCheck(UiMapper.checkItem(e.kind))
             UiEvent.StartTrip -> startTrip()
             UiEvent.StartDemoTrip -> startDemoTrip()
@@ -332,6 +343,7 @@ class MainViewModel @Inject constructor(
             is UiEvent.GoPlace -> goPlace(e.id)
             is UiEvent.GoVet -> goVet(e.id)
             UiEvent.ConfirmLeft -> confirmLeft()
+            UiEvent.OpenReport -> _app.update { it.copy(reportOpen = true) }
             UiEvent.FinishTrip -> finishTrip()
             UiEvent.OpenStimulus -> _app.update { it.copy(overlay = Overlay.STIMULUS) }
             UiEvent.ShareReport -> openVets()
@@ -687,6 +699,31 @@ class MainViewModel @Inject constructor(
     // ───────────── 도착·이동 기록 (F6·F7) ─────────────
 
     /** "내렸어요": 이번 여행을 기기에 저장하고(서버로 보내지 않음) 요약 문장을 만든다. */
+    /** 하차 확인 아래 한 줄 "오늘 194km · 2시간 58분 · 휴식 1번 · 관찰 신고 1건" (UI v9) — 값이 있는 것만. */
+    private fun arrivalLine(t: TripUi): String? {
+        val log = recorder.log()
+        val parts = listOfNotNull(
+            log.distanceKm.takeIf { it >= 1 }?.let { UiMapper.km(it) },
+            log.elapsedMin.takeIf { it > 0 }?.let { UiMapper.duration(it) },
+            "휴식 ${log.visits.size}번".takeIf { log.elapsedMin > 0 },
+            "관찰 신고 ${t.distressEvents.size}건".takeIf { log.elapsedMin > 0 },
+        )
+        return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ", prefix = "오늘 ")
+    }
+
+    /** 도착 요약 (UI v9 7번): 리포트와 같은 기록(거리·시간·휴식·신고 수)만. */
+    private fun summaryUi(t: TripUi): SummaryUi {
+        val log = recorder.log()
+        val name = t.pet.name.ifEmpty { "반려견" }
+        return SummaryUi(
+            lead = "${Josa.waGwa(name)}의 이동을 정리했어요",
+            distance = log.distanceKm.takeIf { it >= 1 }?.let { UiMapper.km(it) },
+            duration = UiMapper.duration(log.elapsedMin),
+            stops = _app.value.saved?.record?.stops ?: log.visits.size,
+            reports = t.distressEvents.size,
+        )
+    }
+
     private fun confirmLeft() {
         trip.confirmLeft()
         val log = recorder.log()

@@ -3,6 +3,55 @@
 세션이 끊기면 이 파일 + `todo.md` + `docs/BLOCKED.md` + `_private/PIVOT_PROMPT.md`만 보고 이어 간다. 최신이 위.
 규칙: git add·commit·push 하지 않는다. 작업 단위마다 아래 "커밋 대기열 (같이가개)"에 메시지와 파일만 남기고, 커밋은 사용자가 직접 한다.
 
+## UI v9 마무리 (2026-11-03 밤, `_private/UI_V9_FIX_PROMPT.md`)
+- **내장 데이터 = 실제 데이터**: `scripts/export_embedded_places.py`(서버 설정의 DB에서 읽음) → `app-android/data/embedded/pet_places.json` 327곳 98,335 B(tour 113·lodging 84·walk 79·cafe 26·restaurant 18·shop 7, 사진 주소 뺌) · `vets.json` 영업 중 5,063곳 1,106,235 B(이름·좌표·주소·사업장 전화). serviceKey·이메일·주민번호 꼴 검사 통과. data 모듈이 샘플 대신 이 파일을 assets로 묶는다(휴게소는 샘플 그대로). 서버 샘플 파일·서버 테스트는 그대로.
+- **이용 조건 (공공데이터포털, 11/03 웹 확인)**: `행정안전부_동물_동물병원`(data.go.kr 15045050, 파일데이터) **"이용허락범위 제한 없음"**, `한국관광공사_반려동물_동반여행_서비스`(15135102) **"이용허락범위 제한 없음"** → 병원도 내장. 출처: 앱 설정 데이터 출처·파일 `source`·`licenses/ASSETS.md`·`docs/store/data_inventory.md`.
+- **APK 크기**: 내장 장소·병원 압축 후 23,993 + 245,715 B(전 샘플 1,067 + 636 B) → **약 +268 KB**(릴리스 56.9 MB → 약 57.1 MB 추정). 이 PC에 서명 값(local.properties `pause.*`·PAUSE_* 환경 변수)이 없어 **릴리스 APK는 다시 만들지 못함**(`assembleRelease`가 안내 후 멈춤). 서버 없는 동작은 `EmbeddedPlacesTest`(F4-16·F5-11, `./gradlew test`가 debug·release 단위 테스트 둘 다 돈다).
+- **화면**: 주변 추천 제목 = 장소 이름, 아래 "9.7km 앞 · 반려견 동반 쇼핑", 이유 "목적지에서 1.4km". 긴급 도움은 번호가 없으면 "전화번호 정보 없음" 줄 숨김(동물병원 목록은 그대로). 도착 요약 카드 세로 가운데. 하차 확인은 이미 카드 안 세로 가운데라 그대로.
+- **캡처 다시**: `docs/readme/` suggest·nearby(듣는 중, 실패 문구 없음)·emergency·arrival·summary, 스토어 04-suggest·05-emergency-vet·07-arrival-door. 기본 내비 안내 종료함.
+- **검증**: `./gradlew test` 종료 0, 리허설 기본 OK(71초), `--all` OK(204초, 11장면). 고유 테스트 **앱 353 · 서버 82** (app 131).
+
+## UI v9 — 결과 (2026-11-03 밤, 아래 계획대로)
+- **배변 임박 쉼표**: `PetRestPlanner` F2-16. pet-trip에서 점프 따라잡기(3,460·4,060초 제안 = 나중에) 뒤 **4,660초 횡성휴게소 10분, 이유 [배변 시간이 다가와요, 반려견 놀이터]** (`NearbyScenarioTest`, 에뮬레이터 11분·16km). 발표 장면 "배변 임박 쉼표" 4,620초.
+- **주변 추천**: `trip/NearbyPick.kt`(`HighwayGuess` 5분 평균 80km/h, `NearbyPick`) + `TripCoordinator.offerNearby`(응답 창 `ReplyGate`·경유지 `addWaypoint` 재사용). pet-trip 고속도로 구간(1,800~5,000초)에는 안 뜸, **10,071초(목적지 10km) "9.7km 앞 · 야옹아멍멍해봐 강릉내곡점", 이유 "목적지에서 1.4km · 반려견 동반 쇼핑"** — 서버 DB의 TourAPI 실제 행(콘텐츠 타입 38, source_id 3544731). 목적지 3km 안 TourAPI 산책로는 없어 쇼핑이 뜬다. 발표 장면 "주변 추천" 10,040초(기존 "도착 전 산책" 9,660초 대체, `ArrivalWalk` 삭제).
+- **서버**: 분류 `shop`(TourAPI 쇼핑 38) + 마이그레이션 0006, `ingest_pet_places --cache-only`로 캐시에서 재적재(외부 호출 0, shop 7건). 앱 내장 장소·병원은 샘플뿐이라 **서버 없이(릴리스 오프라인)는 주변 추천이 안 뜬다**(샘플 이름은 쓰지 않음). 병원 추천은 "산업동물" 이름 제외.
+- **화면**: 주행 패널 카드 높이 = 내용, 위로 붙임, 쉼표 계획 없음 한 줄, 1/3 창 다음 쉼표 한 줄씩(관찰 상태가 밀리지 않게), 쉼표 추천·주변 추천은 카드 안에 실패 안내 + 버튼. 출발 전 전체 창 한 장 카드(`TripEndsV9.kt DepartFull`), 긴급 도움 고른 뒤 칩 줄(1/3은 2×2) + 왼쪽 카드(병원 [가까운 병원 경로 안내]·[전화]·[사전 접수]) + 오른쪽 "관련 안내", 대기 [대기 종료하기] 주 버튼, 하차 확인 아래 오늘 이동 한 줄, 도착 요약(`Route.SUMMARY`, `UiEvent.OpenReport`). 라이트·다크·전체·1/2·1/3 캡처 확인(`artifacts/ui/v9/*-after|dark3|half|third.png`, 묶음 `sheet-dark3.png`·`sheet-half.png`·`sheet-fix.png`).
+- **캡처**: 전 = `docs/screens/v8/`, 후 = `docs/readme/` depart·drive·nearby·forecast·suggest·emergency·wait·arrival·summary·report(주행 4장은 같이가개 분할 창만 847×1210), 원본 `artifacts/ui/v9/*-after.png`. 스토어 8장 `docs/store/screenshots/` 교체(1700×1212). README 화면 표를 새 그림으로(주변 추천·도착 요약 추가).
+- **검증**: `./gradlew test` 종료 0, pytest 82 통과, 리허설 기본 1회 OK(75초, 5장면), `--all` 1회 OK(200초, 11장면 — 배변 임박 7초·주변 추천 46초). **고유 테스트 앱 350 · 서버 82** (app 128·engine/planner 41).
+
+## 커밋 대기열 (같이가개 19차 — UI v9, 11/03) — 실제 명령은 `_private/COMMIT_COMMANDS.md` 1~5번
+1. `[서버]` shop 분류 — models·places·ingest·0006·test_places_vets
+2. `[쉼표]` 배변 임박 — PetRestPlanner·RestPhrases·PetRestPlannerTest
+3. `[UI v9]` 주변 추천 + 화면 — Josa·uistate 5개·trip(NearbyPick·TripCoordinator·ArrivalWalk 삭제)·presentation 3개·MainViewModel·MainActivity·screens 5개·테스트 4개
+4. `[시연]` rehearsal·ui_capture·record_scenes
+5. `[DOC]` README·test_plan·PROGRESS·wording·states·qa_report·release_notes·docs/readme·docs/store/screenshots
+
+## UI v9 — 계획 (2026-11-03, `_private/UI_V9_PROMPT.md`, 바꾸기 전에 적음)
+규칙: v6 토큰·Kit 부품만(새 색 없음), 기존 기능 제거 없음, 라이트·다크 · 전체·1/2·1/3 창 확인. 지도·경로 그림·판정("정상")·추정 문장·"콩이 도우미" 버튼 없음. 주행 화면 버튼 2개·글 2줄·스크롤·자동 애니메이션 없음.
+
+**0. 사용자 결정 (11/03, 고속도로 주변 추천)** — 고속도로에서는 설 곳이 휴게소뿐 → 주변 추천(산책로·공원·마켓·병원)은 **일반 도로에서만**. 조건 1(배변 15분 전)은 쉼표 추천에 합침: 다음 휴게소가 30분 안이면 이유 첫 줄 "배변 시간이 다가와요", 30분 넘으면 반려견 놀이터가 있는 더 가까운 휴게소를 다시 찾음(졸음쉼터 제외). 응급은 지금처럼 고속도로에서도 병원 안내. 시연 = (1) pet-trip 배변 임박 쉼표 이유 변경 (2) 도착 10km 전 "야옹아멍멍해봐 강릉내곡점"(TourAPI 쇼핑) 1회.
+- **고속도로 판단 방법**: NaviHelper `TBTInfo`는 `type`·`distance`·`description`(방면, 실제 값 "기업지원허브 방면")뿐이라 도로 이름이 없다(javap 3.0.4, sdk_check.md). 도로 이름은 `TrafficCongestionInfo.roadName`(정체 구간에만)뿐 → 쓰지 않음. **최근 5분 평균 속도 80km/h 이상 = 고속도로**(`RoadKind`, 속도 신호 1초 표본).
+
+**1. 주행 중 주변 추천** (새 기능, `trip/NearbyPick.kt` 순수 로직 + `TripCoordinator`)
+- 종류: 산책로·공원(TourAPI `walk` = 관광지 자연 A01) / 반려동물 마켓·용품점(TourAPI 쇼핑 38 → 새 분류 `shop`, 서버 마이그레이션 0006 + 캐시에서 재분류, 외부 호출 없음) / 동물병원(인허가). 음식점·카페 제외. `sample=true`(샘플 이름) 행은 쓰지 않음.
+- 조건(일반 도로에서만, 한 번에 하나): ② 오늘 관찰 신고 있음 + 앞 5km·경로 1km 안 영업 중 병원 → 병원 ③ 목적지 10km 안 → 목적지 반경 3km 산책로 → 마켓 (기존 "도착 전 산책" `ArrivalWalk` 토스트를 이 카드로 통합). 응급·"이상해요"·예보·쉼표 추천이 떠 있으면 미룸, 같은 장소 다시 안 뜸, 추천 사이 15분, 버튼 8초 규칙(`ReplyGate`) 재사용. [들를게요] = 기존 `addWaypoint`.
+- 화면: `DriveContent.Nearby`(아이콘 + "2.1km 앞 · 이름" + 이유 한 줄 + [들를게요][괜찮아요]), 음성 한 줄.
+- 발표 패널 장면 "배변 임박 쉼표"·"주변 추천"(기존 "도착 전 산책" 대체), rehearsal --all에 두 장면.
+
+**2. 주행 패널 (1/3·1/2)** `DriveScreens.kt` — 쉼표 계획 없음 = 큰 빈 카드 → 한 줄(`ArriveLine`과 같은 Panel 한 줄). 순서: 예보 띠 → 다음 회전 → 주변 추천 또는 다음 쉼표 → 관찰 상태 한 줄 → 음성 힌트. 카드 높이는 내용에 맞추고 위로 붙임(weight(1f) 빼고 아래 Spacer).
+
+**3. 출발 전 (전체 창)** `PetScreens.kt DepartScreen` — 큰 Panel 하나: 위 인사 "오늘도 안전한 여행 되세요" + "출발 전 세 가지만 확인해 주세요" + 오른쪽 `PetPhoto`(아래 작은 글자 [프로필 바꾸기] = ButtonKind.QUIET compact). 아래 왼쪽 체크 3개(`ChecklistRow` 촘촘히), 오른쪽 경로 요약(목적지·예상 시간·예상 쉼표·첫 쉼표). 버튼 [이대로 출발](PRIMARY) + [긴급 도움](`EmergencyButton`, WARNING). 시연 띠는 그대로 아래. 1/2·1/3은 같은 순서 세로 스크롤.
+
+**4. 쉼표 추천** `SuggestPanel` — 카드 안 위로 붙임: 장소 → 도착까지·거리 → 이유 2개(체크) → 음성 실패 안내(작은 글자) → 버튼 2개. 가운데 weight Spacer 제거, 패널 높이 = 내용.
+
+**5. 긴급 도움** `EmergencyScreen.kt` — 고른 뒤: 왼쪽 큰 카드(앰버 띠 "바로 동물병원에 연락해요" → 본문 → [가까운 병원 경로 안내](주)[전화](보조) → 제휴면 [사전 접수] → 출처 한 줄), 오른쪽 좁은 칸 "관련 안내"(다른 상황 3개 바로가기 + "동물병원 찾는 방법" = `OpenVets`). 상황 타일은 처음에만 크게, 고른 뒤 위쪽 칩 줄(`Choice`). 1/2·1/3은 카드 → 관련 안내 세로.
+
+**6. 잠깐 대기** `WaitScreen.kt` — 그대로, [돌아왔어요] → **[대기 종료하기]** PRIMARY. [긴급 도움][⋯ 설정] 그대로.
+
+**7. 도착 후** — 하차 확인(`ArrivalScreen`) 질문 아래 오늘 이동 요약 한 줄(`ArrivalUi.tripLine`). [내렸어요] 뒤 새 화면 `Screen.Summary`(`SummaryUi`): 체크 아이콘 + "오늘도 함께해서 고마워요" + "콩이와의 이동을 정리했어요" + `StatCard` 4칸(이동 거리·이동 시간·휴식·관찰 신고) + 사진 + [이동 기록 보기] → `UiEvent.OpenReport` → 기존 리포트. 라우트 `Route.SUMMARY`(ARRIVED·내렸어요·리포트 안 엶).
+
+**8. 캡처** — 라이트 `--clean`, 주행 장면은 같이가개 분할 창만 잘라 `docs/readme/` 10장, `docs/store/screenshots` 8장 교체(규격 그대로). 전 = `docs/screens/v8/`.
+
 ## 다음 할 일 (바로 이어서, 11/8 동결 전 — 사용자)
 1. 커밋 대기열 11차 처리(아래, 12개). 스토어 제출 전 결정: docs/BLOCKED.md "11/02 (스토어)" 줄들.
 2. 메모리: AVD 3072MB는 에뮬레이터 최소값(4096MB) 때문에 적용 불가(11/02 시도, 원래 값 유지). 남은 제안은 gradle.properties 힙 줄이기 — 시연 중에는 Chrome 탭 정리가 가장 효과적.

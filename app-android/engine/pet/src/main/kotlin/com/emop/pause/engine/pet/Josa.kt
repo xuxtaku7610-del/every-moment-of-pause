@@ -11,4 +11,5 @@ object Josa {
     fun eunNeun(name: String) = name + if (hasBatchim(name)) "은" else "는"
     fun iGa(name: String) = name + if (hasBatchim(name)) "이" else "가"
     fun waGwa(name: String) = name + if (hasBatchim(name)) "과" else "와"
+    fun eulReul(name: String) = name + if (hasBatchim(name)) "을" else "를"
 }

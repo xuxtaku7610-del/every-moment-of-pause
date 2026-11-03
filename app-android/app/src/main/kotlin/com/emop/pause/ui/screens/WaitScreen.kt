@@ -50,7 +50,7 @@ import com.emop.pause.uistate.WaitUi
 /*
  * 잠깐 대기 (F3) — 차 밖에서 창문 너머 2m 거리에서 한눈에 읽는 화면 (11/03, `_private/WAIT_PROMPT.md`).
  * 화면 전체 한 장, 가운데 정렬: 집·반려견 그림 → "주인이 곧 돌아와요"(큰 글, 한 줄) → 실내 온도 큰 숫자(측정값이 있을 때만)
- * → 경과 시간 → 영어 한 줄. 보호자 조작은 아래 얇은 줄 하나([돌아왔어요] [긴급 도움] [설정]), 차분한 보조 버튼.
+ * → 경과 시간 → 영어 한 줄. 보호자 조작은 아래 얇은 줄 하나([대기 종료하기](주 버튼, UI v9) [긴급 도움] [설정]).
  * 제한 시간·배터리·보호자 폰 QR·"폰 공유 연결 안 됨"은 설정 시트 안. 제한 시간을 넘겨도 큰 글은 그대로, 아래 줄에만 앰버 한 줄.
  * 빨강·깜박임·자동 애니메이션 없음(경과 시간 숫자만 바뀐다). 앱은 공조를 켜거나 제어하지 않는다 — "에어컨 켜짐"은 신호가 켜짐일 때만.
  */
@@ -105,7 +105,7 @@ fun WaitScreen(ui: WaitUi, on: On) {
     }
 }
 
-/** 보호자 줄: 상태 한 줄(제한 시간 넘김·켤 때 안내·여름 안내) + [돌아왔어요] [긴급 도움] [설정]. 높이 76dp, 차분한 보조 버튼. */
+/** 보호자 줄: 상태 한 줄(제한 시간 넘김·켤 때 안내·여름 안내) + [대기 종료하기](주) [긴급 도움] [설정](보조). 높이 76dp. */
 @Composable
 private fun WaitBar(ui: WaitUi, on: On, sheetOpen: Boolean, narrow: Boolean, toggle: () -> Unit) {
     val c = Pause.colors
@@ -115,7 +115,7 @@ private fun WaitBar(ui: WaitUi, on: On, sheetOpen: Boolean, narrow: Boolean, tog
     line?.let { Text(it, style = Pause.type.bodyStrong, color = if (ui.overdueLine != null || ui.notice != null) c.warningInk else c.sub) }
     // 1/3 창은 아이콘을 빼서 글자가 낱자에서 꺾이지 않게
     Row(horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
-        PauseButton("돌아왔어요", { on(UiEvent.StopWait) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Check.takeUnless { narrow }, compact = true)
+        PauseButton("대기 종료하기", { on(UiEvent.StopWait) }, Modifier.weight(1f), icon = Icons.Rounded.Check.takeUnless { narrow }, compact = true)
         PauseButton("긴급 도움", { on(UiEvent.OpenEmergency) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.WarningAmber.takeUnless { narrow }, compact = true)
         PauseButton(if (sheetOpen) "설정 닫기" else "설정", toggle, Modifier.weight(1f), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.MoreHoriz.takeUnless { narrow }, compact = true)
     }

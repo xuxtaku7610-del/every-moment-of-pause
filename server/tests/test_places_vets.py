@@ -166,6 +166,15 @@ def test_f4_04_real_response_mapping():
     assert by["125779"].category == "walk" and by["2757631"].category == "lodging"
 
 
+def test_f4_09_shopping_is_shop_not_tour():
+    """UI v9 주행 중 주변 추천 "마켓": TourAPI 쇼핑(38) = shop, 문화시설(14)·레포츠(28) = tour, 관광지 자연(A01) = walk."""
+    c = ingest_pet_places.category_of
+    assert c("38", "A04", None) == "shop"
+    assert c("14", "A02", None) == "tour" and c("28", "A03", None) == "tour"
+    assert c("12", "A01", None) == "walk" and c("12", "A02", None) == "tour"
+    assert "shop" in ingest_pet_places.PLACE_CATEGORIES
+
+
 def test_f4_04_cache_and_call_budget(tmp_path):
     n = []
 

@@ -25,6 +25,7 @@ import com.emop.pause.uistate.Scene
 import com.emop.pause.uistate.Screen
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.ui.screens.ArrivalScreen
+import com.emop.pause.ui.screens.SummaryScreen
 import com.emop.pause.ui.screens.DemoActions
 import com.emop.pause.ui.screens.DemoPanel
 import com.emop.pause.ui.screens.DepartScreen
@@ -192,6 +193,7 @@ fun PauseRoot(ui: AppUiState, licenses: String, on: (UiEvent) -> Unit) {
         is Screen.Vets -> VetsScreen(sc.ui, on)
         is Screen.Emergency -> EmergencyScreen(sc.ui, on)
         is Screen.Arrival -> ArrivalScreen(sc.ui, on)
+        is Screen.Summary -> SummaryScreen(sc.ui, on)
         is Screen.TripLog -> TripLogScreen(sc.ui, on)
         is Screen.Stimulus -> StimulusScreen(sc.ui, on)
         is Screen.PetProfile -> PetProfileScreen(sc.ui, on)

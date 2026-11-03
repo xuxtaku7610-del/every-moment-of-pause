@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.emop.pause.R
 import com.emop.pause.ui.components.AlertStrip
 import com.emop.pause.ui.components.ButtonKind
+import com.emop.pause.ui.components.Choice
 import com.emop.pause.ui.components.Divider
 import com.emop.pause.ui.components.Panel
 import com.emop.pause.ui.components.PauseButton
@@ -69,15 +70,14 @@ fun EmergencyScreen(ui: EmergencyUi, on: On) {
     val d = Pause.dimens
     BackHandler { on(UiEvent.Close) }
     Page(null, on, scroll = true, title = "긴급 도움", trailing = { CloseButton(on) }) { wc ->
-        // 전체 창은 고르기 | 카드·병원 나란히. 1/2·1/3 창은 위아래 — 고른 뒤에는 카드·병원을 먼저(스크롤 없이 바로 보이게), 고르기는 그 아래
+        // UI v9 5번: 상황 타일은 처음에만 크게. 고른 뒤에는 위쪽 작은 칩 줄로 접고,
+        // 왼쪽 큰 카드(띠 → 본문 → [가까운 병원 경로 안내][전화] → 제휴면 [사전 접수] → 출처) | 오른쪽 좁은 칸 "관련 안내". 1/2·1/3은 위아래.
         val wide = wc == WidthClass.FULL
-        val pick: @Composable (Modifier) -> Unit = { m -> PickPanel(ui, on, m, wc) }
-        val card: @Composable (Modifier) -> Unit = { m -> ui.card?.let { CardAndVet(ui, it, on, m) } }
-        if (ui.card == null) pick(Modifier.fillMaxWidth())
-        else if (wide) SideBySide(true, 0.42f, pick, card)
+        val card = ui.card
+        if (card == null) PickPanel(ui, on, Modifier.fillMaxWidth(), wc)
         else {
-            card(Modifier.fillMaxWidth())
-            pick(Modifier.fillMaxWidth())
+            ChipRow(ui, on, wc == WidthClass.THIRD)
+            SideBySide(wide, 0.66f, { m -> CardAndVet(ui, card, on, m) }, { m -> RelatedPanel(ui, on, m) })
         }
     }
 }
@@ -106,27 +106,42 @@ private fun PickPanel(ui: EmergencyUi, on: On, m: Modifier, wc: WidthClass) {
     }
 }
 
+/** 고른 뒤 위쪽 작은 칩 줄: 상황 4개(고른 것 표시). 같은 것을 다시 누르면 그대로. */
 @Composable
-private fun CardAndVet(ui: EmergencyUi, card: EmergencyCardUi, on: On, m: Modifier) {
-    val c = Pause.colors
+private fun ChipRow(ui: EmergencyUi, on: On, narrow: Boolean) {
     val d = Pause.dimens
-    Column(m, verticalArrangement = Arrangement.spacedBy(d.gap)) {
-        EmergencyCardPanel(card, Modifier.fillMaxWidth())
-        Panel(Modifier.fillMaxWidth(), pad = d.u(24f), spacing = d.gapS) {
-            Text("가장 가까운 동물병원", style = Pause.type.metricLabel, color = c.sub)
-            val vet = ui.vet
-            when {
-                vet != null -> NearestVet(vet, on, intake = true)
-                ui.vetLoading -> Text("찾는 중…", style = Pause.type.body, color = c.sub)
-                else -> Text("근처에 찾은 곳이 없어요.", style = Pause.type.body, color = c.sub)
+    // 1/3 창은 2×2 — 상황 이름이 잘리지 않게
+    Column(verticalArrangement = Arrangement.spacedBy(d.gapS)) {
+        ui.options.chunked(if (narrow) 2 else 4).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
+                row.forEach { o -> Choice(o.label, ui.selected == o.id, { on(UiEvent.PickEmergency(o.id)) }, Modifier.weight(1f)) }
             }
         }
     }
 }
 
-/** 응급 카드: 경고 띠 "바로 동물병원에 연락해요" + 2~3줄 + 출처 + "일반 안내예요, 진단이 아니에요". 릴리스 미검수면 띠만. */
+/** 오른쪽 좁은 칸 "관련 안내": 다른 응급 상황 3개 바로가기 + "동물병원 찾는 방법"(기존 병원 목록) + 고정 안내. */
 @Composable
-private fun EmergencyCardPanel(card: EmergencyCardUi, m: Modifier) {
+private fun RelatedPanel(ui: EmergencyUi, on: On, m: Modifier) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Panel(m, pad = d.u(24f), spacing = d.gapS) {
+        Text("관련 안내", style = Pause.type.section, color = c.text)
+        ui.options.filter { it.id != ui.selected }.forEach { o ->
+            PauseButton(o.label, { on(UiEvent.PickEmergency(o.id)) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = optionIcon(o.id), compact = true)
+        }
+        Divider()
+        PauseButton("동물병원 찾는 방법", { on(UiEvent.OpenVets) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.LocalHospital, compact = true)
+        Text(ui.disclaimer, style = Pause.type.caption, color = c.sub)
+    }
+}
+
+/**
+ * 왼쪽 큰 카드 하나: 앰버 띠 "바로 동물병원에 연락해요" → 본문 2~3줄 → 가장 가까운 병원 [가까운 병원 경로 안내](주)[전화](보조)
+ * → 제휴면 [사전 접수] → 출처 한 줄. 카드와 병원을 한 장에 붙여 왼쪽 아래가 비지 않게 (UI v9).
+ */
+@Composable
+private fun CardAndVet(ui: EmergencyUi, card: EmergencyCardUi, on: On, m: Modifier) {
     val c = Pause.colors
     val d = Pause.dimens
     Panel(m, pad = d.u(24f), spacing = d.gapS) {
@@ -135,6 +150,15 @@ private fun EmergencyCardPanel(card: EmergencyCardUi, m: Modifier) {
             Text(card.title, style = Pause.type.sub, color = c.text)
         }
         card.lines.forEach { line -> Text("· $line", style = Pause.type.body, color = c.text) }
+        Divider()
+        Text("가장 가까운 동물병원", style = Pause.type.metricLabel, color = c.sub)
+        val vet = ui.vet
+        when {
+            vet != null -> NearestVet(vet, on, intake = true, routeLabel = "가까운 병원 경로 안내", noPhoneLine = false)
+            ui.vetLoading -> Text("찾는 중…", style = Pause.type.body, color = c.sub)
+            else -> Text("근처에 찾은 곳이 없어요.", style = Pause.type.body, color = c.sub)
+        }
+        Divider()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 card.source?.let { Text(it, style = Pause.type.caption, color = c.sub) }
@@ -151,7 +175,7 @@ private fun EmergencyCardPanel(card: EmergencyCardUi, m: Modifier) {
  * 진료 가능 여부·영업시간·24시는 데이터에 없어 쓰지 않는다. [intake]면(긴급 도움) 제휴 병원에 [사전 접수] — 동물병원 화면의 기존 사전 접수로 간다.
  */
 @Composable
-internal fun NearestVet(v: VetUi, on: On, modifier: Modifier = Modifier, intake: Boolean = false) {
+internal fun NearestVet(v: VetUi, on: On, modifier: Modifier = Modifier, intake: Boolean = false, routeLabel: String = "경로 안내", noPhoneLine: Boolean = true) {
     val c = Pause.colors
     val d = Pause.dimens
     var showPhone by rememberSaveable(v.id) { mutableStateOf(false) }
@@ -163,12 +187,13 @@ internal fun NearestVet(v: VetUi, on: On, modifier: Modifier = Modifier, intake:
             if (v.partner) StatusChip("시연용 제휴") else if (v.sample) StatusChip("샘플", neutral = true)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
-            PauseButton("경로 안내", { on(UiEvent.GoVet(v.id)) }, Modifier.weight(1f), icon = Icons.Rounded.Navigation)
+            PauseButton(routeLabel, { on(UiEvent.GoVet(v.id)) }, Modifier.weight(if (v.phone != null) 1.4f else 1f), icon = Icons.Rounded.Navigation)
             if (v.phone != null) PauseButton(if (showPhone) "번호 접기" else "전화", { showPhone = !showPhone }, Modifier.weight(1f), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Call)
         }
         // 긴급 도움에서 가장 가까운 곳이 제휴 병원이면 기존 사전 접수(동물병원 화면의 IntakePanel)로 — 흐름 재사용 (11/03)
         if (intake && v.intakeButton) PauseButton("사전 접수", { on(UiEvent.OpenVets) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Send)
-        if (v.phone == null) Text("전화번호 정보 없음", style = Pause.type.sub, color = c.sub)
+        // 긴급 도움에서는 번호가 없으면 줄 자체를 숨긴다 (11/03) — 동물병원 목록은 그대로 "전화번호 정보 없음"
+        if (v.phone == null && noPhoneLine) Text("전화번호 정보 없음", style = Pause.type.sub, color = c.sub)
         val phone = v.phone
         if (showPhone && phone != null) {
             Divider()

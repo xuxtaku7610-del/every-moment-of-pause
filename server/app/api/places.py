@@ -16,7 +16,7 @@ from app.geo import distance_m, length, project
 from app.models import PLACE_CATEGORIES, PetPlace
 
 router = APIRouter(dependencies=[Depends(require_device)])
-Category = Literal["restaurant", "cafe", "lodging", "tour", "walk"]
+Category = Literal["restaurant", "cafe", "lodging", "tour", "walk", "shop"]
 DEG_PER_M = 1 / 111_000
 
 

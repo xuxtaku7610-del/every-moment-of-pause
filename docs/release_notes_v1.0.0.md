@@ -44,6 +44,6 @@
 - 안내는 일반 정보이며 진료·응급 판단을 대신하지 않습니다.
 
 ## 검증
-- 단위 테스트: 앱 339개 · 서버 81개 통과 (고유 테스트 수, 2026-11-03)
+- 단위 테스트: 앱 353개 · 서버 82개 통과 (고유 테스트 수, 2026-11-03 UI v9 마무리)
 - 시연 리허설 `scripts/rehearsal.py --all` 9장면 통과
 - 데이터 처리·개인정보: [docs/store/data_inventory.md](store/data_inventory.md), [개인정보 처리방침](privacy.html)

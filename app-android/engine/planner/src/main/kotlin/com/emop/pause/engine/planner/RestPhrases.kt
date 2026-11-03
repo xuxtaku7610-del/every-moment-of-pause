@@ -25,8 +25,10 @@ object RestPhrases {
     fun petSuggestion(d: PlanDecision.Suggest, petName: String): String {
         if (d.fatigueFirst) return suggestion(d)
         val pet = when {
+            // 배변 임박이면 이유 첫 줄이 배변 (F2-16)
+            d.reasons.firstOrNull() == Reason.PottyDue -> "$petName 배변 시간이 다가와요."
             Reason.Motion in d.reasons -> "흔들리는 길을 오래 달렸어요."
-            Reason.PottyDue in d.reasons -> "$petName 산책 시간이에요."
+            Reason.PottyDue in d.reasons -> "$petName 배변 시간이 다가와요."
             else -> null
         }
         val facilities = d.reasons.filterIsInstance<Reason.HasFacility>().map { it.facility.labelKo }

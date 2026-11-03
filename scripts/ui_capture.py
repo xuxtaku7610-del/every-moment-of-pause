@@ -86,7 +86,7 @@ def fixture(name: str) -> bool:
 
 
 def depart() -> bool:
-    r.start(sim="pet-trip", onboard="done", scene="none", demo=False, compare=False, seek=0, action="pause", speed=1)
+    r.start(sim="pet-trip", onboard="done", scene="none", demo=False, compare=False, seek=0, action="pause", speed=1, emergency="none")
     return r.wait_for("체크", 20) is not None
 
 
@@ -124,9 +124,25 @@ def triplog() -> bool:
     xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
     if xy:
         r.tap(xy)
+    # UI v9: 내렸어요 → 도착 요약 → [이동 기록 보기]
+    xy = r.wait_for("이동 기록 보기", 15)
+    if xy:
+        r.tap(xy)
     # 첫 화면 = 요약 + 타임라인 (11/02 간소화)
     ok = r.wait_for("오늘의 길", 15) is not None
     time.sleep(3)
+    return ok
+
+
+def summary() -> bool:
+    # UI v9 도착 요약: 내렸어요 뒤 첫 화면 (따라잡기 15초 — triplog와 같은 이유)
+    if not sim(10843, "내렸어요", timeout=100, settle=15):
+        return False
+    xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
+    if xy:
+        r.tap(xy)
+    ok = r.wait_for("이동 기록 보기", 15) is not None
+    time.sleep(2)
     return ok
 
 
@@ -148,7 +164,8 @@ def emergency(kind: str | None) -> bool:
     if not sim(5240, "긴급 도움", timeout=25, settle=2):
         return False
     r.start(emergency=kind or "menu")
-    if not r.wait_for("어떤 상황인가요?", 10):
+    # UI v9: 상황을 고르면 타일은 위쪽 칩 줄로 접힌다 — "어떤 상황인가요?"는 고르기 전에만
+    if not kind and not r.wait_for("어떤 상황인가요?", 10):
         return False
     if kind and not r.wait_for("바로 동물병원에 연락해요", 10):
         return False
@@ -186,6 +203,9 @@ SCREENS = {
     "04-pet": lambda: fixture("pet"),
     "05-depart": depart,
     "06-suggest": lambda: sim(3420, "여기서 쉴게요", timeout=75, settle=1),
+    # UI v9: 배변 임박 쉼표 (점프 따라잡기 뒤 약 4,660초) · 주변 추천 (목적지 10km 안, 약 10,071초)
+    "06b-potty": lambda: sim(4620, "배변 시간이 다가와요", timeout=90, settle=0),
+    "19-nearby": lambda: sim(10040, "주변 추천", timeout=90, settle=0),
     "07-distress": distress,
     "07b-distress-vet": distress_vet,
     "08-vet-drive": lambda: fixture("vet_drive"),
@@ -199,7 +219,8 @@ SCREENS = {
     "12-vets": lambda: fixture("vets"),
     "12b-vets-call": lambda: fixture("vets_call"),
     "17-stimulus": lambda: fixture("stimulus"),
-    "13-arrival": lambda: sim(10843, "내렸어요", timeout=100, settle=1),
+    "13-arrival": lambda: sim(10843, "내렸어요", timeout=100, settle=8),
+    "13c-summary": summary,
     # 도착 후 뒷문 열림(시나리오 10915초) → "콩이 내렸나요?" 바로 (문 이벤트 a, 11/02)
     "13b-arrival-door": lambda: sim(10905, "내렸어요", timeout=40, settle=1),
     "14-settings": lambda: fixture("settings"),

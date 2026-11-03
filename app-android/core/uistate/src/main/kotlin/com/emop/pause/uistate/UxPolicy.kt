@@ -40,6 +40,7 @@ object UxPolicy {
                 is DriveContent.Suggest -> c.copy(reasons = c.reasons.take(1))
                 is DriveContent.Heading, is DriveContent.Vet -> c
                 is DriveContent.Distress -> c.copy(line = shorten(c.line, m)!!)
+                is DriveContent.Nearby -> c.copy(title = shorten(c.title, m)!!, line = shorten(c.line, m)!!, reason = c.reason.takeIf { it.length <= m }.orEmpty())
             },
         )
     }

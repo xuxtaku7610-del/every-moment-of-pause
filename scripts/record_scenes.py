@@ -306,7 +306,7 @@ def main() -> int:
 
     def s8():  # 정차 중 긴급 도움
         r.start(emergency="none")
-        xy = next((xy for t, xy in r.nodes() if t == "돌아왔어요"), None)
+        xy = next((xy for t, xy in r.nodes() if t in ("대기 종료하기", "돌아왔어요")), None)
         if xy:
             r.tap(xy)
         r.start(seek=5240, action="play", speed=1)

@@ -109,10 +109,53 @@ class PetRestPlannerTest {
     @Test
     fun `반려견 문구 - 이유 없음, 산책 시간, 피로 우선`() {
         val s = PlanDecision.Suggest(far, 42, 70.0, listOf(Reason.PottyDue), 0.5, false)
-        assertEquals("콩이 산책 시간이에요. 42분 뒤 다온휴게소에서 쉬어 갈까요?", RestPhrases.petSuggestion(s, "콩이"))
+        assertEquals("콩이 배변 시간이 다가와요. 42분 뒤 다온휴게소에서 쉬어 갈까요?", RestPhrases.petSuggestion(s, "콩이"))
         val f = PlanDecision.Suggest(shelter, 5, 8.0, listOf(Reason.Fatigue), 1.0, true)
         assertEquals(RestPhrases.suggestion(f), RestPhrases.petSuggestion(f, "콩이"))
         val ev = PlanDecision.Suggest(far, 42, 70.0, listOf(Reason.HasFacility(Facility.EV_FAST, NeedKind.CHARGE)), 0.5, false)
         assertEquals("42분 뒤 급속충전기가 있는 다온휴게소에서 쉬어 갈까요?", RestPhrases.petSuggestion(ev, "콩이"))
+    }
+
+    // F2-16 (사용자 결정 11/03): 배변 임박은 쉼표 추천에 합친다 — 고속도로에서는 설 곳이 휴게소뿐
+    @Test
+    fun `F2-16 배변 15분 전이고 휴게소가 30분 안이면 이유 첫 줄이 배변`() {
+        val soon = Need(NeedKind.PET_WALK, 0.85, dueInMin = 12)
+        val d = plan(listOf(near, far), needs = listOf(soon)) as PlanDecision.Suggest
+        assertTrue(d.minutesAway <= 30, "${d.stop.name} ${d.minutesAway}분")
+        assertEquals(Reason.PottyDue, d.reasons.first(), d.reasons.toString())
+        assertTrue(d.reasons.size <= RestPlanner.MAX_REASONS)
+        assertEquals("콩이 배변 시간이 다가와요. ${d.minutesAway}분 뒤", RestPhrases.petSuggestion(d, "콩이").substringBefore("분 뒤") + "분 뒤")
+    }
+
+    @Test
+    fun `F2-16 고른 휴게소가 30분 넘게 남으면 놀이터 있는 더 가까운 휴게소를 다시 찾는다`() {
+        // 멀미 높음 + 배변 임박: 먼 곳(42분, 놀이터·충전)이 아니라 30분 안 놀이터 휴게소
+        val mid = RestStop("rs_mid", "마루휴게소", StopType.SERVICE_AREA, 40.0, setOf(Facility.PET_ZONE))
+        val plainNear = RestStop("rs_plain2", "바다휴게소", StopType.SERVICE_AREA, 20.0)
+        val soon = Need(NeedKind.PET_WALK, 0.9, dueInMin = 10)
+        val farOnly = plan(listOf(plainNear, far), needs = listOf(soon, Need(NeedKind.CHARGE, 0.9, 40, reachKm = 200.0))) as PlanDecision.Suggest
+        // 충전 니즈면 충전 휴게소만 후보 — 더 가까운 놀이터 휴게소가 후보에 없으면 그대로, 이유 첫 줄도 바꾸지 않는다(30분 넘음)
+        assertEquals("rs_far", farOnly.stop.id)
+        assertTrue(farOnly.reasons.firstOrNull() != Reason.PottyDue || farOnly.minutesAway <= 30, farOnly.toString())
+        val d = PetRestPlanner.plan(PetPlannerInput(listOf(plainNear, mid, far), 0.0, kmPerMin, fatigue(), listOf(soon), 0, previousStopId = "rs_far")) as PlanDecision.Suggest
+        assertEquals("rs_mid", d.stop.id, "30분 안 놀이터 휴게소: ${d}")
+        assertEquals(Reason.PottyDue, d.reasons.first())
+    }
+
+    @Test
+    fun `F2-16 졸음쉼터는 배변 장소로 추천하지 않는다`() {
+        val soon = Need(NeedKind.PET_WALK, 0.9, dueInMin = 5)
+        val d = plan(listOf(shelter, near, far), needs = listOf(soon)) as PlanDecision.Suggest
+        assertEquals(StopType.SERVICE_AREA, d.stop.type)
+        assertEquals(Reason.PottyDue, d.reasons.first())
+        // 휴게소가 없고 졸음쉼터만 있으면 제안하지 않는다(일반 안내)
+        assertTrue(plan(listOf(shelter), needs = listOf(soon)) is PlanDecision.NoCandidate)
+    }
+
+    @Test
+    fun `F2-16 배변이 아직 멀면(15분 넘게) 이유 순서는 점수 기여 그대로`() {
+        val later = Need(NeedKind.PET_WALK, 0.75, dueInMin = 25)
+        val d = plan(listOf(near, far), needs = listOf(later), motion = 55) as PlanDecision.Suggest
+        assertTrue(d.reasons.first() != Reason.PottyDue, d.reasons.toString())
     }
 }

@@ -33,18 +33,21 @@
 속도 변화와 앞길의 굽은 정도로 차의 흔들림을 미리 계산합니다. 흔들림이 큰 구간 앞에서 "3km 뒤 굽은 길, 천천히 가면 덜 흔들려요"라고 한 줄과 음성으로 알려 줍니다. 실제 대관령 옛길 15km에서 안내대로 달리면 흔들림 점수가 55에서 30으로 줄었습니다.
 
 **2. 반려견 맞춤 쉼표**
-흔들림이 쌓인 정도, 이동 시간, 배변 간격, 운전자 피로를 함께 보고 반려견 놀이터가 있는 휴게소 한 곳을 골라 줍니다. "여기서 쉴게요"라고 말하면 기본 내비에 경유지가 추가됩니다.
+흔들림이 쌓인 정도, 이동 시간, 배변 간격, 운전자 피로를 함께 보고 반려견 놀이터가 있는 휴게소 한 곳을 골라 줍니다. 배변 시간이 다가오면 그 이유를 먼저 알려 줍니다. "여기서 쉴게요"라고 말하면 기본 내비에 경유지가 추가됩니다.
 
-**3. 콩이가 이상해요**
+**3. 주변 추천**
+주행 중에는 대부분 내비만 보기 때문에 같이가개는 평소에 조용히 있다가, 필요한 순간에만 근처 반려견 장소 한 곳을 알려 줍니다. 목적지 근처의 산책로와 반려용품점, 이상 신고가 있었던 날의 동물병원이 그 대상입니다. 고속도로에서는 차를 세울 수 있는 곳이 휴게소뿐이라 쉼표 추천만 하고, 주변 추천은 일반 도로에서만 합니다. 장소 이름은 모두 관광공사와 인허가 공공데이터에 있는 실제 이름입니다.
+
+**4. 콩이가 이상해요**
 운전 중 "콩이 토했어", "계속 헐떡여"라고 말하면 시각과 함께 기록하고, 지금 할 일을 한 줄로 알려 줍니다. 심하면 가까운 동물병원으로 안내합니다.
 
-**4. 긴급 도움과 병원 사전 접수**
+**5. 긴급 도움과 병원 사전 접수**
 멈춰 있을 때 호흡 곤란, 경련, 외상, 위험 물질 섭취 중 하나를 고르면 응급 안내와 가장 가까운 병원이 함께 나옵니다. 제휴 병원에는 보호자가 동의한 뒤 증상과 도착 예정 시간을 미리 보내고, 병원의 답이 차 화면으로 돌아옵니다.
 
-**5. 잠깐 대기**
+**6. 잠깐 대기**
 "잠깐 다녀올게"라고 하면 차 화면이 창밖에서도 읽히는 큰 안내로 바뀝니다. 실내 온도는 차가 값을 줄 때만 보여 주고, 보호자는 휴대폰으로 경과 시간을 확인합니다.
 
-**6. 하차 확인과 도착 리포트**
+**7. 하차 확인과 도착 리포트**
 도착해서 뒷문이 열리면 "콩이 내렸나요?"를 바로 묻습니다. 뒷문이 한 번도 열리지 않았는데 운전석 문만 열리면 한 번 더 알려 줍니다. 하루 이동은 시간 순서대로 한 장에 정리되고, 병원에 그대로 보여 줄 수 있습니다.
 
 > 흔들림 점수는 차량이 얼마나 흔들렸는지를 나타내는 값입니다. 반려견을 측정하거나 진단하지 않습니다.
@@ -59,17 +62,22 @@
 <tr>
 <td align="center" width="33%"><img src="docs/readme/drive.png" alt="주행 화면"><br><b>주행</b><br>다음 회전, 다음 쉼표, 콩이 상태</td>
 <td align="center" width="33%"><img src="docs/readme/forecast.png" alt="굽은 길 예보 화면"><br><b>굽은 길 예보</b><br>숫자 없이 한 줄로</td>
-<td align="center" width="33%"><img src="docs/store/screenshots/04-suggest.png" alt="쉼표 추천 화면"><br><b>쉼표 추천</b><br>음성이 안 되면 버튼으로</td>
+<td align="center" width="33%"><img src="docs/readme/suggest.png" alt="쉼표 추천 화면"><br><b>쉼표 추천</b><br>배변 시간이 다가오면 먼저</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/store/screenshots/01-depart.png" alt="출발 전 화면"><br><b>출발 전</b><br>하네스, 물, 배변봉투 확인</td>
-<td align="center"><img src="docs/store/screenshots/05-emergency-vet.png" alt="긴급 도움 화면"><br><b>긴급 도움</b><br>응급 안내와 가장 가까운 병원</td>
-<td align="center"><img src="docs/store/screenshots/06-wait.png" alt="잠깐 대기 화면"><br><b>잠깐 대기</b><br>창밖에서 보이는 큰 안내</td>
+<td align="center" width="33%"><img src="docs/readme/nearby.png" alt="주변 추천 화면"><br><b>주변 추천</b><br>목적지 근처 반려용품점</td>
+<td align="center" width="33%"><img src="docs/readme/depart.png" alt="출발 전 화면"><br><b>출발 전</b><br>하네스, 물, 배변봉투 확인</td>
+<td align="center" width="33%"><img src="docs/readme/emergency.png" alt="긴급 도움 화면"><br><b>긴급 도움</b><br>응급 안내와 가장 가까운 병원</td>
 </tr>
 <tr>
-<td align="center"><img src="docs/store/screenshots/07-arrival-door.png" alt="하차 확인 화면"><br><b>하차 확인</b><br>뒷문이 열리면 바로</td>
-<td align="center"><img src="docs/store/screenshots/08-report.png" alt="도착 리포트 화면"><br><b>도착 리포트</b><br>하루 이동을 한 장에</td>
-<td align="center"><img src="docs/screens/v8/12-compare.png" alt="고갯길 비교 화면"><br><b>고갯길 비교</b><br>안내대로 달리면 흔들림 45% 감소</td>
+<td align="center" width="33%"><img src="docs/readme/wait.png" alt="잠깐 대기 화면"><br><b>잠깐 대기</b><br>창밖에서 보이는 큰 안내</td>
+<td align="center" width="33%"><img src="docs/readme/arrival.png" alt="하차 확인 화면"><br><b>하차 확인</b><br>뒷문이 열리면 바로</td>
+<td align="center" width="33%"><img src="docs/readme/summary.png" alt="도착 요약 화면"><br><b>도착 요약</b><br>오늘 이동을 한눈에</td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="docs/readme/report.png" alt="도착 리포트 화면"><br><b>도착 리포트</b><br>시간 순서로 한 장에</td>
+<td align="center" width="33%"><img src="docs/screens/v8/12-compare.png" alt="고갯길 비교 화면"><br><b>고갯길 비교</b><br>안내대로 달리면 흔들림 45% 감소</td>
+<td align="center" width="33%"><img src="docs/screens/v8/08b-clinic-inbox.png" alt="병원 접수함 화면"><br><b>병원 접수함</b><br>병원 쪽에서 보는 사전 접수</td>
 </tr>
 </table>
 
@@ -95,7 +103,7 @@
 | AVD 메모리 | 4096MB |
 | 음성 | 에뮬레이터에는 마이크가 없어 8초 뒤 버튼으로 바뀝니다 |
 
-보호자 휴대폰 페이지, 병원 접수함, 전국 장소와 병원 데이터는 서버가 필요해서 시연 영상으로 보여 드립니다.
+반려견 동반 장소 327곳과 동물병원 5,063곳은 공공데이터를 앱에 넣어 두어서 서버 없이도 실제 이름으로 추천과 병원 안내가 나옵니다. 보호자 휴대폰 페이지와 병원 접수함은 서버가 있어야 해서 시연 영상으로 보여 드립니다.
 
 <br>
 
@@ -107,6 +115,7 @@
   <img src="https://img.shields.io/badge/Hilt-2E7D32?style=for-the-badge&logo=android&logoColor=white">
   <img src="https://img.shields.io/badge/Room-0F9D58?style=for-the-badge&logo=sqlite&logoColor=white">
   <img src="https://img.shields.io/badge/Coroutines-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white">
+  <img src="https://img.shields.io/badge/Retrofit-48B983?style=for-the-badge&logo=square&logoColor=white">
 - **Vehicle**
   <img src="https://img.shields.io/badge/Android%20Automotive-3DDC84?style=for-the-badge&logo=android&logoColor=white">
   <img src="https://img.shields.io/badge/Pleos%20Vehicle%20SDK-1C3150?style=for-the-badge">
@@ -116,12 +125,12 @@
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white">
   <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white">
   <img src="https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white">
+  <img src="https://img.shields.io/badge/Alembic-6BA81E?style=for-the-badge">
 - **Database**
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white">
 - **AI / LLM**
   <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white">
   <img src="https://img.shields.io/badge/Gemma%204%2012B-4285F4?style=for-the-badge&logo=google&logoColor=white">
-  <img src="https://img.shields.io/badge/RTX%205060%20Ti-76B900?style=for-the-badge&logo=nvidia&logoColor=white">
 - **Data**
   <img src="https://img.shields.io/badge/한국관광공사%20TourAPI-0055A4?style=for-the-badge">
   <img src="https://img.shields.io/badge/동물병원%20인허가%20데이터-0055A4?style=for-the-badge">
@@ -138,43 +147,40 @@
 ## 🏗️ 아키텍처
 
 ```mermaid
-flowchart LR
-  subgraph CAR["차량 · Pleos Connect"]
-    VS["차량 신호<br/>속도 · 기어 · 문 · 온도 · 배터리"]
-    UX["주행 제한 상태"]
-    NAV["Pleos 기본 내비"]
+flowchart TB
+  subgraph L1["① 차량 · Pleos Connect"]
+    direction LR
+    V["차량 신호<br/>속도 · 기어 · 문 · 실내 온도"]
+    N["Pleos 기본 내비<br/>회전 안내 · 경유지"]
+    R["주행 제한 상태<br/>주행 중 화면 규칙"]
   end
 
-  subgraph APP["같이가개 앱"]
-    ENG["계산 엔진<br/>흔들림 · 쉼표 · 하차 확인"]
-    UI["화면과 음성"]
-    DB[("기기 저장<br/>프로필 · 기록")]
+  subgraph L2["② 같이가개 앱 · 모든 판단은 여기서"]
+    direction LR
+    E["계산 엔진<br/>흔들림 · 쉼표 · 주변 추천 · 하차 확인"]
+    U["화면과 음성"]
+    S[("기기 저장<br/>프로필 · 기록 · 장소와 병원 데이터")]
   end
 
-  subgraph SRV["서버"]
-    API["FastAPI"]
-    PG[("PostgreSQL")]
-    LLM["Ollama<br/>안내 문장"]
+  subgraph L3["③ 서버 · 있으면 더 좋은 것"]
+    direction LR
+    A["FastAPI"]
+    D[("PostgreSQL")]
+    M["Ollama<br/>안내 문장 다듬기"]
   end
 
-  PUB["공공데이터<br/>동반 장소 · 동물병원 · 휴게소"]
-  PHONE["보호자 휴대폰<br/>병원 접수함"]
-
-  VS --> ENG
-  UX --> UI
-  NAV <-->|"회전 안내 · 경유지"| ENG
-  ENG --> UI
-  ENG <--> DB
-  APP <-->|"있을 때만"| API
-  API --> PG
-  API --> LLM
-  PUB --> PG
-  API --> PHONE
+  P["공공데이터<br/>장소 327곳 · 병원 5,063곳"] --> D
+  P -. "앱에도 내장" .-> S
+  L1 --> L2
+  L2 -. "인터넷이 될 때만" .-> L3
+  A --> W["보호자 휴대폰 · 병원 접수함"]
 ```
 
-- 판단은 모두 앱 안에서 합니다. 서버가 없어도 예보, 쉼표 추천, 긴급 도움, 대기, 하차 확인이 동작합니다.
-- 서버는 장소와 병원 데이터, 보호자 휴대폰 페이지, 병원 접수함, 안내 문장 다듬기만 맡습니다.
-- 차가 주지 않는 신호가 있으면 그 기능만 끄고 나머지는 그대로 동작합니다.
+| 층 | 하는 일 | 없으면 |
+| --- | --- | --- |
+| ① 차량 | 신호와 길 안내를 앱에 줍니다 | 그 신호를 쓰는 기능만 꺼집니다 |
+| ② 앱 | 흔들림 계산, 쉼표와 주변 추천, 하차 확인, 화면과 음성을 모두 맡습니다. 장소와 병원 데이터도 앱 안에 있습니다 | 없음 |
+| ③ 서버 | 보호자 휴대폰 페이지, 병원 접수함, 데이터 갱신, 안내 문장 다듬기 | 앱의 내장 데이터와 기본 문장으로 계속 동작합니다 |
 
 <br>
 
@@ -252,7 +258,7 @@ every-moment-of-pause
 
 ## 📊 검증
 
-- 자동 테스트 앱 339개, 서버 81개 통과
+- 자동 테스트 앱 353개, 서버 82개 통과
 - 발표 리허설 3회 연속 통과, 각 70초 안팎
 - 장면을 20번 연속 건너뛴 뒤에도 멈춤 없이 동작
 - 돌봄 카드 12장은 Merck Veterinary Manual, RSPCA 공개 자료와 문장 단위로 대조했습니다. 수의사 감수는 받지 않았습니다.

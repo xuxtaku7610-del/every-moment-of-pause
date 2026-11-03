@@ -55,7 +55,9 @@ class ScreenRouterTest {
         assertEquals(Route.DRIVE, route(Input(p, AppMode.DRIVING, false)))
         assertEquals(Route.REST, route(Input(p, AppMode.PAUSE, false)))
         assertEquals(Route.ARRIVAL, route(Input(p, AppMode.ARRIVED, false)))
-        assertEquals(Route.TRIPLOG, route(Input(p, AppMode.ARRIVED, false, leftConfirmed = true)))
+        // UI v9: 내렸어요 → 도착 요약 → [이동 기록 보기] → 리포트
+        assertEquals(Route.SUMMARY, route(Input(p, AppMode.ARRIVED, false, leftConfirmed = true)))
+        assertEquals(Route.TRIPLOG, route(Input(p, AppMode.ARRIVED, false, leftConfirmed = true, reportOpen = true)))
     }
 
     @Test

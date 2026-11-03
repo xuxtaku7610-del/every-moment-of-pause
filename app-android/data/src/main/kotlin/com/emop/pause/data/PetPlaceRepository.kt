@@ -46,8 +46,9 @@ enum class PlaceSource { SERVER, BUNDLED }
 data class Found<T>(val items: List<T>, val source: PlaceSource)
 
 /**
- * 함께 가는 장소(F4)·동물병원(F5). 서버(api_spec §2.5~2.7)가 없거나 실패하면 앱에 묶은 샘플
- * (server/app/data/sample_pet_places.json·sample_vets.json과 같은 파일)로 같은 계산을 기기에서 한다.
+ * 함께 가는 장소(F4)·동물병원(F5). 서버(api_spec §2.5~2.7)가 없거나 실패하면 앱에 묶은 내장 데이터로 같은 계산을 기기에서 한다.
+ * 내장 데이터 = 서버 DB의 실제 데이터를 내보낸 파일(data/embedded, scripts/export_embedded_places.py — TourAPI 반려동물 동반 장소·
+ * 영업 중 동물병원, 11/03). 파일에 `sample`이 없으면(옛 샘플 형식) 샘플로 본다.
  * 현재 위치·경로 좌표는 계산에만 쓰고 저장하지 않는다.
  */
 class PetPlaceRepository(
@@ -93,9 +94,16 @@ class PetPlaceRepository(
         return Found(hits, PlaceSource.BUNDLED)
     }
 
-    @Serializable private data class PlaceJson(val sourceId: String, val name: String, val category: String, val lat: Double, val lng: Double, val address: String? = null, val petPolicy: String? = null)
+    @Serializable private data class PlaceJson(
+        val sourceId: String, val name: String, val category: String, val lat: Double, val lng: Double,
+        val address: String? = null, val petPolicy: String? = null, val spaceNote: String? = null, val sizeNote: String? = null,
+        val companion: String? = null, val largeDogOk: Boolean? = null, val indoorOk: Boolean? = null, val sample: Boolean = true,
+    )
     @Serializable private data class PlacesDoc(val items: List<PlaceJson>)
-    @Serializable private data class VetJson(val licenseNo: String, val name: String, val lat: Double, val lng: Double, val address: String? = null, val phone: String? = null, val open: Boolean = true)
+    @Serializable private data class VetJson(
+        val licenseNo: String, val name: String, val lat: Double, val lng: Double, val address: String? = null, val phone: String? = null,
+        val open: Boolean = true, val sample: Boolean = true,
+    )
     @Serializable private data class VetsDoc(val items: List<VetJson>)
 
     companion object {
@@ -106,10 +114,15 @@ class PetPlaceRepository(
         private val json = Json { ignoreUnknownKeys = true }
 
         fun parsePlaces(text: String): List<PetPlace> = json.decodeFromString(PlacesDoc.serializer(), text).items
-            .map { PetPlace(it.sourceId, it.name, it.category, it.lat, it.lng, it.address, it.petPolicy, sample = true) }
+            .map {
+                PetPlace(
+                    it.sourceId, it.name, it.category, it.lat, it.lng, it.address, it.petPolicy, sample = it.sample,
+                    spaceNote = it.spaceNote, sizeNote = it.sizeNote, companion = it.companion, largeDogOk = it.largeDogOk, indoorOk = it.indoorOk,
+                )
+            }
 
         fun parseVets(text: String): List<Vet> = json.decodeFromString(VetsDoc.serializer(), text).items.filter { it.open }
-            .map { Vet(it.licenseNo, it.name, it.lat, it.lng, 0.0, it.address, it.phone, sample = true) }
+            .map { Vet(it.licenseNo, it.name, it.lat, it.lng, 0.0, it.address, it.phone, sample = it.sample) }
 
         private fun fromDto(d: PlaceDto) = PetPlace(
             d.placeId, d.name, d.category, d.lat, d.lng, d.address, d.petPolicy, d.sample, d.distanceAlongRouteKm, d.offRouteKm ?: d.distanceKm,

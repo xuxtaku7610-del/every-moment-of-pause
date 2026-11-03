@@ -16,6 +16,8 @@ sealed interface Screen {
     data class Places(val ui: PlacesUi) : Screen
     data class Vets(val ui: VetsUi) : Screen
     data class Arrival(val ui: ArrivalUi) : Screen
+    /** 도착 요약 ([내렸어요] 뒤 첫 화면, UI v9) → [이동 기록 보기]로 리포트. */
+    data class Summary(val ui: SummaryUi) : Screen
     /** 도착 후 기록 리포트 (타임라인). */
     data class TripLog(val ui: TripLogUi) : Screen
     /** 정차 중 "주행 자극 보기". */
@@ -61,7 +63,7 @@ enum class ServiceState(val no: Int, val title: String) {
 }
 
 /** 발표 모드에서 고정 장면을 보여 줄 때 (화면 검증·PT 예비용). [Fixtures.screen]이 상태를 만든다. */
-enum class Scene { DEPART, DRIVE, STIMULUS, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, DISTRESS, REST_CARE, REST, WAIT, WAIT_OVERDUE, WAIT_NOTEMP, PLACES, VETS, VETS_CALL, EMERGENCY, EMERGENCY_CARD, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
+enum class Scene { DEPART, DRIVE, STIMULUS, FORECAST, SUGGEST, NEARBY, URGENT, RESTRICTED, VET_DRIVE, DISTRESS, REST_CARE, REST, WAIT, WAIT_OVERDUE, WAIT_NOTEMP, PLACES, VETS, VETS_CALL, EMERGENCY, EMERGENCY_CARD, ARRIVAL, ARRIVAL_HOT, SUMMARY, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
 
 /** 화면 → ViewModel. 화면은 이 이벤트만 보내고, 무엇이 일어나는지는 ViewModel이 정한다. */
 sealed interface UiEvent {
@@ -71,6 +73,9 @@ sealed interface UiEvent {
     // 주행 (쉼표 추천 카드·음성 실패 시트)
     data object AcceptSuggestion : UiEvent
     data object DeclineSuggestion : UiEvent
+    /** 주변 추천 [들를게요]·[괜찮아요] (UI v9) — 쉼표 추천과 같은 응답 창. */
+    data object AcceptNearby : UiEvent
+    data object DeclineNearby : UiEvent
 
     // "콩이가 이상해요" (UPGRADE 7): 주행 중 카드 버튼, 정차 중 고르기
     data object AcceptDistress : UiEvent
@@ -124,6 +129,8 @@ sealed interface UiEvent {
 
     // 도착·기록 (F6·F7)
     data object ConfirmLeft : UiEvent
+    /** 도착 요약 [이동 기록 보기] → 기존 리포트. */
+    data object OpenReport : UiEvent
     data object FinishTrip : UiEvent
     /** 기록 리포트 "병원에 공유": 동물병원 화면으로 (공유 내용 미리보기·동의 후 전달). */
     data object ShareReport : UiEvent

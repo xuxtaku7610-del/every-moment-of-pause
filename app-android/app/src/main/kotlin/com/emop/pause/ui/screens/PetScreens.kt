@@ -111,12 +111,8 @@ fun DepartScreen(ui: DepartUi, on: On) {
     // 정차 화면 = 전체 창이 기준(프로필 · 체크 · 경로 3칸). 분할 창으로 볼 때는 같은 순서로 쌓고 스크롤 — 글자를 자르지 않는다.
     Page(ui.meta, on, scroll = false) { wc ->
         if (wc == WidthClass.FULL) {
-            // 세 칸은 화면 높이를 채우고, 가운데 체크 칸은 줄을 높이에 고르게 나눈다 — 체크 칸 아래가 비지 않게(11/01)
-            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-                DepartPet(ui, on, Modifier.weight(0.28f).fillMaxHeight(), wide = true)
-                DepartChecks(ui, on, Modifier.weight(0.38f).fillMaxHeight(), wide = true)
-                DepartRoute(ui, on, Modifier.weight(0.34f).fillMaxHeight(), wide = true)
-            }
+            // UI v9: 큰 카드 한 장(인사·사진 → 체크 | 경로 요약 → 긴급 도움·출발) — TripEndsV9.kt
+            DepartFull(ui, on, Modifier.fillMaxWidth().weight(1f))
         } else {
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
                 DepartPet(ui, on, Modifier.fillMaxWidth(), wide = false)
@@ -529,6 +525,8 @@ fun ArrivalScreen(ui: ArrivalUi, on: On) {
                 Column(m, verticalArrangement = Arrangement.spacedBy(d.gapS)) {
                     if (ui.warning == null) Text("시동이 꺼졌어요", style = Pause.type.metricLabel, color = c.sub)
                     Text(ui.question, style = Pause.type.title.copy(fontSize = Pause.type.title.fontSize * 1.5f, lineHeight = Pause.type.title.lineHeight * 1.5f), color = c.text)
+                    // 질문 아래 오늘 이동 요약 한 줄 (UI v9 7번) — 아래쪽이 비지 않게
+                    ui.tripLine?.let { Text(it, style = Pause.type.section, color = c.text) }
                     val warning = ui.warning
                     if (warning != null) {
                         AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_thermometer, iconAsset = "ic_thermometer") {
@@ -776,6 +774,7 @@ fun SettingsScreen(ui: SettingsUi, on: On, licenses: String) {
 
 // ───────────── 미리보기 (앱 영역 1680×1210dp, 배율 2) ─────────────
 
+@Preview(widthDp = 1264, heightDp = 1210) @Composable private fun PDepartHalf() = PauseTheme(false, 2f) { DepartScreen(Fixtures.depart) {} }
 @Preview(widthDp = 1680, heightDp = 1210) @Composable private fun PDepart() = PauseTheme(false, 2f) { DepartScreen(Fixtures.depart) {} }
 @Preview(widthDp = 1680, heightDp = 1210) @Composable private fun PWait() = PauseTheme(false, 2f) { WaitScreen(Fixtures.wait) {} }
 

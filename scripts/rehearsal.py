@@ -63,6 +63,22 @@ def tap(xy: tuple[int, int]) -> None:
     adb("shell", "input", "tap", str(xy[0]), str(xy[1]))
 
 
+# 발표 장면 시각 (DemoScenes.kt와 같게 — DemoScenesTest가 확인)
+POTTY_SEC = 4_620
+NEARBY_SEC = 10_040
+
+
+def open_report(name: str) -> bool:
+    """[내렸어요] 뒤 도착 요약(UI v9) → [이동 기록 보기]."""
+    xy = wait_for("이동 기록 보기", 15)
+    if not xy:
+        return False
+    time.sleep(1)
+    shot(name)
+    tap(xy)
+    return True
+
+
 def shot(name: str) -> None:
     with open(OUT / f"{name}.png", "wb") as f:
         f.write(subprocess.run(["adb", "exec-out", "screencap", "-p"], capture_output=True, env=ENV).stdout)
@@ -210,6 +226,8 @@ def main() -> int:
             return "막힘: 도착 체크가 100초 안에 안 나옴"
         shot("09-arrival")
         tap(xy)
+        if not open_report("09b-summary"):
+            return "막힘: 도착 요약에 이동 기록 보기가 안 뜸"
         if not wait_for("맞춤 정도", 15):
             return "막힘: 리포트에 맞춤 정도 줄이 안 뜸"
         # 점프 전에 말한 실시간 신고(구토)가 리포트 타임라인에 이어서 남는다 (결정 11/01)
@@ -303,12 +321,25 @@ def main() -> int:
         start(demo=False)
         return None
 
-    def walk():
-        start(seek=9660, action="play", speed=1)
-        # 실제 데이터에서는 목적지 3km 안 가장 가까운 동반 장소가 산책로가 아닐 수 있다(카페면 "쉬어 가기") → 앞부분으로 확인
-        if not wait_for("곧 도착해요", 40):
-            return "막힘: 도착 전 제안이 40초 안에 안 나옴"
-        shot("09-arrival-walk")
+    def potty():
+        # UI v9 (사용자 결정 11/03): 고속도로에서는 주변 장소 대신 쉼표 추천에 합친다 — 배변 15분 전이고 휴게소가 30분 안이면
+        # 쉼표 추천 이유 첫 줄이 "배변 시간이 다가와요". 점프로 3460·4060초 제안을 지나치면(따라잡기 = "나중에") 약 4660초에 다시 묻는다.
+        start(seek=POTTY_SEC, action="play", speed=1)
+        if not wait_for("배변 시간이 다가와요", 90):
+            return "막힘: 배변 임박 쉼표 추천이 90초 안에 안 나옴"
+        shot("03b-potty-suggest")
+        start(say="나중에")
+        return None
+
+    def nearby():
+        # UI v9 주변 추천: 일반 도로 + 목적지 10km 안 → 목적지 3km 산책로, 없으면 반려견 동반 쇼핑(실제 TourAPI 이름만)
+        start(seek=NEARBY_SEC, action="play", speed=1)
+        if not wait_for("들를게요", 90):
+            return "막힘: 주변 추천이 90초 안에 안 나옴 (서버·shop 분류 확인: demo_check.ps1 -Prepare)"
+        name = next((t for t, _ in nodes() if " 앞 · " in t), "?")
+        print(f"  주변 추천: {name}", flush=True)
+        shot("09-nearby")
+        start(say="나중에")
         return None
 
     def emergency():
@@ -344,6 +375,8 @@ def main() -> int:
             return "막힘: 도착 체크가 100초 안에 안 나옴"
         shot("10-arrival")
         tap(xy)
+        if not open_report("10b-summary"):
+            return "막힘: 도착 요약에 이동 기록 보기가 안 뜸"
         if not wait_for("오늘의 길", 15):
             return "막힘: 이동 기록이 안 뜸"
         time.sleep(3)
@@ -364,7 +397,8 @@ def main() -> int:
     if a.jumps:
         scenes = [(f"장면 점프 {a.jumps}회 → 쉼표 추천", jumps)]
     elif a.all:
-        scenes += [("(예비) 콩이가 헥헥거려", distress), ("(예비) 쉼표 추천", suggest), ("(예비) 휴게소·잠깐 대기", rest),
+        scenes += [("(예비) 콩이가 헥헥거려", distress), ("(예비) 쉼표 추천", suggest), ("(예비) 배변 임박 쉼표", potty),
+                   ("(예비) 주변 추천(도착 전)", nearby), ("(예비) 휴게소·잠깐 대기", rest),
                    ("(예비) 긴급 도움 → 위험 물질 → 병원", emergency)]
     for name, fn in scenes:
         step(name, fn)

@@ -87,7 +87,9 @@ def category_of(content_type: str, cat1: str | None, cat3: str | None) -> str | 
         return "lodging"
     if content_type == "12":
         return "walk" if cat1 == "A01" else "tour"  # A01 = 자연(공원·산책로)
-    if content_type in ("14", "28", "38"):
+    if content_type == "38":
+        return "shop"  # 쇼핑(반려동물 용품점·마켓) — 주행 중 주변 추천 "마켓" (UI v9)
+    if content_type in ("14", "28"):
         return "tour"
     return None
 
@@ -384,6 +386,12 @@ if __name__ == "__main__":
 
     from app.logmask import install
 
+    import sys
+
     logging.basicConfig(level=logging.INFO)
     install()
-    ingest(make_engine(get_settings().database_url))
+    # --cache-only: 7일 캐시에 있는 응답만 쓴다(외부 호출 0건) — 분류 규칙만 바뀌었을 때 다시 적재 (0006 shop)
+    if "--cache-only" in sys.argv:
+        ingest(make_engine(get_settings().database_url), fetch=lambda key: fetch_tour(key, budget=0))
+    else:
+        ingest(make_engine(get_settings().database_url))
