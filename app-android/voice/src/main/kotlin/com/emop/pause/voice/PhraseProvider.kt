@@ -7,6 +7,7 @@ import com.emop.pause.engine.planner.PlanDecision
 import com.emop.pause.engine.planner.Reason
 import com.emop.pause.engine.planner.RestPhrases
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.cancellation.CancellationException
 
 enum class PhraseSource { OLLAMA, TEMPLATE }
 
@@ -25,7 +26,16 @@ class PhraseProvider(
         val template = Phrase(petName?.let { RestPhrases.petSuggestion(d, it) } ?: RestPhrases.suggestion(d), PhraseSource.TEMPLATE)
         // 피로 HIGH 문장은 안전 문구라 다듬지 않고 템플릿 그대로 쓴다.
         val call = remote?.takeUnless { d.fatigueFirst } ?: return template
-        val text = withTimeoutOrNull(timeoutMs) { runCatching { call(facts(d, level, passengers)) }.getOrNull() }
+        // 취소(장면 점프)는 삼키지 않는다 — 삼키면 취소된 제안이 템플릿으로 이어져 화면을 덮는다 (BLOCKED 11/01).
+        val text = withTimeoutOrNull(timeoutMs) {
+            try {
+                call(facts(d, level, passengers))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+        }
         return if (text.isNullOrBlank()) template else Phrase(text, PhraseSource.OLLAMA)
     }
 

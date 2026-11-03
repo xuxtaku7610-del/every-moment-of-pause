@@ -49,9 +49,6 @@ object RestPhrases {
 
     fun later() = "알겠어요. 10분 뒤에 다시 알려 드릴게요."
 
-    /** 인식 실패 후 한 번만 다시 묻는다 (COMMERCIAL_READINESS C P0). */
-    fun askAgain() = "\"여기서 쉴게요\" 또는 \"나중에\"로 답해 주세요."
-
     /** "키즈존과 급속충전기": 앞말 받침에 따라 과/와. */
     fun joinWithAnd(words: List<String>): String = words.reduce { acc, w -> acc + (if (hasBatchim(acc)) "과 " else "와 ") + w }
 

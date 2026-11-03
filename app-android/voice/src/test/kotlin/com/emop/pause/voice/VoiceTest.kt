@@ -9,6 +9,9 @@ import com.emop.pause.engine.planner.Reason
 import com.emop.pause.engine.planner.RestStop
 import com.emop.pause.engine.planner.StopType
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -71,5 +74,17 @@ class VoiceTest {
         val p = PhraseProvider({ called = true; "x" })
         p.restSuggestion(suggest.copy(fatigueFirst = true), FatigueLevel.HIGH, passengers)
         assertEquals(false, called)
+    }
+
+    @Test
+    fun `장면 점프 취소는 템플릿으로 삼키지 않는다 (BLOCKED 11-01)`() = runTest {
+        val p = PhraseProvider({ delay(2_000); "늦은 문장" })
+        var finished = false
+        val job = launch { p.restSuggestion(suggest, FatigueLevel.LOW, passengers); finished = true }
+        advanceTimeBy(500)
+        job.cancel()
+        advanceUntilIdle()
+        assertTrue(job.isCancelled)
+        assertEquals(false, finished)
     }
 }
