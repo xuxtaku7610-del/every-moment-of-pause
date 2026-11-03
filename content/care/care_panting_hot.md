@@ -1,7 +1,7 @@
 ---
 title: 헐떡임 — 덥거나 여름
 reviewed: false
-sources: 열사병 응급 처치 일반 안내(미국수의사회 AVMA "Pets in vehicles", 영국 RSPCA "Dogs die in hot cars" — 검수 때 문서·링크 확인)
+sources: RSPCA — "Dogs die in hot cars" https://www.rspca.org.uk/adviceandwelfare/pets/dogs/health/dogsinhotcars (11/02 페이지 열어 확인); AVMA — "Pets in vehicles" (주소 사용자 확인 필요 — 자동으로 본문을 읽지 못함)
 ---
 - 그늘에 세우고 에어컨을 켠 채 창문을 조금 열어 주세요.
 - 물은 조금씩 자주 주세요. 한 번에 많이 마시게 하지 않아요.

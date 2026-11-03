@@ -59,7 +59,7 @@ object PetTripLog {
     fun vetSummary(name: String, trip: PetTripRecord, e: LimitEstimate?): List<String> = buildList {
         add("$name 이동 기록")
         add("주행 시간 ${duration(trip.drivingMin)}(휴식 제외) · 휴식 ${trip.stops}번")
-        add("주행 자극 최고 ${trip.motionPeak} (0~100, 차량 흔들림 기준 · 반려견 측정 아님)")
+        add("주행 자극 최고 ${trip.motionPeak} (0~100, 차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님)")
         trip.firstCautionMin?.let { add("주행 자극 보통 도달: 출발 ${duration(it)} 뒤") }
         e?.let { add("지난 여행 보통 도달: 약 ${duration(it.minutes)} (기록 ${it.basedOn}번)") }
         trip.symptomNote?.takeIf { it.isNotBlank() }?.let { add("관찰 신고: $it") }

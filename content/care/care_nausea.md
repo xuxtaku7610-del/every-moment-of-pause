@@ -1,7 +1,7 @@
 ---
-title: 침 흘림·하품 — 멀미 초기
+title: 침 흘림·하품 — 속이 불편할 때
 reviewed: false
-sources: 반려견 차멀미 일반 안내(침 흘림·하품·입맛 다심이 초기 신호라는 수의 일반 자료 — 검수 때 문서·링크 확인)
+sources: Merck Veterinary Manual (Merck & Co.) — "Motion Sickness in Dogs" https://www.merckvetmanual.com/dog-owners/brain-spinal-cord-and-nerve-disorders-of-dogs/motion-sickness-in-dogs (11/02 페이지 열어 확인: 침 흘림·하품·구토)
 ---
 - 정차 후 바람이 통하는 곳에서 5~10분 쉬게 해요.
 - 물은 조금만, 간식은 쉬는 동안 주지 않아요.

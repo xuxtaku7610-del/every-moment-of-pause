@@ -1,7 +1,7 @@
 ---
 title: 구토
 reviewed: false
-sources: 반려견 구토 시 일반 대처 안내(수의 일반 자료 — 검수 때 문서·링크 확인)
+sources: Merck Veterinary Manual (Merck & Co.) — "Vomiting in Dogs" https://www.merckvetmanual.com/dog-owners/digestive-disorders-of-dogs/vomiting-in-dogs (11/02 페이지 열어 확인: 반복 구토·기운 없음이면 진찰)
 ---
 - 물은 조금만 주고, 15분쯤 쉬게 해요.
 - 토사물은 닦아 내고, 바닥과 켄넬을 확인해요.
