@@ -22,6 +22,8 @@ sealed interface Screen {
     data class Stimulus(val ui: StimulusUi) : Screen
     data class PetProfile(val ui: PetEditUi) : Screen
     data class Settings(val ui: SettingsUi) : Screen
+    /** 긴급 도움 (정차 중만): 상황 고르기 → 응급 카드 + 가장 가까운 병원. */
+    data class Emergency(val ui: EmergencyUi) : Screen
     /** 첫 실행 3단계 (반려견 프로필 → 차량 연동 → 흔들림에 예민한 정도). */
     data class Onboarding(val ui: OnboardingUi) : Screen
 }
@@ -59,7 +61,7 @@ enum class ServiceState(val no: Int, val title: String) {
 }
 
 /** 발표 모드에서 고정 장면을 보여 줄 때 (화면 검증·PT 예비용). [Fixtures.screen]이 상태를 만든다. */
-enum class Scene { DEPART, DRIVE, STIMULUS, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, DISTRESS, REST_CARE, REST, WAIT, WAIT_OVERDUE, PLACES, VETS, VETS_CALL, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
+enum class Scene { DEPART, DRIVE, STIMULUS, FORECAST, SUGGEST, URGENT, RESTRICTED, VET_DRIVE, DISTRESS, REST_CARE, REST, WAIT, WAIT_OVERDUE, WAIT_NOTEMP, PLACES, VETS, VETS_CALL, EMERGENCY, EMERGENCY_CARD, ARRIVAL, ARRIVAL_HOT, TRIPLOG, PET, SETTINGS, ONBOARD_1, ONBOARD_2, ONBOARD_3 }
 
 /** 화면 → ViewModel. 화면은 이 이벤트만 보내고, 무엇이 일어나는지는 ViewModel이 정한다. */
 sealed interface UiEvent {
@@ -74,6 +76,11 @@ sealed interface UiEvent {
     data object AcceptDistress : UiEvent
     data object DismissDistress : UiEvent
     data class ReportDistress(val label: String) : UiEvent
+
+    // 긴급 도움 (정차 중만, 2026-11-03)
+    data object OpenEmergency : UiEvent
+    /** 상황 하나 고르기 (응급 카드 id). 같은 것을 다시 누르면 그대로. */
+    data class PickEmergency(val id: String) : UiEvent
 
     // 출발 체크
     data class ToggleCheck(val kind: CheckKind) : UiEvent

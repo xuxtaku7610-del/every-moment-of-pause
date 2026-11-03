@@ -37,6 +37,19 @@ class ScreenRouterTest {
     }
 
     @Test
+    fun `F10-05 긴급 도움은 정차 화면(대기 포함) 위에만, 주행이면 주행 화면`() {
+        for (m in AppMode.entries) assertEquals(Route.EMERGENCY, route(Input(p, m, false, overlay = Overlay.EMERGENCY)))
+        assertEquals(Route.EMERGENCY, route(Input(p, AppMode.PAUSE, false, overlay = Overlay.EMERGENCY, waiting = true)))
+        // 대기 중 "바로 동물병원 찾기" → 병원 화면
+        assertEquals(Route.VETS, route(Input(p, AppMode.PAUSE, false, overlay = Overlay.VETS, waiting = true)))
+        for (d in listOf(DriveState.DRIVING, DriveState.RESTRICTED)) {
+            assertEquals(Route.DRIVE, route(Input(d, AppMode.DRIVING, false, overlay = Overlay.EMERGENCY)))
+            assertEquals(Route.DRIVE, route(Input(d, AppMode.PAUSE, false, overlay = Overlay.EMERGENCY, waiting = true)))
+        }
+        assertEquals(com.emop.pause.uistate.ServiceState.STOPPED, ScreenRouter.serviceState(Route.EMERGENCY, null, false))
+    }
+
+    @Test
     fun `정차 중 AppMode별 화면`() {
         assertEquals(Route.DEPART, route(Input(p, AppMode.PREPARE, false)))
         assertEquals(Route.DRIVE, route(Input(p, AppMode.DRIVING, false)))

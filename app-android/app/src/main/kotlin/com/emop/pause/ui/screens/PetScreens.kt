@@ -94,6 +94,7 @@ import com.emop.pause.uistate.SizeUi
 import com.emop.pause.uistate.TendencyUi
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.VetsUi
+import com.emop.pause.uistate.EmergencyUi
 import com.emop.pause.uistate.WaitUi
 
 /*
@@ -151,6 +152,8 @@ private fun DepartPet(ui: DepartUi, on: On, m: Modifier, wide: Boolean) {
             Text(it, style = Pause.type.sub, color = c.text)
         }
         PauseButton("프로필 바꾸기", { on(UiEvent.OpenPet) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, compact = true)
+        // 긴급 도움 (11/03): 출발 버튼(경로 칸)과 떨어진 프로필 칸 아래
+        EmergencyButton(on, Modifier.fillMaxWidth(), compact = true)
     }
 }
 
@@ -229,6 +232,8 @@ fun RestScreen(ui: RestUi, on: On) {
                 PauseButton("잠깐 다녀올게 (${ui.waitLimitMin}분)", { on(UiEvent.StartWait) }, Modifier.fillMaxWidth())
                 PauseButton("함께 가는 장소", { on(UiEvent.OpenPlaces) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Place, compact = true)
                 PauseButton("동물병원", { on(UiEvent.OpenVets) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, compact = true)
+                // 긴급 도움 (11/03): 정차 화면 위 겹침으로 열린다. 기존 버튼 아래에 붙여 다른 버튼을 밀어내지 않는다
+                EmergencyButton(on, Modifier.fillMaxWidth())
                 if (ui.stimulusAvailable) PauseButton("주행 자극 보기", { on(UiEvent.OpenStimulus) }, Modifier.fillMaxWidth(), kind = ButtonKind.QUIET, compact = true)
             }
         }) { m ->
@@ -299,59 +304,7 @@ private fun RestColumns(wide: Boolean, a: @Composable (Modifier) -> Unit, b: @Co
     }
 }
 
-// ═════════════ 잠깐 대기 (F3): 바깥 사람이 읽는 차 화면 ═════════════
-
-@Composable
-fun WaitScreen(ui: WaitUi, on: On) {
-    val c = Pause.colors
-    val d = Pause.dimens
-    Page(null, on, scroll = false, background = if (ui.overdue) c.warningSoft else c.bg) { wc ->
-        ui.notice?.let { n -> AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_warning, iconAsset = "ic_warning") { Text(n, style = Pause.type.section, color = c.text) } }
-        ui.heat?.let { h -> AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_thermometer, iconAsset = "ic_thermometer") { Text(h, style = Pause.type.section, color = c.warningInk) } }
-        // 전체 창은 바깥 사람용 큰 글 | 차 안 상태 나란히, 1/2·1/3 창은 위아래(스크롤) — 숫자·버튼이 꺾이지 않게
-        val wide = wc == WidthClass.FULL
-        val body: @Composable (Modifier, Modifier) -> Unit = { left, right ->
-            Panel(left, pad = d.u(32f), spacing = d.gap) {
-                if (wide) Spacer(Modifier.weight(1f))
-                if (ui.overdue) StatusIcon("ic_warning", R.drawable.fe_warning, d.u(88f)) else StatusIcon("wait_house_dog", R.drawable.fe_house, d.u(112f))
-                Text(
-                    if (ui.overdue) "보호자에게 알렸어요" else ui.headline,
-                    style = Pause.type.title.copy(fontSize = Pause.type.title.fontSize * 1.5f, lineHeight = Pause.type.title.lineHeight * 1.5f),
-                    color = if (ui.overdue) c.warningInk else c.text,
-                )
-                Text(ui.elapsed, style = Pause.type.metric, color = c.text)
-                if (wide) Spacer(Modifier.weight(1f))
-                // 보호자 폰 주소는 QR로 (글자 주소는 작게 함께) — 차 밖에서 폰 카메라로 바로 연다
-                ui.share.url?.let { url ->
-                    LinkQr("보호자 폰" + if (ui.share.connected) "" else " (연결 확인 중)", url, "폰 카메라로 찍으면 대기 화면이 열려요", Modifier.fillMaxWidth())
-                } ?: Text("폰 공유 연결 안 됨 — 차 화면 안내는 계속돼요", style = Pause.type.sub, color = c.sub)
-            }
-            Panel(right, pad = d.u(24f), spacing = d.gapS) {
-                SectionHeader("차 안 상태")
-                Divider()
-                KeyValue("설정 시간", "${ui.limitMin}분")
-                ui.cabin?.let { KeyValue("실내 온도", it.removePrefix("실내 "), valueColor = if (ui.heat != null) c.warningInk else c.text) }
-                ui.batteryUsed?.let { KeyValue("배터리 사용", it) }
-                ui.seasonNote?.let { IconLine(Icons.Rounded.Thermostat, it, c.sub, maxLines = 2) }
-                if (wide) Spacer(Modifier.weight(1f))
-                Text("제한 시간 (분)", style = Pause.type.metricLabel, color = c.sub)
-                Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
-                    listOf(5, 10, 15, 20).forEach { m -> Choice("$m", ui.limitMin == m, { on(UiEvent.SetWaitLimit(m)) }, Modifier.weight(1f)) }
-                }
-                PauseButton("돌아왔어요", { on(UiEvent.StopWait) }, Modifier.fillMaxWidth())
-            }
-        }
-        if (wide) {
-            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-                body(Modifier.weight(0.62f).fillMaxHeight(), Modifier.weight(0.38f).fillMaxHeight())
-            }
-        } else {
-            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
-                body(Modifier.fillMaxWidth(), Modifier.fillMaxWidth())
-            }
-        }
-    }
-}
+// ═════════════ 잠깐 대기 (F3) → WaitScreen.kt (11/03 한눈에 크게) ═════════════
 
 // ═════════════ 함께 가는 장소 (F4) ═════════════
 
@@ -410,45 +363,62 @@ fun PlacesScreen(ui: PlacesUi, on: On) {
     }
 }
 
-// ═════════════ 동물병원 (F5, 정차 중) — 목록 + 사전 접수 ═════════════
+// ═════════════ 동물병원 (F5, 정차 중) — 가장 가까운 곳 먼저 + 사전 접수 + 다른 병원 ═════════════
 
+/**
+ * 위계 (긴급 도움 11/03): ① 가장 가까운 병원 이름·거리·도착 예정(값이 있을 때만) ② [경로 안내](주, 누를 때만 경유지) [전화](보조)
+ * ③ 사전 접수(제휴 병원만, 기존 그대로) / 제휴가 없으면 도착 예정 링크 ④ "다른 병원 보기"(목록). 아래 고정 "응급 판단이나 진단을 대신하지 않아요."
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VetsScreen(ui: VetsUi, on: On) {
     val c = Pause.colors
     val d = Pause.dimens
+    var others by rememberSaveable { mutableStateOf(false) }
     BackHandler { on(UiEvent.Close) }
-    Page(null, on, scroll = true, title = "동물병원", trailing = { CloseButton(on) }) { wc ->
-        // 전체 창은 목록 | 사전 접수 나란히, 1/2·1/3 창은 위아래로(병원 이름이 잘리지 않게, 페이지가 스크롤)
-        SideBySide(wc == WidthClass.FULL, 0.55f, { m ->
-            Panel(m, pad = d.u(24f), spacing = d.gapS) {
-                SectionHeader("가까운 동물병원", trailing = "${ui.items.size}곳")
-                if (ui.loading) Text("찾는 중…", style = Pause.type.body, color = c.sub)
-                if (!ui.loading && ui.items.isEmpty()) Text("근처에 찾은 곳이 없어요.", style = Pause.type.body, color = c.sub)
-                ui.items.forEachIndexed { i, v ->
-                    Divider()
-                    Row(verticalAlignment = Alignment.Top) {
-                        NumberBadge(i + 1, active = i == 0)
-                        Spacer(Modifier.width(d.gap))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(d.u(4f))) {
-                            // 병원 이름은 줄이지 않는다(2줄까지), 상태 알약은 이름 아래
-                            Text(if (v.sample) v.name.removePrefix("[샘플] ") else v.name, style = Pause.type.section, color = c.text, maxLines = 2)
-                            Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
-                                v.status?.let { StatusChip(it, MotionTone.CALM) }
-                                if (v.partner) StatusChip("시연용 제휴") else if (v.sample) StatusChip("샘플", neutral = true)
-                            }
-                            Text(listOfNotNull(v.distance, v.minutes?.let { "약 ${it}분" }, v.phone).joinToString(" · "), style = Pause.type.body, color = c.sub, maxLines = 1)
-                        }
-                        Spacer(Modifier.width(d.gapS))
-                        PauseButton("안내 시작", { on(UiEvent.GoVet(v.id)) }, icon = Icons.Rounded.Navigation, compact = true, kind = if (i == 0) ButtonKind.PRIMARY else ButtonKind.SECONDARY)
+    Page(null, on, scroll = false, title = "동물병원", trailing = { CloseButton(on) }) { wc ->
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
+            // 전체 창은 가까운 병원·목록 | 사전 접수 나란히, 1/2·1/3 창은 위아래로(병원 이름이 잘리지 않게)
+            SideBySide(wc == WidthClass.FULL, 0.55f, { m ->
+                Column(m, verticalArrangement = Arrangement.spacedBy(d.gap)) {
+                    val first = ui.items.firstOrNull()
+                    Panel(Modifier.fillMaxWidth(), pad = d.u(24f), spacing = d.gapS) {
+                        SectionHeader("가장 가까운 동물병원", trailing = if (ui.items.isNotEmpty()) "${ui.items.size}곳 중" else null)
+                        if (ui.loading) Text("찾는 중…", style = Pause.type.body, color = c.sub)
+                        if (!ui.loading && first == null) Text("근처에 찾은 곳이 없어요.", style = Pause.type.body, color = c.sub)
+                        first?.let { NearestVet(it, on) }
                     }
+                    if (ui.items.size > 1) {
+                        Panel(Modifier.fillMaxWidth(), pad = d.u(20f), spacing = d.gapS) {
+                            PauseButton(if (others) "다른 병원 접기" else "다른 병원 보기 (${ui.items.size - 1}곳)", { others = !others }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, compact = true)
+                            if (others) ui.items.drop(1).forEachIndexed { i, v ->
+                                Divider()
+                                Row(verticalAlignment = Alignment.Top) {
+                                    NumberBadge(i + 2, active = false)
+                                    Spacer(Modifier.width(d.gap))
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(d.u(4f))) {
+                                        // 병원 이름은 줄이지 않는다(2줄까지), 상태 알약은 이름 아래
+                                        Text(if (v.sample) v.name.removePrefix("[샘플] ") else v.name, style = Pause.type.section, color = c.text, maxLines = 2)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
+                                            v.status?.let { StatusChip(it, MotionTone.CALM) }
+                                            if (v.partner) StatusChip("시연용 제휴") else if (v.sample) StatusChip("샘플", neutral = true)
+                                        }
+                                        Text(listOfNotNull(v.distance, v.minutes?.let { "약 ${it}분" }, v.phone).joinToString(" · "), style = Pause.type.body, color = c.sub, maxLines = 1)
+                                    }
+                                    Spacer(Modifier.width(d.gapS))
+                                    PauseButton("경로 안내", { on(UiEvent.GoVet(v.id)) }, icon = Icons.Rounded.Navigation, compact = true, kind = ButtonKind.SECONDARY)
+                                }
+                            }
+                        }
+                    }
+                    ui.note?.let { Text(it, style = Pause.type.caption, color = c.sub) }
                 }
-                ui.note?.let { Text(it, style = Pause.type.caption, color = c.sub) }
+            }) { m ->
+                val target = ui.items.firstOrNull()
+                if (target?.partner == true || ui.intake != null) IntakePanel(ui, on, m) else ContactPanel(ui, on, m)
             }
-        }) { m ->
-            val target = ui.items.firstOrNull()
-            if (target?.partner == true || ui.intake != null) IntakePanel(ui, on, m) else ContactPanel(ui, on, m)
         }
+        Text(EmergencyUi.DISCLAIMER, style = Pause.type.sub, color = c.sub)
     }
 }
 
@@ -518,8 +488,7 @@ private fun ContactPanel(ui: VetsUi, on: On, m: Modifier) {
     Panel(m, pad = d.u(24f), spacing = d.gapS) {
         SectionHeader("병원에 연락")
         Text("이 병원은 사전 접수 연동이 없어요. 전화로 증상과 도착 시간을 알려 주세요.", style = Pause.type.body, color = c.text)
-        v?.let { Text(it.name.removePrefix("[샘플] "), style = Pause.type.section, color = c.text) }
-        Text(v?.phone ?: "전화번호 정보 없음", style = Pause.type.title, color = if (v?.phone != null) c.primary else c.sub)
+        // 병원 이름·전화번호는 위 "가장 가까운 동물병원"에 있다 (같은 번호를 두 번 크게 쓰지 않는다, 11/03)
         ui.tripLine?.let { KeyValue("오늘 요약", it) }
         Divider()
         PauseButton("도착 예정 링크 만들기", { v?.let { on(UiEvent.ShareVetEta(it.id)) } }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Send, enabled = v != null)
@@ -604,7 +573,7 @@ private fun ProfileForm(ui: PetEditUi, on: On) {
         }
         FieldLabel("흔들림에 예민한 정도 (보호자 응답)")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
-            listOf(TendencyUi.LOW to "거의 안 해요", TendencyUi.NORMAL to "가끔", TendencyUi.HIGH to "자주 해요").forEach { (t, l) -> Choice(l, ui.tendency == t, { on(UiEvent.SetPetTendency(t)) }) }
+            TendencyUi.entries.forEach { t -> Choice(tendencyWord(t), ui.tendency == t, { on(UiEvent.SetPetTendency(t)) }) }
         }
         FieldLabel("배변·산책 간격")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
@@ -783,7 +752,7 @@ fun SettingsScreen(ui: SettingsUi, on: On, licenses: String) {
                 ui.credits.forEach { Text(it, style = Pause.type.caption, color = c.sub) }
             }
         }
-        Text("같이가개 ${ui.version} · 주행 자극은 차량 흔들림 기준이며 반려견 측정·진단이 아니에요.", style = Pause.type.sub, color = c.sub)
+        Text("같이가개 ${ui.version} · 주행 자극은 차량 흔들림(가속·제동·회전) 기준이며 반려견 측정·진단이 아니에요.", style = Pause.type.sub, color = c.sub)
         if (licenses.isNotBlank()) Text(licenses.take(400), style = Pause.type.caption, color = c.sub)
     }
 }

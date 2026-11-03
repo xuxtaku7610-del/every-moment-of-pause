@@ -29,6 +29,7 @@ import com.emop.pause.ui.screens.DemoActions
 import com.emop.pause.ui.screens.DemoPanel
 import com.emop.pause.ui.screens.DepartScreen
 import com.emop.pause.ui.screens.DriveScreen
+import com.emop.pause.ui.screens.EmergencyScreen
 import com.emop.pause.ui.screens.PetProfileScreen
 import com.emop.pause.ui.screens.PlacesScreen
 import com.emop.pause.ui.screens.RestScreen
@@ -114,6 +115,9 @@ class MainActivity : ComponentActivity() {
      * - scene: 시안 장면 고정 (drive, calm, urgent, …, none) / forceWidth: 앱 폭(dp) 강제 / demo: 발표 모드 패널
      * - onboard: done이면 첫 실행 프로필 화면 건너뜀, reset이면 내 데이터 삭제 후 처음부터
      * - shareBase: 보호자 폰이 여는 대기 페이지 주소 앞부분 (예: `--es shareBase http://192.168.0.10:8000`)
+     * - door: 시뮬레이터 문 상태 rear | driver | both | closed | none(시나리오 값) — 문 이벤트 수동 재현
+     * - captureClean: true면 "시연 데이터" 표시를 숨김 (스토어 스크린샷 캡처 전용, false로 되돌림)
+     * - emergency: 긴급 도움 toxin | breathing | seizure | bleeding (그 카드) | menu (상황 고르기) | none (닫기) — 정차 중만
      */
     private fun applyDebugExtras(intent: Intent?) {
         if (!BuildConfig.DEBUG || intent == null) return
@@ -127,6 +131,7 @@ class MainActivity : ComponentActivity() {
         }
         intent.getStringExtra("say")?.let(viewModel::reply)
         intent.getStringExtra("scene")?.let { n -> viewModel.setScene(Scene.entries.firstOrNull { it.name.equals(n, true) }) }
+        if (intent.hasExtra("captureClean")) viewModel.setCaptureClean(intent.getBooleanExtra("captureClean", false))
         if (intent.hasExtra("forceWidth")) forceWidth = intent.getIntExtra("forceWidth", 0)
         if (intent.hasExtra("demo")) viewModel.setDemoOpen(intent.getBooleanExtra("demo", false))
         if (intent.hasExtra("compare")) viewModel.setCompareOpen(intent.getBooleanExtra("compare", false))
@@ -135,6 +140,8 @@ class MainActivity : ComponentActivity() {
         if (intent.hasExtra("cabin")) viewModel.setDemoCabin(intent.getIntExtra("cabin", 0).toFloat())
         intent.getStringExtra("shareBase")?.let(viewModel::setShareBase)
         intent.getStringExtra("calib")?.let(viewModel::seedCalibration)
+        intent.getStringExtra("door")?.let(viewModel::setDemoDoors)
+        intent.getStringExtra("emergency")?.let(viewModel::adbEmergency)
         when (intent.getStringExtra("onboard")) {
             "done" -> viewModel.skipProfile()
             "reset" -> viewModel.deleteData()
@@ -183,6 +190,7 @@ fun PauseRoot(ui: AppUiState, licenses: String, on: (UiEvent) -> Unit) {
         is Screen.Wait -> WaitScreen(sc.ui, on)
         is Screen.Places -> PlacesScreen(sc.ui, on)
         is Screen.Vets -> VetsScreen(sc.ui, on)
+        is Screen.Emergency -> EmergencyScreen(sc.ui, on)
         is Screen.Arrival -> ArrivalScreen(sc.ui, on)
         is Screen.TripLog -> TripLogScreen(sc.ui, on)
         is Screen.Stimulus -> StimulusScreen(sc.ui, on)

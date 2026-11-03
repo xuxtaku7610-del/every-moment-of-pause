@@ -3,6 +3,7 @@ package com.emop.pause
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.emop.pause.core.model.DoorState
 import com.emop.pause.core.model.LatLng
 import com.emop.pause.core.model.MotionTendency
 import com.emop.pause.core.model.PetProfile
@@ -44,6 +45,7 @@ import com.emop.pause.uistate.IntakeUi
 import com.emop.pause.trip.SymptomMemoStore
 import com.emop.pause.trip.CareRepository
 import com.emop.pause.engine.pet.DistressKind
+import com.emop.pause.engine.pet.EmergencyKind
 import com.emop.pause.engine.pet.PetDistress
 import com.emop.pause.data.PlaceSource
 import com.emop.pause.trip.ShapeMode
@@ -53,6 +55,8 @@ import com.emop.pause.engine.motion.MotionAnswer
 import com.emop.pause.engine.motion.MotionCalibration
 import com.emop.pause.uistate.ActivityKind
 import com.emop.pause.uistate.AppUiState
+import com.emop.pause.uistate.EmergencyCardUi
+import com.emop.pause.uistate.EmergencyUi
 import com.emop.pause.uistate.Fixtures
 import com.emop.pause.uistate.Scene
 import com.emop.pause.uistate.Screen
@@ -92,6 +96,8 @@ data class SavedTrip(val id: String, val record: PetTripRecord, val series: List
 data class AppState(
     val overlay: Overlay = Overlay.NONE,
     val demoOpen: Boolean = false,
+    /** 디버그 adb `--ez captureClean true`: 스토어 스크린샷 캡처 때만 "시연 데이터" 표시를 숨긴다(11/03). 앱 기본 동작은 false. */
+    val captureClean: Boolean = false,
     val scene: Scene? = null,
     val restChoice: Int = 15,
     /** 프로필 편집 중인 값 (저장 전). */
@@ -125,6 +131,8 @@ data class AppState(
     /** 이 반려견 개인 보정 기록 수·계수 (프로필 화면 문구). */
     val calibrationCount: Int = 0,
     val calibrationScale: Double = 1.0,
+    /** 긴급 도움에서 고른 상황 (응급 카드 id). 안 골랐으면 null. */
+    val emergency: String? = null,
 )
 
 @HiltViewModel
@@ -198,6 +206,8 @@ class MainViewModel @Inject constructor(
                 if (a.goingVet != null) {
                     if (s.mode == AppMode.DRIVING && !a.vetDriving) _app.update { it.copy(vetDriving = true) }
                     else if (s.mode != AppMode.DRIVING && a.vetDriving) _app.update { it.copy(goingVet = null, vetDriving = false) }
+                    // 새 여행(출발 전)이면 지난 병원 안내는 끝낸다 (긴급 도움 "경로 안내" 뒤 출발하지 않고 새 여행을 시작한 경우, 11/03)
+                    else if (s.mode == AppMode.PREPARE) _app.update { it.copy(goingVet = null, vetDriving = false) }
                 }
                 tickIntake(s)
             }
@@ -228,15 +238,24 @@ class MainViewModel @Inject constructor(
             Route.DEPART -> Screen.Depart(UiMapper.depart(s, t, a.limit?.let { PetTripLog.limitPhrase(t.pet.name, it) }, t.profileSaved == true || s.simSetup?.pet != null))
             Route.REST -> Screen.Rest(
                 UiMapper.rest(s, t, a.restChoice, recorder.currentStop, t.wait.limitSec / 60)
-                    .copy(care = t.careId?.let(care::ui), distressChips = DISTRESS_CHIPS.map { it.first }),
+                    .copy(care = t.careId?.let { care.ui(it, showDrafts(s, a)) }, distressChips = DISTRESS_CHIPS.map { it.first }),
             )
-            Route.WAIT -> Screen.Wait(UiMapper.wait(t.wait, t))
+            Route.WAIT -> Screen.Wait(UiMapper.wait(t.wait, t, acOn = s.sample.hvacAcOn))
             Route.PLACES -> Screen.Places(UiMapper.places(a.along, a.near, a.loading))
             Route.VETS -> Screen.Vets(
                 UiMapper.vets(a.vets, a.loading, a.vetMemo, a.etaUrl, a.memoListening, todayLine(a)).copy(
                     intake = a.intake?.let(::intakeUi),
                     preview = (a.goingVet ?: a.vets?.items?.firstOrNull())?.takeIf { it.partner }
                         ?.let { v -> UiMapper.vetPreview(t.pet.name, a.vetMemo, todayLine(a), UiMapper.vetMinutes(v.distanceKm)) }.orEmpty(),
+                ),
+            )
+            Route.EMERGENCY -> Screen.Emergency(
+                EmergencyUi(
+                    EmergencyUi.OPTIONS,
+                    selected = a.emergency,
+                    card = a.emergency?.let { care.emergency(it, showDrafts(s, a)) },
+                    vet = UiMapper.vets(a.vets, a.loading).items.firstOrNull(),
+                    vetLoading = a.loading,
                 ),
             )
             Route.ARRIVAL -> Screen.Arrival(UiMapper.arrival(t))
@@ -260,9 +279,13 @@ class MainViewModel @Inject constructor(
             scene = a.scene,
             state = ScreenRouter.serviceState(route, (screen as? Screen.Drive)?.ui?.content, a.goingVet != null),
             // 시뮬레이터 값·발표 장면 고정은 화면에 "시연 데이터"를 붙인다 (재정비 원칙 5)
-            demoData = simulation || route == Route.SCENE,
+            demoData = (simulation || route == Route.SCENE) && !a.captureClean,
         )
     }
+
+    /** 검수 전 돌봄·응급 카드 본문을 보여 줄지: 디버그 빌드, 발표 모드(패널), 시뮬레이터 시연만. 릴리스 실차는 검수된 카드만. */
+    private fun showDrafts(s: Snapshot, a: AppState): Boolean =
+        EmergencyCardUi.showDrafts(BuildConfig.DEBUG, a.demoOpen || s.source == SourceMode.SIMULATION)
 
     /** 화면 → ViewModel 이벤트 하나로 받는다. 마이크 권한 창은 Activity가 먼저 띄운다. */
     fun onEvent(e: UiEvent) {
@@ -276,7 +299,9 @@ class MainViewModel @Inject constructor(
             UiEvent.OpenSettings -> _app.update { it.copy(overlay = Overlay.SETTINGS) }
             UiEvent.OpenPlaces -> openPlaces()
             UiEvent.OpenVets -> openVets()
-            UiEvent.Close -> _app.update { it.copy(overlay = Overlay.NONE, petDraft = null, profileSkipped = true) }
+            UiEvent.Close -> _app.update { it.copy(overlay = Overlay.NONE, petDraft = null, profileSkipped = true, emergency = null) }
+            UiEvent.OpenEmergency -> openEmergency(null)
+            is UiEvent.PickEmergency -> openEmergency(e.id)
             is UiEvent.StartActivity -> if (e.kind == ActivityKind.PET_WALK) recorder.onPetWalk()
             is UiEvent.SetRestMinutes -> _app.update { it.copy(restChoice = e.minutes) }
             UiEvent.StartWait -> trip.startWait()
@@ -328,7 +353,23 @@ class MainViewModel @Inject constructor(
     fun pause() = runtime.pause()
     fun setSpeed(multiplier: Int) = runtime.setSpeed(multiplier)
     fun seek(tSec: Double) = runtime.seek(tSec)
-    fun reply(text: String) = trip.reply(text)
+    /** 들은 말. 정차 중 응급 말("콩이 초콜릿 먹었어")이면 긴급 도움 카드도 같이 연다 (기록·음성은 기존 흐름 그대로). */
+    fun reply(text: String) {
+        val s = snapshot.value
+        if (!s.driveState.forcesDrivingUi && PetDistress.classify(text) == DistressKind.EMERGENCY) {
+            openEmergency(PetDistress.emergencyKind(text)?.id)
+        }
+        trip.reply(text)
+    }
+
+    /** 디버그 adb `--es emergency toxin|breathing|seizure|bleeding|menu|none` (시연 재현). */
+    fun adbEmergency(v: String) {
+        when (v.lowercase()) {
+            "none" -> _app.update { it.copy(overlay = Overlay.NONE, emergency = null) }
+            "menu" -> openEmergency(null)
+            else -> openEmergency(EmergencyKind.of(v)?.id)
+        }
+    }
 
     // ───────────── 발표 모드 ─────────────
     /** 로고 5번 탭(3초 안) → 숨은 발표 모드 패널. 릴리스에도 있다. */
@@ -341,10 +382,23 @@ class MainViewModel @Inject constructor(
         }
     }
     fun setDemoOpen(open: Boolean) = _app.update { it.copy(demoOpen = open) }
+    /** 디버그 전용 (Activity가 BuildConfig.DEBUG일 때만 부른다): 캡처용으로 "시연 데이터" 표시 숨김. */
+    fun setCaptureClean(on: Boolean) = _app.update { it.copy(captureClean = on) }
     fun setCompareOpen(open: Boolean) = _app.update { it.copy(compareOpen = open) }
     /** 발표 장면 실내 온도 (시뮬레이터만, UPGRADE 7). */
     fun setDemoCabin(c: Float?) {
         trip.demoCabinTempC = c
+    }
+
+    /** 발표용 문 상태 (디버그 adb `--es door`): rear·driver·both = 그 문 열림, closed = 모두 닫힘, none = 시나리오 값으로. */
+    fun setDemoDoors(name: String) {
+        trip.demoDoors = when (name) {
+            "rear" -> DoorState.CLOSED.copy(rearRightOpen = true)
+            "driver" -> DoorState.CLOSED.copy(driverOpen = true)
+            "both" -> DoorState(driverOpen = true, rearLeftOpen = false, rearRightOpen = true)
+            "closed" -> DoorState.CLOSED
+            else -> null
+        }
     }
 
     /**
@@ -452,8 +506,25 @@ class MainViewModel @Inject constructor(
     }
 
     private fun openVets() {
+        _app.update { it.copy(overlay = Overlay.VETS) }
+        loadVets()
+    }
+
+    /**
+     * 긴급 도움 (정차 중만 — 주행 중이면 화면 선택이 주행 화면을 먼저 고른다). [id]가 있으면 그 응급 카드.
+     * 가장 가까운 병원 요약을 바로 보이도록 병원 목록을 함께 불러온다(이미 있으면 그대로).
+     */
+    private fun openEmergency(id: String?) {
+        if (snapshot.value.driveState.forcesDrivingUi) return
+        val fresh = _app.value.overlay != Overlay.EMERGENCY
+        _app.update { it.copy(overlay = Overlay.EMERGENCY, emergency = id ?: it.emergency.takeIf { _ -> !fresh }) }
+        // 처음 열 때만 지금 위치로 병원 목록을 새로 (고르기만 바꿀 때는 그대로 — 화면이 깜빡이지 않게)
+        if (fresh || _app.value.vets == null) loadVets()
+    }
+
+    private fun loadVets() {
         val at = here(snapshot.value) ?: snapshot.value.route?.destination
-        _app.update { it.copy(overlay = Overlay.VETS, loading = true) }
+        _app.update { it.copy(loading = true) }
         viewModelScope.launch {
             val found = at?.let { places.vetsNear(it) }?.let { f -> f.copy(items = DemoPartner.prepend(f.items, at, snapshot.value.source == SourceMode.SIMULATION)) }
             _app.update { it.copy(vets = found, loading = false) }
@@ -757,6 +828,7 @@ class MainViewModel @Inject constructor(
             row("방위 (주행 자극 예보 횡가속)", Signal.HEADING),
             row("배터리·충전", Signal.BATTERY_SOC, Signal.CHARGING),
             row("실내 온도 측정값 (대기·도착 경고)", Signal.HVAC_TEMP),
+            row("문 열림 (도착·잠깐 내릴 때)", Signal.DOOR),
         )
     }
 

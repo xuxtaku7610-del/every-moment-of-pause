@@ -26,6 +26,12 @@ import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,7 +62,8 @@ import com.emop.pause.uistate.UiEvent
 
 /*
  * 도착 후 기록 리포트 (2026-10-31 재정비 상태 8, 기존 이동 기록 대체). 정차 화면이라 전체 창 레이아웃이 기준이다.
- * 위: 요약 한 줄(총 이동 시간 · 거리 · 휴식 · 관찰 신고) → 왼쪽 주인공 시간순 타임라인 | 오른쪽 주행 자극 그래프(타임라인 위치 표시)·병원 공유.
+ * 첫 화면(11/02 간소화): 요약 한 줄(총 이동 시간 · 거리 · 휴식 · 관찰 신고) + 시간순 타임라인(맞춤 정도 한 줄 포함)만.
+ * "주행 자극 자세히 보기"를 누르면 주행 자극 그래프(타임라인 위치 표시)와 병원에 보여 줄 내용(공유 버튼·지난 기록)으로 바꾼다.
  * 경로선은 그리지 않는다(위치를 남기지 않음). 값은 기록만, 없는 줄은 뺀다. 1/2·1/3 창은 같은 순서로 쌓고 스크롤한다.
  */
 
@@ -66,27 +73,42 @@ private val phrase = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Ph
 @Composable
 fun TripLogScreen(ui: TripLogUi, on: On) {
     val d = Pause.dimens
+    var detail by rememberSaveable { mutableStateOf(false) }
+    // 긴급 도움 (11/03): 전체 창은 앱 바 맨 앞, 1/2·1/3 창은 앱 바가 좁아 기존 두 버튼이 밀려나므로 화면 맨 아래 (기존 버튼은 그대로)
+    var wideBar by remember { mutableStateOf(true) }
     Page(ui.meta, on, scroll = false, trailing = {
         Spacer(Modifier.width(d.gap))
+        if (wideBar) {
+            EmergencyButton(on, compact = true)
+            Spacer(Modifier.width(d.gapS))
+        }
+        PauseButton(if (detail) "타임라인 보기" else "주행 자극 자세히 보기", { detail = !detail }, kind = ButtonKind.SECONDARY, compact = true)
+        Spacer(Modifier.width(d.gapS))
         PauseButton("기록 확인", { on(UiEvent.FinishTrip) }, compact = true)
     }) { wc ->
+        SideEffect { wideBar = wc == WidthClass.FULL }
         if (wc == WidthClass.FULL) {
             Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(d.gapS)) {
                 SummaryBar(ui, wide = true)
-                Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
-                    TimelinePanel(ui, Modifier.weight(0.44f).fillMaxHeight(), scroll = true)
-                    Column(Modifier.weight(0.56f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(d.gapS)) {
-                        ChartPanel(ui, Modifier.fillMaxWidth().weight(1f))
-                        SharePanel(ui, on, Modifier.fillMaxWidth())
+                if (detail) {
+                    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
+                        ChartPanel(ui, Modifier.weight(0.6f).fillMaxHeight())
+                        SharePanel(ui, on, Modifier.weight(0.4f))
                     }
+                } else {
+                    TimelinePanel(ui, Modifier.fillMaxWidth().weight(1f), scroll = true)
                 }
             }
         } else {
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
                 SummaryBar(ui, wide = wc == WidthClass.HALF)
-                TimelinePanel(ui, Modifier.fillMaxWidth(), scroll = false)
-                ChartPanel(ui, Modifier.fillMaxWidth().height(d.u(240f)))
-                SharePanel(ui, on, Modifier.fillMaxWidth())
+                if (detail) {
+                    ChartPanel(ui, Modifier.fillMaxWidth().height(d.u(240f)))
+                    SharePanel(ui, on, Modifier.fillMaxWidth())
+                } else {
+                    TimelinePanel(ui, Modifier.fillMaxWidth(), scroll = false)
+                }
+                EmergencyButton(on, Modifier.fillMaxWidth(), compact = true)
             }
         }
     }
@@ -148,11 +170,13 @@ private fun TimelinePanel(ui: TripLogUi, modifier: Modifier, scroll: Boolean) {
         Column(if (scroll) Modifier.weight(1f).verticalScroll(rememberScrollState()) else Modifier) {
             if (ui.timeline.isEmpty()) Text("기록이 아직 없어요", style = Pause.type.body, color = c.sub)
             ui.timeline.forEachIndexed { i, item -> TimelineRow(item, last = i == ui.timeline.lastIndex) }
-            ui.insight?.let {
-                Divider(Modifier.padding(vertical = d.unit))
-                Text(it, style = Pause.type.body.copy(lineBreak = phrase), color = c.text)
-            }
         }
+        // 한 줄 요약과 개인 보정 한 줄(PT3 "쓸수록 맞춰짐")은 스크롤 밖 아래에 고정 — 타임라인이 길어도 첫 화면에 보인다
+        ui.insight?.let {
+            Divider(Modifier.padding(vertical = d.unit))
+            Text(it, style = Pause.type.body.copy(lineBreak = phrase), color = c.text)
+        }
+        ui.calibration?.let { Text(it, style = Pause.type.caption, color = c.sub) }
     }
 }
 
@@ -177,13 +201,15 @@ private fun TimelineRow(item: TimelineUi, last: Boolean) {
     }
 }
 
-/** 주행 자극 그래프: 시간축, 타임라인 항목 위치 표시, 고정 문구 "차량 흔들림 기준 · 반려견 측정 아님". */
+/** 주행 자극 그래프: 시간축, 타임라인 항목 위치 표시, 고정 문구 "차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님". */
 @Composable
 private fun ChartPanel(ui: TripLogUi, modifier: Modifier) {
     val c = Pause.colors
     val d = Pause.dimens
     Panel(modifier, pad = d.u(16f), spacing = d.u(4f)) {
-        SectionHeader("주행 자극", trailing = STIMULUS_NOTE)
+        SectionHeader("주행 자극")
+        // 고정 문구는 제목 아래 한 줄 (좁은 창에서 제목 옆에 두면 잘린다, 11/03 문구를 늘림)
+        Text(STIMULUS_NOTE, style = Pause.type.caption, color = c.sub)
         TrendChart(ui.stimulusSeries, Modifier.fillMaxWidth().weight(1f), marks = ui.marks)
         if (ui.stimulusSeries.size >= 2) {
             TrendLegend(
@@ -197,7 +223,7 @@ private fun ChartPanel(ui: TripLogUi, modifier: Modifier) {
     }
 }
 
-/** 병원에 보여 줄 내용(이름 | 값) + "병원에 공유" 버튼 + 맞춤 정도·지난 기록. */
+/** 병원에 보여 줄 내용(이름 | 값) + "병원에 공유" 버튼 + 지난 기록 (맞춤 정도는 첫 화면 타임라인 아래). */
 @Composable
 private fun SharePanel(ui: TripLogUi, on: On, modifier: Modifier) {
     val c = Pause.colors
@@ -215,7 +241,7 @@ private fun SharePanel(ui: TripLogUi, on: On, modifier: Modifier) {
                 Text(r.value, style = valueStyle, color = c.text, maxLines = 2, modifier = Modifier.weight(1f))
             }
         }
-        listOfNotNull(ui.calibration, ui.history.firstOrNull()?.let { "지난 기록 ${it.date} · ${it.line}" }).forEach {
+        listOfNotNull(ui.history.firstOrNull()?.let { "지난 기록 ${it.date} · ${it.line}" }).forEach {
             Text(it, style = Pause.type.caption, color = c.sub, maxLines = 1)
         }
     }

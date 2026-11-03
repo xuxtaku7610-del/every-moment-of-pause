@@ -1,5 +1,6 @@
 package com.emop.pause.trip
 
+import com.emop.pause.core.model.DoorState
 import com.emop.pause.core.model.RouteTurn
 import com.emop.pause.core.model.TripPhase
 import com.emop.pause.core.model.PetProfile
@@ -18,6 +19,7 @@ import com.emop.pause.engine.pet.DistressAction
 import com.emop.pause.engine.pet.DistressAdvice
 import com.emop.pause.engine.pet.DistressKind
 import com.emop.pause.engine.pet.DistressSignals
+import com.emop.pause.engine.pet.EmergencyKind
 import com.emop.pause.engine.pet.PetDistress
 import com.emop.pause.engine.planner.StopType
 import com.emop.pause.data.Vet
@@ -27,6 +29,9 @@ import kotlin.math.roundToInt
 import com.emop.pause.engine.pet.ArrivalInput
 import com.emop.pause.engine.pet.ArrivalPrompt
 import com.emop.pause.engine.pet.BoardingCheck
+import com.emop.pause.engine.pet.DoorEvent
+import com.emop.pause.engine.pet.DoorInput
+import com.emop.pause.engine.pet.DoorWatch
 import com.emop.pause.engine.pet.CheckItem
 import com.emop.pause.engine.pet.Josa
 import com.emop.pause.engine.pet.WaitEvent
@@ -74,6 +79,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
@@ -153,6 +160,8 @@ data class DistressRecord(
     val simSec: Int? = null,
     /** 보호자가 실제로 말한 신고(발표 대본 장면이 아님) — 장면 점프 뒤에도 이어서 남긴다 (결정 11/01). */
     val live: Boolean = false,
+    /** 응급이면 상황 종류 (긴급 도움, 11/03) — [label]도 그 이름("위험 물질 섭취"). */
+    val emergency: EmergencyKind? = null,
 )
 
 /** 장면 점프 때 이어서 남길 실시간 신고 (사용자 결정 11/01): 같은 여행(시나리오)이고 점프 끝 시각 안쪽인 것만, 시뮬레이터 초별로. */
@@ -210,6 +219,14 @@ class TripCoordinator @Inject constructor(
     private var toastJob: Job? = null
     /** 안전 경고 > 제안 > 안내 > 배경음, 오디오 포커스 (COMMERCIAL_READINESS C P0). */
     private val speech = SpeechQueue(speechOut, focus, scope)
+    /** 쉼표 제안 응답(음성 8초 → 버튼). 감시·화면 반영은 엔진 스레드와 다른 스레드에서 (BLOCKED 11/01). */
+    private val watchScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val gate = ReplyGate(
+        listen = { ms -> speechIn.listen(ms) },
+        listenScope = scope,
+        watchScope = watchScope,
+        onStuck = { turn -> android.util.Log.w("PauseVoice", "듣기 상태가 ${ReplyGate.VOICE_MS}ms를 넘어 버튼으로 바꿈 turn=$turn") },
+    )
     private var lastMode: AppMode? = null
     /** 앱 시작 뒤 저장된 여행을 한 번만 확인한다. */
     private var resumeChecked = false
@@ -226,24 +243,16 @@ class TripCoordinator @Inject constructor(
     /** 기기에 저장된 반려견 프로필 (실차). 시뮬레이션은 시나리오 값을 쓴다. */
     @Volatile private var savedPet: PetProfile? = null
 
-    init {
-        scope.launch { runtime.snapshot.collect(::onSnapshot) }
-        scope.launch { runtime.replays.collect(::replay) }
-        scope.launch { share.state.collect { st -> _ui.update { it.copy(share = st) } } }
-        scope.launch {
-            savedPet = runCatching { petStore.profile() }.getOrNull()
-            _ui.update { it.copy(profileSaved = savedPet != null) }
-            savedPet?.let { p -> if (brain == null && runtime.snapshot.value.simSetup?.pet == null) _ui.update { it.copy(pet = p) } }
-        }
-    }
-
     /** 들은 말 (STT 결과, 카드 버튼, 디버그 주입). "콩이가 헥헥거려" 같은 반려견 이상이면 그 안내가 먼저(UPGRADE 7),
      *  "잠깐 다녀올게"면 대기 모드, 그 밖의 말은 제안 응답으로 듣기 창에 넘긴다. */
     fun reply(text: String) {
-        PetDistress.classify(text)?.let { reportDistress(it); return }
+        PetDistress.classify(text)?.let { reportDistress(it, PetDistress.emergencyKind(text)); return }
         when (VoiceIntent.parse(text)) {
             Utterance.StartWait -> startWait()
-            is Utterance.Answer -> replies.trySend(text)
+            is Utterance.Answer -> {
+                replies.trySend(text)
+                gate.offer(text)
+            }
         }
     }
 
@@ -308,7 +317,7 @@ class TripCoordinator @Inject constructor(
      * 점프로 지나간 "콩이가 이상해요" — 발표 장면(DemoScenes `say`)과 점프 전에 보호자가 실제로 말한 신고([live]):
      * 안내·음성·장소 없이 증상 기록과 잠시 오른 민감도만 남긴다.
      */
-    private fun replayDistress(kind: DistressKind, cabinTempC: Float?, s: Snapshot, live: Boolean = false) {
+    private fun replayDistress(kind: DistressKind, cabinTempC: Float?, s: Snapshot, live: Boolean = false, emergency: EmergencyKind? = null) {
         val t = _ui.value
         val drivingMin = (t.motion.drivingSec / 60).toInt()
         val signals = DistressSignals(
@@ -318,17 +327,18 @@ class TripCoordinator @Inject constructor(
             motionIndex = t.motion.personal,
             motionRising = t.motion.personal >= MotionConstants.CAUTION || (t.forecast?.personalPredicted ?: 0) > t.motion.personal,
         )
-        val advice = PetDistress.advise(kind, signals)
+        val advice = PetDistress.advise(kind, signals, emergency)
         if (advice.boost > 1.0) brain?.boost(advice.boost, s.nowMs)
-        _ui.update { it.copy(distressEvents = it.distressEvents + record(kind, drivingMin, s, t).copy(live = live)) }
+        _ui.update { it.copy(distressEvents = it.distressEvents + record(kind, drivingMin, s, t, emergency).copy(live = live)) }
         // 점프로 지나간 장면의 신고는 개인 보정에 넣지 않는다(실시간 신고는 말한 때 이미 넣었다) (발표 점프를 반복할 때마다 표본이 쌓여 숫자가 바뀌지 않게)
         auto.onReport(kind, t.motionRecent.maxOrNull() ?: t.motion.index)
     }
 
-    private fun record(kind: DistressKind, drivingMin: Int, s: Snapshot, t: TripUi) =
+    private fun record(kind: DistressKind, drivingMin: Int, s: Snapshot, t: TripUi, emergency: EmergencyKind? = null) =
         DistressRecord(
-            PetDistress.label(kind), drivingMin, kind, s.clockMinute, s.sample.speedKph, t.motion.index,
+            PetDistress.label(kind, emergency), drivingMin, kind, s.clockMinute, s.sample.speedKph, t.motion.index,
             simSec = s.simTimeSec.toInt().takeIf { s.source == SourceMode.SIMULATION },
+            emergency = emergency.takeIf { kind == DistressKind.EMERGENCY },
         )
 
     /** 개인 보정 자동 표본 (신고·높음 구간 뒤 조용함). ViewModel이 받아 기기에 저장한다. */
@@ -339,11 +349,12 @@ class TripCoordinator @Inject constructor(
     /** 발표 장면용 실내 온도(시뮬레이터 여름 장면). 실차에서는 쓰지 않는다 — 측정값만. */
     @Volatile var demoCabinTempC: Float? = null
 
-    fun reportDistress(kind: DistressKind) {
-        scope.launch { handleDistress(kind) }
+    /** [emergency] = 응급 상황 종류(말에서 고른 것, 없으면 null) — 문구·행동은 같고 카드·기록 이름만 달라진다. */
+    fun reportDistress(kind: DistressKind, emergency: EmergencyKind? = null) {
+        scope.launch { handleDistress(kind, emergency) }
     }
 
-    private suspend fun handleDistress(kind: DistressKind) {
+    private suspend fun handleDistress(kind: DistressKind, emergency: EmergencyKind? = null) {
         val s = runtime.snapshot.value
         val t = _ui.value
         val drivingMin = (t.motion.drivingSec / 60).toInt()
@@ -355,7 +366,7 @@ class TripCoordinator @Inject constructor(
             motionIndex = t.motion.personal,
             motionRising = t.motion.personal >= MotionConstants.CAUTION || (t.forecast?.personalPredicted ?: 0) > t.motion.personal,
         )
-        val advice = PetDistress.advise(kind, signals)
+        val advice = PetDistress.advise(kind, signals, emergency)
         val stop = DistressStops.pick(advice.action, t.stops, t.traveledKm)
         // 응급이면 가까운 병원 — 시뮬레이터는 시연용 제휴 병원을 맨 앞에(사전 접수 시연), 실차는 실제 병원만(전화·링크)
         val vet = if (advice.action == DistressAction.VET) here(s)?.let { at ->
@@ -368,7 +379,7 @@ class TripCoordinator @Inject constructor(
             it.copy(
                 distress = DistressState(kind, advice, stop, vet, minutes),
                 careId = advice.care,
-                distressEvents = it.distressEvents + record(kind, drivingMin, s, t).copy(live = true),
+                distressEvents = it.distressEvents + record(kind, drivingMin, s, t, emergency).copy(live = true),
             )
         }
         auto.onReport(kind, t.motionRecent.maxOrNull() ?: t.motion.index)?.let { _calibration.tryEmit(it) }
@@ -463,14 +474,46 @@ class TripCoordinator @Inject constructor(
         if (!silent && WaitEvent.Overdue in events) scope.launch { say(WAIT_OVERDUE, SpeechPriority.SAFETY) }
         val near = s.trip == TripPhase.ACTIVE && (s.eta?.remainDistanceM ?: Int.MAX_VALUE) <= ARRIVE_NEAR_M
         val ending = s.mode == AppMode.ARRIVED || s.trip == TripPhase.ENDED || near
-        val prompt = boarding.tick(ArrivalInput(s.nowMs, s.sample.gear, s.sample.parkingBrakeOn, ending, s.sample.hvacTempC, java.time.LocalDate.now().monthValue))
-            ?: return
-        _ui.update { it.copy(arrival = prompt) }
+        val arrivalInput = ArrivalInput(s.nowMs, s.sample.gear, s.sample.parkingBrakeOn, ending, s.sample.hvacTempC, java.time.LocalDate.now().monthValue)
+        val doorEvents = doorWatch.tick(
+            DoorInput(
+                gear = s.sample.gear,
+                parkingBrakeOn = s.sample.parkingBrakeOn,
+                doors = (if (s.source == SourceMode.SIMULATION) demoDoors else null) ?: s.sample.doors,
+                tripActive = s.trip != TripPhase.NOT_STARTED,
+                tripEnding = ending,
+                waitActive = waitMode.status.active,
+                leftConfirmed = boarding.confirmedLeft,
+            ),
+        )
+        // a) 뒷문이 열리면 60초를 기다리지 않고 바로 묻는다. c) 운전석 문이 먼저 열려도 아직 안 물었으면 지금 묻는다.
+        val now = if (DoorEvent.ARRIVAL_CHECK in doorEvents || DoorEvent.LEFT_BEHIND in doorEvents) boarding.promptNow(arrivalInput) else null
+        val prompt = boarding.tick(arrivalInput) ?: now
+        if (prompt != null) _ui.update { it.copy(arrival = prompt) }
         if (silent) return
         val name = _ui.value.pet.name
-        val line = if (prompt.strong) "$name 내렸나요? 차 안이 더워질 수 있어요. 꼭 확인해 주세요." else "$name 내렸나요?"
-        scope.launch { say(line, if (prompt.strong) SpeechPriority.SAFETY else SpeechPriority.SUGGESTION) }
+        if (DoorEvent.WAIT_OFFER in doorEvents) scope.launch {
+            showToast(WAIT_DOOR_OFFER)
+            say(WAIT_DOOR_OFFER, SpeechPriority.SUGGESTION)
+        }
+        if (DoorEvent.LEFT_BEHIND in doorEvents) {
+            // 기존 "내렸나요?" 안전 안내를 한 번만 (반복·경적·외부 전송 없음). 앞에 문 신호 사실만 붙인다.
+            val strong = (prompt ?: boarding.pending)?.strong == true
+            scope.launch { say("$DOOR_OPENED ${arrivalLine(name, strong)}", SpeechPriority.SAFETY) }
+            return
+        }
+        prompt ?: return
+        scope.launch { say(arrivalLine(name, prompt.strong), if (prompt.strong) SpeechPriority.SAFETY else SpeechPriority.SUGGESTION) }
     }
+
+    private fun arrivalLine(name: String, strong: Boolean) =
+        if (strong) "$name 내렸나요? 차 안이 더워질 수 있어요. 꼭 확인해 주세요." else "$name 내렸나요?"
+
+    /** 문 이벤트 (차량 이벤트 연결, 2026-11-02). 문 신호가 없으면 아무것도 하지 않는다. */
+    private val doorWatch = DoorWatch()
+
+    /** 발표용 문 상태 (디버그 adb `--es door rear|driver|both|closed|none`). 시뮬레이터에서만 시나리오 값보다 먼저 쓴다. */
+    @Volatile var demoDoors: DoorState? = null
 
     private val _replayed = MutableSharedFlow<List<ReplayTick>>(extraBufferCapacity = 1)
 
@@ -506,7 +549,7 @@ class TripCoordinator @Inject constructor(
                 }
             }
             scripted[s.simTimeSec.toInt()]?.let { (kind, cabin) -> if (brain != null) replayDistress(kind, cabin, s) }
-            live[s.simTimeSec.toInt()]?.forEach { r -> if (brain != null) replayDistress(r.kind!!, null, s, live = true) }
+            live[s.simTimeSec.toInt()]?.forEach { r -> if (brain != null) replayDistress(r.kind!!, null, s, live = true, emergency = r.emergency) }
             ticks += ReplayTick(s, _ui.value)
         }
         brain?.policy?.onAccepted()
@@ -744,6 +787,7 @@ class TripCoordinator @Inject constructor(
 
     private fun reset() {
         voiceJob?.cancel()
+        gate.invalidate()
         lastMode = null
         lastReplanMs = null
         lastSaveMs = null
@@ -754,6 +798,7 @@ class TripCoordinator @Inject constructor(
         previewFor = null
         waitMode.stop()
         boarding.reset()
+        doorWatch.reset()
         auto.reset()
         _ui.value = TripUi(pet = savedPet ?: PetProfile.DEFAULT, share = share.state.value, profileSaved = _ui.value.profileSaved)
     }
@@ -768,27 +813,20 @@ class TripCoordinator @Inject constructor(
 
     private suspend fun suggest(b: TripBrain, d: PlanDecision.Suggest) {
         val level = b.state.fatigue?.level ?: return
+        val turn = gate.begin()
         val phrase = phrases.restSuggestion(d, level, setup.passengers, setup.pet.name)
-        while (replies.tryReceive().isSuccess) Unit // 지난 응답은 버린다
-        _ui.update { it.copy(asking = d, suggestion = phrase.text, voice = VoicePhase.IDLE) }
-        var answer = Reply.UNKNOWN
+        // 문장을 받는 사이 점프·초기화가 있었으면 이 제안은 없던 것으로 한다 (늦게 닿은 취소가 화면을 덮지 않게).
+        currentCoroutineContext().ensureActive()
+        if (!gate.isCurrent(turn)) return
+        _ui.update { it.copy(asking = d, suggestion = phrase.text) }
         // 피로 위험 제안은 안전 경고로 낸다 (큐에서 가장 먼저, 포커스가 없어도 말한다).
         val priority = if (d.fatigueFirst) SpeechPriority.SAFETY else SpeechPriority.SUGGESTION
-        if (voiceEnabled) {
-            say(phrase.text, priority)
-            answer = listenOnce()
-            if (answer == Reply.UNKNOWN) {
-                // 한 번 더 묻고 끝 (C P0).
-                say(RestPhrases.askAgain(), priority)
-                answer = listenOnce()
-            }
+        // 음성은 8초 한 번, 못 들으면 버튼(응답이 없으면 "나중에"). 음성 제안을 껐으면 바로 버튼.
+        val answer = try {
+            gate.await(turn, voiceEnabled) { say(phrase.text, priority) }
+        } finally {
+            if (gate.isCurrent(turn)) _ui.update { it.copy(asking = null, suggestion = null) }
         }
-        if (answer == Reply.UNKNOWN) {
-            // 인식 실패(또는 음성 꺼짐): 버튼으로 고르게 한다. 응답이 없으면 "나중에".
-            _ui.update { it.copy(voice = if (voiceEnabled) VoicePhase.FAILED else VoicePhase.IDLE) }
-            answer = ReplyIntent.parse(withTimeoutOrNull(BUTTON_WAIT_MS) { replies.receive() })
-        }
-        _ui.update { it.copy(asking = null, suggestion = null, voice = VoicePhase.IDLE) }
         val now = runtime.snapshot.value.nowMs
         when (answer) {
             Reply.YES -> {
@@ -806,19 +844,8 @@ class TripCoordinator @Inject constructor(
         }
     }
 
-    /** 8초 듣기 창. 그 사이 버튼 응답이 오면 그걸 쓴다. */
     /** 증상 메모 받아쓰기 한 번 (UPGRADE 3, 정차 중 화면 버튼). 못 들으면 null. */
     suspend fun dictate(): String? = runCatching { speechIn.listen(DICTATE_MS) }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
-
-    private suspend fun listenOnce(): Reply {
-        _ui.update { it.copy(voice = VoicePhase.LISTENING) }
-        val text = withTimeoutOrNull(REPLY_WAIT_MS) {
-            val listening = scope.launch { speechIn.listen(REPLY_WAIT_MS)?.let(replies::trySend) ?: replies.trySend("") }
-            replies.receive().also { listening.cancel() }
-        }
-        _ui.update { it.copy(voice = VoicePhase.IDLE) }
-        return ReplyIntent.parse(text)
-    }
 
     private suspend fun suggestWalk(dest: LatLng) {
         val place = ArrivalWalk.pick(petPlaces.near(dest, ArrivalWalk.RADIUS_M, ArrivalWalk.CATEGORIES).items) ?: return
@@ -841,18 +868,34 @@ class TripCoordinator @Inject constructor(
         if (voiceEnabled) speech.say(text, priority)
     }
 
+    // 수집은 모든 속성을 만든 뒤에 시작한다 — 엔진 스레드가 생성자보다 먼저 onSnapshot을 부르면 아래에 선언된
+    // 속성(auto·shapeMode·motionScale 등)이 아직 null/0이다(릴리스 R8 빌드 첫 실행 NPE, 2026-11-02).
+    init {
+        scope.launch { runtime.snapshot.collect(::onSnapshot) }
+        scope.launch { runtime.replays.collect(::replay) }
+        scope.launch { share.state.collect { st -> _ui.update { it.copy(share = st) } } }
+        watchScope.launch { gate.state.collect { g -> _ui.update { if (it.voice == g.phase) it else it.copy(voice = g.phase) } } }
+        scope.launch {
+            savedPet = runCatching { petStore.profile() }.getOrNull()
+            _ui.update { it.copy(profileSaved = savedPet != null) }
+            savedPet?.let { p -> if (brain == null && runtime.snapshot.value.simSetup?.pet == null) _ui.update { it.copy(pet = p) } }
+        }
+    }
+
     private companion object {
         /** 0초 점프 뒤 지금 프레임을 다시 읽기 전 기다림 (시뮬레이터 seek가 끝나도록). */
         private const val REPLAY_SETTLE_MS = 300L
 
-        const val REPLY_WAIT_MS = 8_000L
         const val DICTATE_MS = 10_000L
         const val REPLAN_MS = 5 * 60_000L
-        const val BUTTON_WAIT_MS = 15_000L
         const val TOAST_MS = 8_000L
         const val RESUME_PHRASE = "이어서 안내할게요."
         const val WAIT_PARK_ONLY = "차가 P단일 때만 대기 모드를 켤 수 있어요."
         const val WAIT_OVERDUE = "대기 시간이 지났어요. 보호자 화면에도 알렸어요."
+        /** 문 신호 사실 (docs/wording.md 11/02 차량 이벤트). */
+        const val DOOR_OPENED = "문이 열렸어요."
+        /** b) 휴게소 P단 + 운전석 문: 대기 모드는 켜지 않고 진입 방법만. */
+        const val WAIT_DOOR_OFFER = "문이 열렸어요. 차에 두고 다녀오면 \"잠깐 다녀올게\"라고 말해 주세요."
 
         /** 목적지 이만큼 안에서 P단이면 여행이 끝나는 중으로 본다 (F6). */
         const val ARRIVE_NEAR_M = 300

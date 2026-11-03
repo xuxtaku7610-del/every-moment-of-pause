@@ -116,7 +116,7 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                         "${compare.unguidedSec / 60}분 → ${compare.guidedSec / 60}분 (굽이 최저 ${compare.guidedMinKph}km/h)",
                     style = Pause.type.label, color = c.text,
                 )
-                Text("차량 흔들림 기준 · 반려견 측정 아님, 대관령 옛길(© OpenStreetMap, ODbL), 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.sub)
+                Text("차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님, 대관령 옛길(© OpenStreetMap, ODbL), 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.sub)
             }
             Choice("고갯길 비교 크게 보기 (정차 중)", false) { a.compareBig() }
             Section("앞 구간 형상 (지금: ${trip.shapeSource ?: "-"}) — 바꾼 뒤 장면 이동부터")
@@ -174,6 +174,7 @@ private fun signalRows(s: Snapshot, trip: TripUi): List<Pair<String, String>> = 
     add("charging" to sig(s, Signal.CHARGING, s.sample.charging?.toString()))
     add("hvac temp" to sig(s, Signal.HVAC_TEMP, s.sample.hvacTempC?.let { "%.1f ℃".format(Locale.US, it) }))
     add("recirc" to sig(s, Signal.HVAC_RECIRCULATION, s.sample.recirculationOn?.toString()))
+    add("doors" to sig(s, Signal.DOOR, s.sample.doors?.let { d -> "운전석 ${d.driverOpen} · 뒤 ${d.rearLeftOpen}/${d.rearRightOpen}" }))
     add("ETA" to (s.eta?.let { "${it.remainDistanceM / 1000} km · ${it.remainTimeSec / 60} 분" } ?: "-"))
     add("motion" to "${trip.motion.index} ${trip.motion.level} · 최고 ${trip.motion.peak} · 횡가속 ${trip.motion.lateralSource}")
     add("forecast" to (trip.forecast?.let { "${it.startInM.toInt()}m 뒤 ${it.durationSec}s · 예상 ${it.predictedIndex} · 권장 ${it.recommendedKph}km/h" } ?: "-"))

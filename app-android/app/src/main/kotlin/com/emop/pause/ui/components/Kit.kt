@@ -78,7 +78,8 @@ import com.emop.pause.uistate.TrendMarkUi
  * 그림자 없음. 영역은 패널(흰 면 + 얇은 테두리) 하나에 구분선으로 나누고, 카드를 겹쳐 쌓지 않는다.
  */
 
-enum class ButtonKind { PRIMARY, SECONDARY, DANGER, QUIET }
+/** [WARNING] = 긴급 도움 (연한 앰버 면 + 앰버 테두리 + warningInk 글자, 파란 주 버튼과 구분 — 11/03). */
+enum class ButtonKind { PRIMARY, SECONDARY, DANGER, QUIET, WARNING }
 
 /** 주 버튼(파랑)·보조(흰 면 + 테두리)·조용한(글자만). 높이 56×배율(최소 76dp). 비활성은 실행 차단 + disabled 색. */
 @Composable
@@ -101,6 +102,7 @@ fun PauseButton(
         kind == ButtonKind.PRIMARY -> (if (pressed) c.primaryPressed else c.primary) to c.onPrimary
         kind == ButtonKind.DANGER -> (if (pressed) c.surfaceAlt else c.surface) to c.danger
         kind == ButtonKind.QUIET -> (if (pressed) c.surfaceAlt else Color.Transparent) to c.primary
+        kind == ButtonKind.WARNING -> (if (pressed) c.surfaceAlt else c.warningSoft) to c.warningInk
         else -> (if (pressed) c.surfaceAlt else c.surface) to c.text
     }
     val shape = RoundedCornerShape(d.buttonRadius)
@@ -109,7 +111,13 @@ fun PauseButton(
             .heightIn(min = maxOf(if (compact) d.u(44f) else d.buttonHeight, d.touch))
             .clip(shape)
             .background(bg)
-            .then(if (kind == ButtonKind.SECONDARY || kind == ButtonKind.DANGER) Modifier.border(d.border, c.border, shape) else Modifier)
+            .then(
+                when {
+                    kind == ButtonKind.WARNING && enabled -> Modifier.border(d.border * 2, c.warning, shape)
+                    kind == ButtonKind.SECONDARY || kind == ButtonKind.DANGER || kind == ButtonKind.WARNING -> Modifier.border(d.border, c.border, shape)
+                    else -> Modifier
+                },
+            )
             .clickable(src, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = d.u(if (compact) 16f else 24f)),
         horizontalArrangement = Arrangement.Center,

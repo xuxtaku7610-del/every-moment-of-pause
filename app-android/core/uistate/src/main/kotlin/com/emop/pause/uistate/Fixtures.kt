@@ -122,9 +122,16 @@ object Fixtures {
         overdue = false,
         share = ShareUi("http://192.168.0.10:8000/wait/k3J9x2", true),
         batteryUsed = "1%",
+        temp = "24℃",
     )
 
-    val waitOverdue = wait.copy(elapsed = "11분째", overdue = true, cabin = "실내 27℃", heat = "실내 온도가 오르고 있어요 (24℃ → 27℃)", batteryUsed = null, battery = null)
+    val waitOverdue = wait.copy(
+        elapsed = "11분째", overdue = true, cabin = "실내 27℃", temp = "27℃", heat = "실내 온도가 오르고 있어요 (24℃ → 27℃)",
+        batteryUsed = null, battery = null, overdueLine = "설정한 10분이 지났어요",
+    )
+
+    /** 실내 온도 신호가 없는 차 (온도 줄을 숨긴다). */
+    val waitNoTemp = wait.copy(cabin = null, temp = null, seasonNote = null)
 
     val places = PlacesUi(
         title = "함께 가는 장소",
@@ -195,7 +202,7 @@ object Fixtures {
         share = listOf(
             VetRowUi("관찰 신고", "헐떡임 1회 (출발 39분 뒤, 주행 중)"),
             VetRowUi("주행", "2시간 43분(휴식 제외) · 194km · 휴식 1번"),
-            VetRowUi("주행 자극", "최고 55 (차량 흔들림 기준 · 반려견 측정 아님)"),
+            VetRowUi("주행 자극", "최고 55 (차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님)"),
         ),
         history = listOf(HistoryUi("10월 26일", "강릉 · 2시간 58분 · 신고 없음"), HistoryUi("10월 19일", "속초 · 2시간 16분 · 신고 1건")),
         calibration = "콩이 맞춤 정도: 기록 4회, 민감도 보통 → 조금 높음",
@@ -211,6 +218,21 @@ object Fixtures {
         ),
         version = "1.0.0",
         shapeSource = "시연 경로 (OSM GPX)",
+    )
+
+    val emergency = EmergencyUi(EmergencyUi.OPTIONS)
+
+    val emergencyCard = emergency.copy(
+        selected = "toxin",
+        card = EmergencyCardUi(
+            id = "toxin",
+            title = "위험 물질 섭취",
+            lines = listOf("먹은 것·양·시각을 확인하고, 포장이나 남은 것을 챙겨요.", "억지로 토하게 하지 않아요."),
+            source = "출처: RSPCA",
+            reviewed = false,
+            hidden = false,
+        ),
+        vet = vetsCall.items.first(),
     )
 
     fun onboarding(step: Int) = OnboardingUi(
@@ -235,9 +257,12 @@ object Fixtures {
         Scene.REST -> Screen.Rest(rest)
         Scene.WAIT -> Screen.Wait(wait)
         Scene.WAIT_OVERDUE -> Screen.Wait(waitOverdue)
+        Scene.WAIT_NOTEMP -> Screen.Wait(waitNoTemp)
         Scene.PLACES -> Screen.Places(places)
         Scene.VETS -> Screen.Vets(vets)
         Scene.VETS_CALL -> Screen.Vets(vetsCall)
+        Scene.EMERGENCY -> Screen.Emergency(emergency)
+        Scene.EMERGENCY_CARD -> Screen.Emergency(emergencyCard)
         Scene.ARRIVAL -> Screen.Arrival(arrival)
         Scene.ARRIVAL_HOT -> Screen.Arrival(arrivalHot)
         Scene.TRIPLOG -> Screen.TripLog(tripLog)

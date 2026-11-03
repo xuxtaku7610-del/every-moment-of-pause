@@ -74,7 +74,7 @@ fun CompareScreen(ui: CompareChartUi, onClose: () -> Unit) {
             Fact("소요 시간", CompareChart.extraLabel(ui.extraSec), Modifier.weight(1f), c.text)
             Fact("실제 도로", "대관령 옛길 ${CompareChart.kmLabel(ui.roadKm)}", Modifier.weight(1f), c.text, "OpenStreetMap")
         }
-        Text("시뮬레이션 결과 · 차량 흔들림 기준, 반려견 측정 아님 · 지도 © OpenStreetMap contributors (ODbL) · docs/plan/demo_compare.md", style = Pause.type.caption, color = c.sub)
+        Text("시뮬레이션 결과 · 차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님 · 지도 © OpenStreetMap contributors (ODbL) · docs/plan/demo_compare.md", style = Pause.type.caption, color = c.sub)
     }
 }
 

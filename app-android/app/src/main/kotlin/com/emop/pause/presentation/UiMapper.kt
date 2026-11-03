@@ -56,6 +56,8 @@ import com.emop.pause.uistate.VetUi
 import com.emop.pause.uistate.VetsUi
 import com.emop.pause.uistate.VoiceSheetState
 import com.emop.pause.uistate.WaitUi
+import com.emop.pause.uistate.WAIT_ENGLISH
+import com.emop.pause.uistate.WAIT_ENGLISH_RETURNING
 import com.emop.pause.uistate.motionLabel
 import com.emop.pause.uistate.motionTone
 import com.emop.pause.core.model.EtaInfo
@@ -357,7 +359,8 @@ object UiMapper {
 
     fun elapsed(sec: Int) = if (sec >= 60) "${sec / 60}분째" else "${sec}초째"
 
-    fun wait(w: WaitStatus, t: TripUi, month: Int = java.time.LocalDate.now().monthValue): WaitUi = WaitUi(
+    /** [acOn] = 공조 에어컨 신호(Pleos `registerHvacAcState`)가 실제로 켜짐일 때만 true. 없거나 꺼짐이면 표시하지 않는다. */
+    fun wait(w: WaitStatus, t: TripUi, month: Int = java.time.LocalDate.now().monthValue, acOn: Boolean? = null): WaitUi = WaitUi(
         // 보호자가 폰 페이지에서 "돌아가는 중"을 누르면 차 화면 문구가 바뀐다.
         headline = if (t.share.returning) "주인이 돌아오는 중이에요" else "주인이 곧 돌아와요",
         elapsed = elapsed(w.elapsedSec),
@@ -372,6 +375,10 @@ object UiMapper {
         notice = if (w.elapsedSec < NOTICE_SEC) WAIT_NOTICE else null,
         heat = if (w.heatRising) "실내 온도가 오르고 있어요 (${w.cabinTempStartC?.roundToInt() ?: "?"}℃ → ${w.cabinTempC?.roundToInt()}℃)" else null,
         seasonNote = CabinHeat.seasonNote(w.cabinTempC, month),
+        temp = w.cabinTempC?.let { "${it.roundToInt()}℃" },
+        acOn = acOn == true,
+        english = if (t.share.returning) WAIT_ENGLISH_RETURNING else WAIT_ENGLISH,
+        overdueLine = if (w.overdue) "설정한 ${w.limitSec / 60}분이 지났어요" else null,
     )
 
     /** 대기 모드를 켤 때 한 번 (처음 [NOTICE_SEC]초). */
@@ -557,6 +564,6 @@ object UiMapper {
         }
         val dist = distanceKm?.takeIf { it >= 1 }?.let { " · ${km(it)}" }.orEmpty()
         add(VetRowUi("주행", "${duration(r.drivingMin)}(휴식 제외)$dist · 휴식 ${r.stops}번"))
-        add(VetRowUi("주행 자극", "최고 ${r.motionPeak} (차량 흔들림 기준 · 반려견 측정 아님)"))
+        add(VetRowUi("주행 자극", "최고 ${r.motionPeak} (차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님)"))
     }
 }

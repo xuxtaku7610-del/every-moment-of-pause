@@ -179,7 +179,7 @@ class RestructureTest {
         val rows = UiMapper.reportShare(r, listOf(DistressRecord("헐떡임", 39), DistressRecord("헐떡임", 70)), 193.6).associate { it.key to it.value }
         assertEquals("헐떡임 2회 (출발 39분 뒤, 주행 중)", rows["관찰 신고"])
         assertEquals("2시간 43분(휴식 제외) · 194km · 휴식 1번", rows["주행"])
-        assertEquals("최고 55 (차량 흔들림 기준 · 반려견 측정 아님)", rows["주행 자극"])
+        assertEquals("최고 55 (차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님)", rows["주행 자극"])
         assertEquals("없음", UiMapper.reportShare(r, emptyList(), null).first().value)
     }
 

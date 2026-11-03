@@ -196,7 +196,7 @@ data class RestUi(
 
 /**
  * 정차 중 "주행 자극 보기" (재정비 원칙 2): 주행 자극 숫자·그래프를 보는 유일한 정차 화면.
- * 고정 문구 "차량 흔들림 기준 · 반려견 측정 아님". 값은 엔진 값만.
+ * 고정 문구 "차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님". 값은 엔진 값만.
  */
 data class StimulusUi(
     /** 지금 주행 자극. 기록이 없으면 null. */
@@ -212,7 +212,7 @@ data class StimulusUi(
     val note: String = STIMULUS_NOTE,
 )
 
-const val STIMULUS_NOTE = "차량 흔들림 기준 · 반려견 측정 아님"
+const val STIMULUS_NOTE = "차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님"
 
 // ───────────── 잠깐 대기 (F3, 차 화면 = 바깥 사람용 안내) ─────────────
 
@@ -241,7 +241,18 @@ data class WaitUi(
     val heat: String? = null,
     /** 온도를 모를 때 6~9월에만 "여름에는 차 안이 빨리 더워져요". */
     val seasonNote: String? = null,
+    /** 큰 숫자 "24℃" (11/03 한눈에 크게) — 실내 온도 측정값이 있을 때만. 없으면 줄을 숨긴다. */
+    val temp: String? = null,
+    /** 공조 에어컨 신호가 실제로 켜짐일 때만 true ("에어컨 켜짐" 작은 표시). 앱은 공조를 켜거나 제어하지 않는다. */
+    val acOn: Boolean = false,
+    /** 외국인 행인용 영어 한 줄. */
+    val english: String = WAIT_ENGLISH,
+    /** 제한 시간을 넘김: 아래 보호자 줄에만 앰버 "설정한 10분이 지났어요" (큰 글은 그대로, 빨강·깜박임 없음). */
+    val overdueLine: String? = null,
 )
+
+const val WAIT_ENGLISH = "My owner will be back soon"
+const val WAIT_ENGLISH_RETURNING = "My owner is on the way back"
 
 // ───────────── 함께 가는 장소·동물병원 (F4·F5, 정차 중에만) ─────────────
 
@@ -286,7 +297,17 @@ data class VetUi(
     val status: String? = null,
     /** 사전 접수 제휴 병원 (시연용 가상 병원만). 아니면 전화·도착 예정 링크만. */
     val partner: Boolean = false,
-)
+) {
+    /** "진료 가능 여부는 전화로 확인해요" — 전화번호가 있을 때만 (11/03, 번호 없으면 숨김). */
+    val callNote: String? get() = CALL_NOTE.takeIf { phone != null }
+
+    /** 긴급 도움 화면 [사전 접수] 버튼: 제휴(시연용 가상) 병원만, 기존 사전 접수 흐름으로. */
+    val intakeButton: Boolean get() = partner
+
+    companion object {
+        const val CALL_NOTE = "진료 가능 여부는 전화로 확인해요"
+    }
+}
 
 data class VetsUi(
     val items: List<VetUi>,
@@ -309,6 +330,33 @@ data class VetsUi(
     /** 보내기 전에 보여 줄 내용 (전달 동의, 상태 7): 반려견·관찰 신고·메모·오늘 요약·도착 예정. */
     val preview: List<VetRowUi> = emptyList(),
 )
+
+/** 긴급 도움 상황 하나 (타일). [id] = 응급 카드 id (breathing·seizure·bleeding·toxin). */
+data class EmergencyOptionUi(val id: String, val label: String)
+
+/**
+ * 긴급 도움 (2026-11-03, 정차 화면 위 겹침 — 주행 중에는 열리지 않는다). 위 "어떤 상황인가요?" + 상황 4개 + "바로 동물병원 찾기".
+ * 고르면 [card](응급 카드) + [vet](가장 가까운 병원, 실제 값만 — 없으면 null) + [경로 안내][전화].
+ */
+data class EmergencyUi(
+    val options: List<EmergencyOptionUi>,
+    val selected: String? = null,
+    val card: EmergencyCardUi? = null,
+    val vet: VetUi? = null,
+    val vetLoading: Boolean = false,
+    /** 상단 고정 안내. */
+    val disclaimer: String = DISCLAIMER,
+) {
+    companion object {
+        const val DISCLAIMER = "응급 판단이나 진단을 대신하지 않아요."
+        val OPTIONS = listOf(
+            EmergencyOptionUi("breathing", "호흡 곤란"),
+            EmergencyOptionUi("seizure", "경련·의식 이상"),
+            EmergencyOptionUi("bleeding", "외상·출혈"),
+            EmergencyOptionUi("toxin", "위험 물질 섭취"),
+        )
+    }
+}
 
 /**
  * 병원 사전 접수 (UPGRADE 3, F5-07~10). [clinicUrl]은 병원 접수함(보호자가 직접 전달), [status]는 한 줄 상태
