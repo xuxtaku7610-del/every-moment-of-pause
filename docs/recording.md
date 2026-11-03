@@ -3,6 +3,19 @@
 장면 순서·말할 것은 [demo_script.md](demo_script.md), 자동 리허설은 `python scripts/rehearsal.py`. 영상은 **3분 이내**.
 녹화 전 준비는 demo_script.md "준비"와 같다(DB 적재, 서버 `--host 0.0.0.0`, 에뮬레이터, 디버그 앱, 보호자 폰 같은 Wi-Fi).
 
+**한 번에 점검 (11/02):** `powershell -ExecutionPolicy Bypass -File scripts\demo_check.ps1 -Prepare -ShareBase http://<노트북 IP>:8000` (주소를 모르면 `-DetectIp` — Wi-Fi IPv4를 찾아 넣고, 방화벽 8000 규칙이 없으면 관리자 명령만 보여 준다, 11/03) (점검만은 옵션 없이, 리허설까지는 `-Rehearsal`)
+— `-Prepare`: 꺼진 DB·서버·에뮬레이터(남은 메모리 6GB 미만이면 켜지 않음)·앱(`-Install`이면 다시 설치)을 켜고 앱을 새로 띄움 → 점검 줄마다 OK/WARN/FAIL(Gradle 데몬·adb·부팅·앱 버전·PostgreSQL·서버·Ollama·남은 메모리) → `-Rehearsal`이면 아래 "기본 내비 안내 걸기" 안내(Enter) → 리허설 1회.
+쉴 때는 `-Stop`(Gradle 데몬·서버·에뮬레이터·DB 정리). 에뮬레이터는 호스트 메모리를 5~6GB 쓰므로 녹화 전에 브라우저 탭과 Gradle 데몬(`.\gradlew --stop`)을 정리한다.
+
+## 0. 자동 촬영 (2026-11-03) — `scripts/record_scenes.py`
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\demo_check.ps1 -Prepare -DetectIp     # 폰 QR 주소(-ShareBase)를 Wi-Fi IPv4로
+python scripts/record_scenes.py --share-base http://<노트북 IP>:8000                    # 10장면, 장면마다 mp4
+```
+- 순서: 출발 체크 → 분할 창 고속도로 → 고갯길 예보 → 정차 후 주행 자극 보기·고갯길 비교 → 이상 신고 → 병원 사전 접수(+ 접수함 1280×800) → 휴게소 문 열림·잠깐 대기(+ 보호자 대기 페이지 390×844) → 정차 중 긴급 도움 → 도착 뒷문 → 리포트.
+- 결과: `artifacts/recording/<날짜>/NN-<장면>.mp4`(1920×1080, 소리 없음, 편집 없음) + `index.md`(장면·길이·비고). 웹 페이지는 Playwright가 있으면 webm, 없으면 Chrome 헤드리스 1초 간격 PNG 묶음. Playwright는 `server/.venv`에 설치되어 있다(11/03) — 웹도 영상으로 찍으려면 `server\.venv\Scripts\python scripts/record_scenes.py`로 실행(시스템 python이면 PNG 묶음).
+- 시작 전 확인: adb 기기, 서버, **기본 내비 안내 중인지**(내비 화면에 "안내 종료"). 안내 중이 아니면 아래 "기본 내비 안내 걸기"를 안내하고 Enter를 기다린다. `--no-wait`이면 멈추지 않고 분할 창 장면을 전체 창으로 찍는다. 일부만: `--only 7,8`.
+
 ## 1. 녹화 방법 (2026-10-30 둘 다 동작 확인)
 
 ### A. `adb shell screenrecord` (권장 — 장면별로 끊어 찍기)
@@ -37,7 +50,7 @@ ffmpeg -i scene1.mp4 -vf "crop=iw*1682/2560:ih*1210/1440:iw*853/2560:ih*90/1440"
 3. 같이가개를 앞으로 → 장면 점프 → 분할(아래). 시뮬레이터 모드에서도 회전 안내만 기본 내비 값을 받는다(`SignalRuntime.simGuide`, 10초마다 조회). 에뮬레이터 내비는 위치가 움직이지 않아 "좌회전 80m · 기업지원허브 방면"으로 고정이다 — 시뮬레이터의 남은 거리·도착과는 따로다(실차에서는 둘 다 같은 내비 값).
 4. 끝나면 내비에서 "안내 종료".
 
-캡처: `python scripts/ui_capture.py --out v8 --nav nav 01-drive 02-forecast 07-distress`. 쉼표 추천(3420초)은 분할에 10초가 걸려 장면이 지나가므로 1/3 창(`--split third`)으로 찍는다. 대기·도착 예정 링크 QR은 `--es shareBase http://(노트북 Wi-Fi 주소):8000`을 먼저 넣어야 전체 주소(QR)가 된다. 발표 직전에는 앱을 새로 띄운다(`adb shell am force-stop com.emop.pause`, BLOCKED 11/01).
+캡처: `python scripts/ui_capture.py --out v8 --nav nav 01-drive 02-forecast 07-distress`. 쉼표 추천(3420초)은 분할에 10초가 걸려 장면이 지나가므로 1/3 창(`--split third`)으로 찍는다. 대기·도착 예정 링크 QR은 `--es shareBase http://(노트북 Wi-Fi 주소):8000`을 먼저 넣어야 전체 주소(QR)가 된다. 발표 직전에는 앱을 새로 띄운다(`adb shell am force-stop com.emop.pause`). 장면 점프 뒤 "듣고 있어요" 멈춤은 11/02에 고쳤다(BLOCKED 11/01) — 새로 띄우는 것은 깨끗한 상태에서 시작하려는 것.
 
 ### 분할 창 (주행 장면)
 주행 장면은 기본 내비 옆 분할 창으로 찍는다. 장면을 띄운 뒤 앱 영역 오른쪽 끝 손잡이를 끈다: `adb shell input swipe 2547 720 1700 720 800` → 같이가개(왼쪽) + 기본 내비(오른쪽). 정차 장면(비교·리포트)은 전체 창으로 되돌려 찍는다. 이때는 앱 영역만 자르지 말고 전체 화면으로 찍어야 기본 내비가 함께 보인다.

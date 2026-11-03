@@ -23,6 +23,7 @@
 | 잠깐 내릴 때 (P단) | **잠깐 대기 모드**: 차 화면이 바깥 사람용 안내로 바뀌고, 보호자 폰 웹페이지에 경과 시간·배터리 |
 | 가는 길·목적지 | **함께 가는 장소**(한국관광공사 반려동물 동반여행), **동물병원 가는 길** |
 | 달릴 때 | **"콩이가 이상해요"**: "콩이 토했어" 같은 음성 신고를 기록하고 1줄 안내, 심하면 동물병원(사전 접수는 시연용 제휴 동물병원만, 보내기 전 동의) |
+| 멈춰 있을 때 | **긴급 도움**(11/03): 정차 화면(쉼표·대기·출발 전·리포트)의 "긴급 도움" → 상황 4가지(호흡 곤란 / 경련·의식 이상 / 외상·출혈 / 위험 물질 섭취) 중 하나 또는 "바로 동물병원 찾기" → 응급 카드(일반 안내, 진단 아님) + 가장 가까운 병원 [경로 안내][전화]. 주행 중에는 음성만(버튼을 늘리지 않음), 자동 전화·자동 경로 변경 없음 |
 | 도착 | **"콩이 내렸나요?"** → **도착 후 기록 리포트**: 시간순 타임라인, 주행 자극 그래프(차량 기준), 관찰 신고 |
 
 ### 화면 (v8 재정비, Pleos Connect 에뮬레이터 2026-11-01 · UI 동결 11/8)
@@ -33,36 +34,94 @@
 | ![출발 전](docs/screens/v8/01-depart.png) | ![주행](docs/screens/v8/02-drive-nav.png) | ![예보](docs/screens/v8/03-forecast-nav.png) |
 | **쉼표 추천 (1/3 창, 음성 실패 시 버튼)** | **콩이가 이상해요 (음성 신고)** | **병원 가는 길 (사전 접수 보냄)** |
 | ![쉼표 추천](docs/screens/v8/04-suggest-third.png) | ![콩이가 이상해요](docs/screens/v8/07-distress-nav.png) | ![병원 가는 길](docs/screens/v8/15-going-vet-nav.png) |
-| **쉼표 (정차)** | **잠깐 대기 · 보호자 폰 QR** | **동물병원 · 시연용 제휴 사전 접수** |
+| **쉼표 (정차, 긴급 도움 버튼)** | **잠깐 대기 · 창문 너머 한눈에 (QR·제한 시간은 설정 안)** | **동물병원 (가장 가까운 곳 먼저 · 시연용 제휴 사전 접수)** |
 | ![쉼표](docs/screens/v8/05-rest.png) | ![잠깐 대기](docs/screens/v8/06-wait.png) | ![동물병원](docs/screens/v8/08-vets.png) |
-| **실제 병원 (전화 · 도착 예정 링크 QR)** | **병원 접수함 (폰, 시연용)** | **도착 체크** |
+| **실제 병원 ([전화] = 번호 크게 + tel: QR · 도착 예정 링크)** | **병원 접수함 (폰, 시연용)** | **도착 체크** |
 | ![실제 병원](docs/screens/v8/08c-vets-call.png) | ![병원 접수함](docs/screens/v8/08b-clinic-inbox.png) | ![도착 체크](docs/screens/v8/09-arrival.png) |
 | **도착 후 기록 리포트** | **리포트 (점프 뒤 실시간 신고 유지 · 보정 뒤에도 최고 55)** | **주행 자극 보기 (정차 중)** |
 | ![리포트](docs/screens/v8/10-report.png) | ![리포트 보정 뒤](docs/screens/v8/10b-report-calibrated.png) | ![주행 자극 보기](docs/screens/v8/13-stimulus.png) |
 | **반려견 프로필** | **온보딩** | **고갯길 비교 (발표 모드)** |
 | ![프로필](docs/screens/v8/11-pet.png) | ![온보딩](docs/screens/v8/11-onboarding.png) | ![고갯길 비교](docs/screens/v8/12-compare.png) |
+| **긴급 도움 · 위험 물질 섭취 (정차, 11/03)** | **긴급 도움 (1/3 창, 카드 먼저)** | **동물병원 (다크)** |
+| ![긴급 도움](docs/screens/v8/16-emergency.png) | ![긴급 도움 1/3](docs/screens/v8/16b-emergency-third.png) | ![동물병원 다크](docs/screens/v8/16c-vets-dark.png) |
 
 QR 주소의 `http://192.168.0.10:8000`은 캡처용 예시 주소다(`--es shareBase`로 노트북의 같은 Wi-Fi 주소를 넣는다). 이전 캡처는 `docs/screens/v6/`(재정비 전)·`docs/screens/v5/`(분할 창 첫 확인)에 이력으로 남겼다.
 
-### 실차 확인 필요 (2026-10-30 기준)
-에뮬레이터에서 확인한 것과 실차에서만 확인할 수 있는 것을 나눈다. 시연은 앱 시뮬레이터(시나리오)와 발표 모드로 한다.
+### 실차 확인 예정 (2026-11-02 기준)
+에뮬레이터에서 확인한 것과 실차에서만 확인할 수 있는 것을 나눈다. 시연은 앱 시뮬레이터(시나리오)와 발표 모드로 하고, 회전 안내만 기본 내비 실제 값(NaviHelper)을 받는다. 막힌 항목 기록: [docs/BLOCKED.md](docs/BLOCKED.md).
 
 | 항목 | 에뮬레이터 결과 | 실차에서 확인할 것 |
 | --- | --- | --- |
-| NaviHelper 회전 안내 `onTBTInfo` | **확인함** — 성남→강릉 안내 32건 수신. `distance`는 구간 거리라 누적해서 씀. 회전 안내만으로 예보하는 모드는 시뮬레이터 테스트로 허용 오차 통과(docs/plan/shape_compare.md) | 주행하며 남은 거리가 갱신되는지, 고갯길 굽이가 목록에 나오는지 |
-| 실내 온도 측정값 | 에뮬레이터는 값 없음 → 온도 표시 숨김·여름 일반 문구 확인 | `getHvacTemperatureCurrent` 값과 단위, 대기 중 갱신 주기 |
+| 고갯길 회전 안내 (NaviHelper `onTBTInfo`) | **확인함** — 성남→강릉 안내 32건 수신. `distance`는 구간 거리라 누적해서 씀. 회전 안내만으로 예보하는 모드는 시뮬레이터 테스트로 허용 오차 통과(docs/plan/shape_compare.md) | 고갯길 굽이가 회전 안내 목록에 나오는지(안 나오면 방위 무늬 추정이 주력, 들어선 뒤 1~2km), 주행하며 남은 거리가 갱신되는지 |
+| 실내 온도 값·단위 | 에뮬레이터는 값 없음 → 온도 표시 숨김·여름 일반 문구 확인 | `getHvacTemperatureCurrent` 값이 오는지, 단위(℃ 가정), 대기 중 갱신 주기 |
 | 위치 따라 안내 재생 | 안 됨 — `geo fix`가 내비 위치를 바꾸지 않음(Pleos 위치 서비스 별도) | 실제 주행으로 예보 시작 거리 |
 | 차량 값(기어·속도·벨트)·Car data 패널 | 시도 중단(결정) — 에뮬레이터 user 빌드 | AAOS 속성·Pleos Vehicle SDK 값이 앱 "이 차에서 쓰는 신호"에 뜨는지 |
 | 앱이 뒤에 있을 때 콜백 | 전체 화면에서 내비가 앞이면 앱 프로세스가 내려가 콜백 끊김. **런처 분할 창에서는 확인함(10/31)** — 기본 내비가 앞일 때 `onTBTInfo` 32건·`onDestinationInfo`·`onWayPointInfo` 수신 | 실제 주행 중 갱신 주기 |
-| 분할 창 1/2·1/3 | **확인함** — `am task resize`로 1280·853dp, 앱 영역 오른쪽 끝 손잡이 끌기 `adb shell input swipe 2547 720 1700 720 800` | 사용자가 런처에서 직접 나누는 동작 |
-| 음성 인식 | 에뮬레이터 마이크 없음 → 버튼 대체 확인 | 차 마이크로 "여기서 쉴게요" |
+| 실제 분할 창 1/2·1/3 | **확인함** — `am task resize`로 1280·853dp, 앱 영역 오른쪽 끝 손잡이 끌기 `adb shell input swipe 2547 720 1700 720 800` | 사용자가 실차 런처에서 직접 나누는 동작과 실제 창 폭 |
+| 1920×1080 배치 | 이 AVD 런처는 `wm size`를 바꿔도 앱 영역이 1067×850 → 정차 화면은 1/2 창 배치(쌓기+스크롤)로 보임 | 실제 1920×1080 Pleos 런처의 앱 영역과 정차 화면 전체 창 배치 |
+| 음성 인식·말하기 | 에뮬레이터는 마이크·TTS 엔진 없음 → 버튼 대체 확인. 음성 응답은 8초 한 번, 없으면 무조건 버튼(장면 점프 20회 연속 시험 통과, 11/02) | 차 마이크로 "여기서 쉴게요", 차 스피커 TTS와 내비 안내 음성이 겹칠 때 |
+| 문자열 길이 (주행 중) | CarUxRestrictions 문자열 길이 제한은 대체 문구(14자)로 처리 | 실차가 주는 `maxStringLength` 값 |
+| 문 신호 (Pleos `Door`) | **확인함(11/02)** — 실차 모드에서 문 위치 지원 영역 6곳, 운전석·뒷좌석 왼쪽·오른쪽 등록, 권한 `CAR_DOORS`(normal) 자동 허용. 값 변화는 에뮬레이터에서 못 바꿔 시나리오·`--es door`로 확인 | 위치 값의 뜻(0만 닫힘으로 봄), 운전석 = 1열 왼쪽(좌핸들 가정), 열고 닫을 때 알림이 오는지 |
+| 개인 보정 | 시연 시드(`--es calib`)로 확인, 화면 숫자는 보정 전 값(DM-08) | 실제 여러 번의 여행에서 신고가 쌓이는지 |
+
+### 8개 상태 ([docs/states.md](docs/states.md))
+| # | 상태 | 화면 | 들어오는 조건 | 주행 중 제한 |
+| --- | --- | --- | --- | --- |
+| 1 | 출발 전 | 출발 준비 (첫 실행은 온보딩) | P단, 여행 시작 전 | 정차 중만 |
+| 2 | 일반 주행 | 기본 내비 옆 분할 창: 다음 회전·남은 거리·도착, 다음 쉼표, 콩이 관찰 상태 | 주행(CarUxRestrictions) | 2줄·버튼 0 |
+| 3 | 주행 자극 예보 | 굽은 길 예보 한 줄 + 음성 | 앞 5km 안 굽은 길 | 숫자 없음 |
+| 4 | 쉼표 추천 | 장소·도착까지·이유 2개, "여기서 쉴게요" | 플래너 제안 | 버튼 2개 + 음성(8초 뒤 버튼) |
+| 5 | 콩이가 이상해요 | 신고 기록 → 1줄 안내 → 심하면 병원 제안 | 음성 신고("콩이 토했어") | 음성 중심, 버튼 2개 |
+| 6 | 대기 모드 | 경과 시간, 보호자 폰 페이지(QR), 온도는 측정값이 있을 때만 | "잠깐 다녀올게" + P단 | P단만 |
+| 7 | 병원 이동 | 병원 선택 → 경유지 → 전달 동의 → 도착 예정 갱신 (사전 접수는 시연용 제휴 병원만) | 상태 5에서 "동물병원으로" | 입력은 정차·음성 |
+| 8 | 도착 후 기록 리포트 | 첫 화면은 요약 한 줄 + 시간순 타임라인, "주행 자극 자세히 보기"에서 그래프("차량 흔들림 기준 · 반려견 측정 아님")·병원에 보여 줄 내용 | 도착(+ "내렸어요") | 정차 중만 |
+| – | 긴급 도움 (겹침) | 정차 화면 위: 상황 4가지 → 응급 카드 + 가장 가까운 병원 | 정차 화면의 "긴급 도움" 또는 정차 중 응급 음성("콩이 초콜릿 먹었어") | 주행 중 열리지 않음 (음성만) |
 
 ### 심사 항목과의 연결 (대응표)
+공모 요강의 심사 항목 4개 기준.
+
 | 심사 항목 | 근거 | 확인 방법 |
 | --- | --- | --- |
+| 차량특화성 | 속도(가속도)·방위·기어·주차 브레이크·배터리·문·경로 남은 거리를 동시에 읽어야 가능한 판단(아래 SDK 사용표). 대기 모드·도착 체크는 P단·문·실내 온도를 아는 차 화면에서만 가능. 주행 안전: CarUxRestrictions가 주행이면 항상 주행 화면(2줄·버튼 2개, 숫자·그래프·자동 애니메이션 없음), 길 안내는 Pleos 기본 내비에 맡기고 옆 분할 창 | 설정 "이 차에서 쓰는 신호", 발표 모드 신호 줄, [docs/plan/sdk_check.md](docs/plan/sdk_check.md), test_plan DS-01~ |
+| 창의성 | "운전자 피로"가 아니라 **말 못 하는 동승자(반려견)를 흔드는 길을 미리 예보**(차량 기준, 반려견 측정 아님). 휴식 장소를 반려견 기준으로 고르고, 차 화면을 바깥 사람용 안내판으로 바꿈 | 시연 대본 [docs/demo_script.md](docs/demo_script.md) 장면 2~4 정차 중 **긴급 도움**은 상황 4가지 → 응급 카드 + 가장 가까운 병원까지 두 번 누르기(진단 아님, 미검수 카드는 릴리스에서 본문 숨김). |
+| 기술 활용성 | Vehicle SDK(기어·배터리·공조·문), NaviHelper SDK, AAOS 차량 속성, CarUxRestrictions, Android STT/TTS, ISO 2631-1 흔들림 누적량(MSDV) 단순화 모델(주행 자극), 로컬 LLM(Ollama), 공공데이터 3종 — **실제 적재(2026-10-30): 반려동물 동반 장소 327곳**(TourAPI 전국 17개 시·도, 사진 225곳, 시·도별 [docs/plan/public_data.md](docs/plan/public_data.md)) · **동물병원 5,063곳**(인허가 파일 영업 중, 농장 동물 병원 224곳 제외) · 휴게소 30곳(도로공사 키 없음 → 샘플). 완성도: 테스트 앱 332개·서버 81개(통과, 고유 테스트 수 — 앱은 모듈별 한 빌드 변형 기준, 11/03), PT 리허설 연속 3회 통과(재시작 없이 70·76·86초, 11/02), 장면 점프 20회 연속 뒤 음성 → 버튼 전환(듣는 중 최장 8초), 오프라인(서버·LLM 없음)에서도 동작 | [docs/plan/motion_model.md](docs/plan/motion_model.md), 고갯길 비교 [docs/plan/demo_compare.md](docs/plan/demo_compare.md)(OSM 실제 도로, 주행 자극 −45% (55 → 30)), 테스트 [test_plan.md](test_plan.md), [docs/qa_report.md](docs/qa_report.md), `scripts/demo_check.ps1` |
+| 사업성 | 기획서 6번 참고 | — |
+
+### SDK 사용표 (코드에 있는 호출만, 2026-11-02)
+시그니처는 aar·jar를 javap로 확인한 것만 쓴다(아래 "aar 실제 확인 결과"). 신호마다 Pleos SDK → AAOS 속성 → (시연) 시뮬레이터 순으로 받고, 없는 신호는 그 기능만 끈다.
+
+| 기능 | 쓰는 신호 | API | 미지원 시 동작 |
+| --- | --- | --- | --- |
+| 주행 화면 선택 (주행 안전) | 주행 제한 상태 | AAOS `CarUxRestrictionsManager.registerListener` | 항상 있음 (주행 중이면 2줄·버튼 2개) |
+| 주행 자극 예보 | 속도, 진행 방위, 앞 회전 안내 | AAOS `PERF_VEHICLE_SPEED` / NaviHelper `getCurrentLocationInfo`(heading)·`onTBTInfo`·`getTBTInfo` | 방위·회전 안내가 없으면 종방향만 계산하고 예보 없음(F1-08), 속도가 없으면 계산 안 함 |
+| 다음 회전·남은 거리·도착 카드 | 회전 안내, 남은 거리·시간, 목적지 | NaviHelper `onTBTInfo`·`onDestinationInfo`·`onWayPointInfo` | 회전 안내가 없으면 목적지·남은 거리·도착 한 줄, 그것도 없으면 숨김 |
+| 쉼표 추천 → 경유지 | 주행 시간·속도, 배터리, 남은 거리, 경유지 추가 | AAOS `PERF_VEHICLE_SPEED` / Pleos `EvBattery.registerEvBatteryStateOfCharge`(없으면 AAOS `EV_BATTERY_LEVEL`) / NaviHelper `addWaypoint` | 배터리가 없으면 충전 니즈 빼고 추천, 경유지 추가가 실패하면 "내비에서 골라 주세요" 한 줄 |
+| 운전자 피로(쉼표 가중) | 공조 에어컨·내기 순환 | Pleos `HVAC.registerHvacAcState`·`registerHvacRecirculationState` | 그 요인을 빼고 재정규화 |
+| 잠깐 대기 모드 | 기어 P, 주차 브레이크, 배터리, 실내 온도 측정값 | Pleos `Gear.registerGearSelection`(없으면 AAOS `GEAR_SELECTION`), AAOS `PARKING_BRAKE_ON`, Pleos `HVAC.getHvacTemperatureCurrent`·`registerHvacTemperatureCurrent` | 기어가 없으면 주차 브레이크로, 온도가 없으면 온도 표시 숨김 |
+| 도착 체크 "콩이 내렸나요?" | 기어 P(60초), 실내 온도, **뒷문 열림** | 위 기어·온도 + Pleos `Door.registerDoorPosition`·`getCurrentDoorPosition`(ROW_2_LEFT·ROW_2_RIGHT) | 문 신호가 없으면 P단 60초 뒤에 묻는다(이전과 같음) |
+| 문 이벤트 (휴게소 대기 모드 제안, 도착 후 안전 안내 한 번) | 운전석·뒷문 열림 | Pleos `Door.checkDoorPositionCapabilities`·`registerDoorPosition`(ROW_1_LEFT 등), 권한 `pleos.car.permission.CAR_DOORS` | 문 신호가 없으면 이 기능만 꺼짐, "잠깐 다녀올게" 음성 진입은 그대로 |
+| 충전 중 정차 | 충전 상태 | AAOS `EV_CHARGE_STATE` | 충전 정차를 휴식 정차로 본다 |
+| 긴급 도움 (정차 중만) | 주행 제한 상태, 지금 위치·목적지, 경유지 추가 | AAOS `CarUxRestrictionsManager`(주행이면 열리지 않음) / NaviHelper `getCurrentLocationInfo`(병원 거리)·`addWaypoint`(누를 때만) | 위치가 없으면 목적지 근처 병원, 병원 데이터가 없으면 "근처에 찾은 곳이 없어요" |
+
+### 릴리스 APK(서버 없음)에서 되는 것 / 서버가 있어야 되는 것
+릴리스 빌드는 서버 주소가 비어 있다(오프라인 제출본). 시연은 디버그 빌드 + 노트북 서버.
+
+| 릴리스 APK만으로 되는 것 | 서버가 있어야 되는 것 |
+| --- | --- |
+| 주행 자극 예보, 쉼표 추천(내장 휴게소 샘플)·경유지 추가, 음성 응답(8초 → 버튼) | 휴게소 실제 데이터 갱신 (`/reststops`) |
+| "콩이가 이상해요" 안내·정차 후 체크리스트(검수 전) | 쉼표·요약 문장 다듬기(Ollama `/llm/phrases`, 없으면 템플릿 문장) |
+| 긴급 도움(상황 4가지·병원 안내). 응급 카드 본문은 검수(`reviewed: true`) 뒤에만 — 그 전에는 "바로 동물병원에 연락해요"와 병원 버튼만 | 동물병원 실제 목록·전화번호 (`/vets`, 없으면 내장 샘플) |
+| 잠깐 대기 모드(차 화면), 도착 체크·문 이벤트 | 보호자 폰 대기 페이지·"돌아가는 중"(`/wait`) |
+| 도착 후 기록 리포트·개인 보정(기기 저장) | 도착 예정 공유 링크(`/eta`), 병원 사전 접수·병원 접수함(`/clinic`) |
+| 함께 가는 장소·동물병원 목록(내장 샘플, 전화번호 없음) | 함께 가는 장소 전국 327곳(TourAPI)·동물병원 5,063곳 |
+| 발표 모드(로고 5번 탭)·장면 점프·고갯길 비교 | — |
+
+--- | --- | --- |
 | 차량 특화성 | 속도(가속도)·방위·기어·주차 브레이크·배터리·경로 남은 거리를 동시에 읽어야 가능한 판단. 대기 모드는 P단·배터리를 아는 차 화면에서만 가능 | 설정 "이 차에서 쓰는 신호", 발표 모드 신호 줄, [docs/plan/sdk_check.md](docs/plan/sdk_check.md) |
 | 창의성 | "운전자 피로"가 아니라 **말 못 하는 동승자(반려견)를 흔드는 길을 미리 예보**(차량 기준, 반려견 측정 아님). 휴식 장소를 반려견 기준으로 고르고, 차 화면을 바깥 사람용 안내판으로 바꿈 | 시연 대본 [docs/demo_script.md](docs/demo_script.md) 장면 2~4 |
 | 기술 활용성 | Vehicle SDK, NaviHelper SDK, AAOS 차량 속성, CarUxRestrictions, Android STT/TTS, ISO 2631-1 흔들림 누적량(MSDV) 단순화 모델(주행 자극), 로컬 LLM(Ollama), 공공데이터 3종 — **실제 적재(2026-10-30): 반려동물 동반 장소 327곳**(TourAPI 전국 17개 시·도, 사진 225곳, 시·도별 [docs/plan/public_data.md](docs/plan/public_data.md)) · **동물병원 5,063곳**(인허가 파일 영업 중, 농장 동물 병원 224곳 제외) · 휴게소 30곳(도로공사 키 없음 → 샘플) | [docs/plan/motion_model.md](docs/plan/motion_model.md), 고갯길 비교 [docs/plan/demo_compare.md](docs/plan/demo_compare.md)(OSM 실제 도로, 주행 자극 −45% (55 → 30)), 테스트 [test_plan.md](test_plan.md) |
+| 완성도·안정성 | 테스트 앱 332개·서버 81개(통과, 고유 테스트 수 — 앱은 모듈별 한 빌드 변형 기준, 11/03), PT 리허설 연속 3회 통과(재시작 없이 70·76·86초, 11/02), 장면 점프 20회 연속 뒤 음성 → 버튼 전환(듣는 중 최장 8초), 릴리스 1.0.0 서명 설정(값이 없으면 안내 후 멈춤), 오프라인(서버·LLM 없음)에서도 동작 | `scripts/demo_check.ps1`, `python scripts/rehearsal.py`, [docs/qa_report.md](docs/qa_report.md) |
+| 주행 안전 | CarUxRestrictions가 주행이면 항상 주행 화면(2줄·버튼 2개, 숫자·그래프·자동 애니메이션 없음), 길 안내는 Pleos 기본 내비에 맡기고 옆 분할 창 | test_plan DS-01~, [docs/states.md](docs/states.md) |
 
 ---
 
@@ -79,6 +138,7 @@ QR 주소의 `http://192.168.0.10:8000`은 캡처용 예시 주소다(`--es shar
 | F7 | 도착 후 기록 리포트 (시간순 타임라인·주행 자극 그래프·병원용 요약, 위치는 남기지 않고 거리만) + **개인 맞춤 보정**(음성 신고로 자동: 구토 = 예, 침·헐떡임 = 조금, 높음 구간 뒤 30분 조용함 = 아니요(가중치 0.4). 3회부터) | 주행 기록 | 여행 리포트, TripRecorder, TripResume, Ollama 문장+템플릿 |
 | F8 | 온보딩 3단계 (반려견 프로필 → 차량 연동 신호 확인 → 흔들림에 예민한 정도 (보호자 응답)) | 쓰는 신호 목록 | — |
 | F9 | **"콩이가 이상해요"** — 주행 중 "헥헥거려·토했어·낑낑대·축 처졌어"를 말하면 규칙(증상 + 실내 온도·계절·출발 뒤 시간·주행 자극)으로 1줄 안내 + 가장 가까운 정차 장소(응급은 동물병원, 제휴 병원이면 동의 후 사전 접수), 정차 후 체크리스트(검수 전) | 실내 온도 측정값, 속도·경로, NaviHelper | 음성, 휴게소·병원 데이터 |
+| F10 | **긴급 도움** (정차 중만) — 상황 4가지(호흡 곤란 / 경련·의식 이상 / 외상·출혈 / 위험 물질 섭취) 타일 또는 음성 → 응급 카드(content/care, 검수 전) + 가장 가까운 병원 [경로 안내][전화]. 주행 중 응급 말은 F9 흐름 그대로, 신고 기록에 상황 종류 | 주행 제한 상태, 위치·경유지 | F9 분류 규칙 |
 
 **뺀 것(쉼표에서):** 아이 원정대, 도착 맞춤 라디오, "아직 멀었어?", 파워냅.
 
@@ -135,6 +195,7 @@ QR 주소의 `http://192.168.0.10:8000`은 캡처용 예시 주소다(`--es shar
 | 기어 | `Vehicle.getGear().registerGearSelection(GearSelectionListener)` → `VehicleGear.GEAR_PARK/…`. 에뮬레이터에서 `PARK` 수신. 권한 `pleos.car.permission.CAR_DRIVE`. **SDK에서 deprecated** ("use the Google GEAR_SELECTION property") |
 | 배터리 SoC | `getEvBattery().registerEvBatteryStateOfCharge` + `getEvBatteryStateOfCharge` → 100% 수신. 권한 `CAR_ENERGY` |
 | 공조 | `getHVAC().register/getHvacTemperature·HvacAcState·HvacRecirculationState(SeatArea, …)`. 영역은 `checkHvac*Capabilities`가 주는 지원 영역을 써야 함(`ROW_1_LEFT` 가정 시 오류). 에뮬레이터: 내기순환 수신, A/C는 읽기 미지원, 온도는 `PropertyNotAvailableException`. 권한 `CAR_CLIMATE` |
+| 문 (11/02) | `Vehicle.getDoor(): Door` — `checkDoorPositionCapabilities((CapabilityConfig, Map<DoorArea, AreaBounds<Int>>) -> Unit, onFailed)`, `getCurrentDoorPosition(DoorArea, (Int?) -> Unit, onFailed)`, `registerDoorPosition/unregisterDoorPosition(DoorArea, DoorPositionListener)`, `DoorPositionListener.onPositionUpdated(Int?)`, `DoorArea(vararg DoorValue)`, `DoorValue.ROW_1_LEFT…ROW_3_RIGHT·HOOD·REAR`. 읽기·등록 권한 `pleos.car.permission.CAR_DOORS`(normal). 에뮬레이터 지원 영역 6곳. 위치 값의 뜻은 문서에 없음 → 0만 닫힘(실차 확인 예정) |
 | **속도** | **Vehicle SDK에 없음** (`VehicleSpeedListener` 제거). NaviHelper에도 없음 |
 | **충전 중 여부** | `EvChargeState` 상수는 있으나 공개 API에 노출 안 됨 |
 | 권한 오류 | 권한이 없으면 `onFailed`가 아니라 `SecurityException`을 바로 던진다 → 어댑터가 신호별로 잡아 "미지원" 처리 |
@@ -213,7 +274,7 @@ cp server/.env.example server/.env
 docker compose up -d db
 cd server
 python -m venv .venv
-.venv\Scriptsctivate                              # Windows
+.venv\Scripts\activate                              # Windows
 pip install -r requirements.txt
 python -m alembic upgrade head
 python -m app.jobs.ingest_reststops                  # 휴게소 데이터 적재 (EX_API_KEY 없으면 샘플)
@@ -250,6 +311,20 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - 장면별 차량 값 + 앱 장면 맞추기: `powershell -ExecutionPolicy Bypass -File scripts/vhal.ps1 <depart|highway|rest_stop|wait|mountain_road|arrive>` (user 빌드 에뮬레이터는 값 주입이 막혀 있어 앱 시뮬레이터로 맞춘다, [docs/vhal_check.md](docs/vhal_check.md)).
 - 시연 데이터 다시 만들기: `python scripts/gen_demo_data.py` (시나리오·샘플, `--fetch-osm`이면 OSM 고갯길 GPX도 다시 받기). 고갯길 비교: `./gradlew :app:testDebugUnitTest --tests "*DemoCompareTest*"` → [docs/plan/demo_compare.md](docs/plan/demo_compare.md), 형상 소스 비교(GPX vs 회전 안내·방위): [docs/plan/shape_compare.md](docs/plan/shape_compare.md).
 
+### 시연 방법 (한 번에 점검)
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\demo_check.ps1             # 점검만: 줄마다 OK/WARN/FAIL
+powershell -ExecutionPolicy Bypass -File scripts\demo_check.ps1 -Prepare -ShareBase http://<노트북 IP>:8000 -Rehearsal
+powershell -ExecutionPolicy Bypass -File scripts\demo_check.ps1 -Stop       # 쉴 때: Gradle 데몬·서버·에뮬레이터·DB 정리
+```
+- 점검 항목: Gradle 데몬 종료 → adb 기기·부팅 완료 → 앱 설치·버전 → PostgreSQL 컨테이너 → 서버 상태 → Ollama·`gemma4:12b`(없으면 WARN, 템플릿으로 동작) → PC 남은 메모리. 비밀값은 출력하지 않는다.
+- `-Prepare`는 꺼진 DB·서버(0.0.0.0:8000)·에뮬레이터·앱을 켜고, `-Rehearsal`은 기본 내비 안내 걸기 안내 뒤 리허설 1회를 돈다. 에뮬레이터는 호스트 메모리를 5~6GB 쓰므로 남은 메모리가 6GB보다 적으면 켜지 않는다.
+- **발표 모드:** 앱 바의 로고를 **5번 탭** → 발표 모드 패널(장면으로 이동·고갯길 비교). 릴리스 빌드에도 있다.
+- **분할 창(주행 장면):** 장면을 띄운 뒤 앱 영역 오른쪽 끝 손잡이를 왼쪽으로 끈다 → 같이가개(왼쪽) + Pleos 기본 내비(오른쪽). 에뮬레이터에서는 `adb shell input swipe 2547 720 1700 720 800`. 정차 장면(비교·리포트)은 전체 창으로 되돌린다.
+- 발표 순서·말할 것: [docs/demo_script.md](docs/demo_script.md), 녹화·기본 내비 안내 걸기: [docs/recording.md](docs/recording.md), 숫자 대조: [docs/demo_numbers.md](docs/demo_numbers.md).
+- 리허설만: `python scripts/rehearsal.py` (PT 3장면 + 여는·닫는 장면, 약 70초), `--jumps 20`(장면 점프 연속 뒤 쉼표 추천 버튼 확인). 결과 표: [docs/qa_report.md](docs/qa_report.md).
+- 발표 직전에는 앱을 새로 띄운다: `adb shell am force-stop com.emop.pause`.
+
 ### 4) 테스트
 ```bash
 cd server
@@ -260,7 +335,7 @@ cd ../app-android
 테스트 이름에는 [test_plan.md](test_plan.md) 항목 ID(F1-01, DS-02, SV-01 …)를 쓴다. 점검 결과는 [docs/qa_report.md](docs/qa_report.md).
 
 ### 5) 릴리스 APK
-[docs/release.md](docs/release.md) — 서명 키는 저장소 밖에 두고, 비밀번호는 환경 변수로만 넘긴다.
+[docs/release.md](docs/release.md) — 서명 키는 저장소 밖 `C:\keys\`, 서명 값은 `app-android/local.properties`(gitignore) 또는 환경 변수. 결과는 `app/build/outputs/apk/release/gatigage-v1.0.0.apk`(R8 축소 끔).
 
 ---
 
@@ -268,7 +343,43 @@ cd ../app-android
 - 앱은 계정 없이 **익명 기기 토큰**만 사용. 반려견 프로필은 기기에만 저장. 위치는 장소 조회에만 쓰고 저장하지 않으며, 대기 공유에는 위치를 보내지 않는다.
 - 공모전 규정상 **공유 링크·첨부자료에 개발자 실명·계정정보가 노출되면 안 됨** → GitHub 계정명, 커밋 작성자명, APK 서명 정보, 영상 화면을 점검.
 - 1차 접수 가산점: 시연 영상 · GitHub 저장소(소스 + APK 함께). APK만 따로 제출하지 않는다.
+- 개인정보 처리방침: [docs/privacy.html](docs/privacy.html)(단독 정적 페이지). 저장소 공개 뒤 GitHub Pages URL로 스토어에 등록할 예정이다.
 
-## 7. 참고
+### Pleos App Market 제출 준비 (2026-11-02)
+기준은 Pleos 앱 심사 가이드·제출 가이드다(2026-11-02에 읽음). 문서는 `docs/store/`에 있다.
+
+| 문서 | 내용 |
+| --- | --- |
+| [data_inventory.md](docs/store/data_inventory.md) | 데이터 처리 표(코드 기준), 문서와 코드의 불일치 |
+| [privacy.md](docs/store/privacy.md) · [../privacy.html](docs/privacy.html) | 개인정보 처리방침 |
+| [distraction_check.md](docs/store/distraction_check.md) | 운전자 주의분산 자체 점검표(지킴/일부/확인 필요) |
+| [listing.md](docs/store/listing.md) | 이름·설명·업데이트 노트·카테고리·태그·연령 등급 메모·권한 이유·심사 노트 |
+| `screenshots/` · `icon-512.png` | 스크린샷 8장(1700×1212), 아이콘 512×512 |
+
+릴리스 노트 초안 [docs/release_notes_v1.0.0.md](docs/release_notes_v1.0.0.md), About·topics·GitHub Pages(처리방침 공개) 절차는 [docs/release.md](docs/release.md) 6절. 처리방침은 GitHub Pages(main `/docs`)로 `privacy.html`을 공개할 예정이다.
+
+**실제 출시 때 남은 것**
+- 클라우드 서버: 지금 제출본은 서버 없이 오프라인으로 동작한다. 보호자 페이지·병원 접수·실데이터 갱신을 쓰려면 서버를 운영해야 한다.
+- 개발자 인증과 차량 SDK 권한 사전 승인
+- IARC 연령 등급 발급
+- 고객 지원 연락처와 처리방침 시행일 【 】
+
+## 7. 데이터 출처·라이선스
+저장소 자체는 [LICENSE](LICENSE)(All rights reserved, 공모전 심사·열람 목적만 허용). 아래 자료는 LICENSE의 예외로 각자의 조건을 따른다.
+
+| 대상 | 출처 · 라이선스 |
+| --- | --- |
+| 반려동물 동반 장소·사진 | 한국관광공사 TourAPI `KorPetTourService2` — 공공누리(사진 `cpyrhtDivCd` Type1·Type3, Type3는 변경 금지라 자르기만), 앱에 "사진 한국관광공사" 표기 |
+| 동물병원 | 지방행정 인허가 데이터(동물병원), 공공데이터포털 — 이용 조건(이용허락범위) 확인 필요 |
+| 휴게소 | 한국도로공사 휴게소 API(공공데이터포털) — 키가 없어 지금은 샘플 30곳(경부선 실제 휴게소 이름, 시설 정보는 확인 필요) |
+| 고갯길 시연 경로 | © OpenStreetMap contributors, ODbL 1.0 |
+| 글꼴 | Pretendard, SIL OFL 1.1 ([licenses/Pretendard-OFL.txt](licenses/Pretendard-OFL.txt)) |
+| 아이콘 | Microsoft Fluent UI Emoji(MIT, [licenses/FluentUI-Emoji-MIT.txt](licenses/FluentUI-Emoji-MIT.txt)), Material Symbols(Apache-2.0) |
+| 그림 | 사용자가 생성형 AI 디자인 도구로 직접 제작 ([licenses/ASSETS.md](licenses/ASSETS.md)) |
+| 라이브러리 | AndroidX·Jetpack Compose·Hilt·Room·Retrofit·OkHttp·Coil·kotlinx.coroutines·ZXing core 3.5.3(QR 인코더) — Apache-2.0. 서버 FastAPI(MIT)·SQLAlchemy(MIT)·Pydantic(MIT)·Alembic(MIT)·httpx(BSD-3) |
+| 정차 후 체크리스트 | `content/care` — 일반 안내(검수 전 `reviewed: false`), 근거 자료 후보 Merck Veterinary Manual·AVMA "Pets in vehicles"·RSPCA "Dogs die in hot cars"는 이름과 직접 열어 확인한 주소만 적고 본문을 옮기지 않음(나머지는 "사용자 확인 필요") |
+| LLM | Ollama 로컬 모델(요약·제안 문장 다듬기만, 실패하면 템플릿) |
+
+## 8. 참고
 - 아키텍처: [architecture.md](architecture.md) · 흐름도: [flowchart.md](flowchart.md) · API: [api_spec.md](api_spec.md)
 - DB: [database.md](database.md) · 테스트: [test_plan.md](test_plan.md) · 일정: [todo.md](todo.md)

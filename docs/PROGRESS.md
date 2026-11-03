@@ -3,10 +3,193 @@
 세션이 끊기면 이 파일 + `todo.md` + `docs/BLOCKED.md` + `_private/PIVOT_PROMPT.md`만 보고 이어 간다. 최신이 위.
 규칙: git add·commit·push 하지 않는다. 작업 단위마다 아래 "커밋 대기열 (같이가개)"에 메시지와 파일만 남기고, 커밋은 사용자가 직접 한다.
 
-## 다음 할 일 (바로 이어서)
-1. 사용자: 커밋 대기열 2·3·4차 처리, `licenses/ASSETS.md` 【도구명】 채우기, TourAPI 키 재발급 후 `server/.env` 교체(교체 뒤 `-m app.jobs.ingest_pet_places`는 캐시 7일 안이면 호출 0건).
-2. 사용자: 실제 폰으로 대기 페이지·도착 예정 페이지 열기, 실제 Pleos 분할 창 확인, 에뮬레이터 내비로 `onTBTInfo` 확인.
-3. P1 남은 것: F5-03 병원 안내 중 흔들림 기준, 증상 음성 메모(지금은 고르기만), NaviHelper `requestRoute`·위치 콜백 주기.
+## 다음 할 일 (바로 이어서, 11/8 동결 전 — 사용자)
+1. 커밋 대기열 11차 처리(아래, 12개). 스토어 제출 전 결정: docs/BLOCKED.md "11/02 (스토어)" 줄들.
+2. 메모리: AVD 3072MB는 에뮬레이터 최소값(4096MB) 때문에 적용 불가(11/02 시도, 원래 값 유지). 남은 제안은 gradle.properties 힙 줄이기 — 시연 중에는 Chrome 탭 정리가 가장 효과적.
+3. keystore 만들기(`C:\keys\`, docs/release.md 1단계) → local.properties 네 줄 또는 환경 변수(2단계) → `assembleRelease` → `apksigner verify`·설치 확인(3~4단계) → GitHub Releases에 `gatigage-v1.0.0.apk`.
+4. `content/care` 검수: **새 응급 카드 4개(11/03, 위 "긴급 도움 — 결과")** + 기존 sources "사용자 확인 필요" 5곳(AVMA 주소 2, 비운 3), care_nausea 마지막 줄 "멀미가 자주 반복되면"(본문이라 그대로 둠) → `reviewed: true`.
+5. (11/02 처리함) 공개 문서의 도구 이름 표기 정리 — 아래 "공개 전 정리" 절.
+6. `licenses/ASSETS.md` 【도구명】, LICENSE(11/02 추가, 공모전 심사·열람만 허용) 문구 확인, README 대응표 사업성 줄("기획서 6번 참고")이 기획서 번호와 맞는지 확인, 문 신호 실차 확인(위치 값 뜻·운전석 위치), 동물병원 데이터 이용 조건 확인.
+7. 실제 폰으로 대기·도착 예정·병원 접수함 QR 열기, 시연 영상 녹화(docs/recording.md, 녹화 전 `demo_check.ps1 -Prepare -ShareBase …`, 브라우저 탭 정리).
+
+## 긴급 도움 작은 수정 3개 (2026-11-03, 11/8 동결 전)
+1. **제휴 병원 [사전 접수]**: 긴급 도움의 가장 가까운 병원이 제휴(시연용 가상) 병원이면 [경로 안내] 아래 [사전 접수](보조) → `UiEvent.OpenVets` = 기존 동물병원 화면 사전 접수(IntakePanel) 그대로. 동물병원 화면의 NearestVet에는 버튼을 넣지 않음(옆에 사전 접수 패널이 이미 있음). 에뮬레이터: 휴게소 → 긴급 도움 → 위험 물질 → [사전 접수] → 사전 접수 패널 확인.
+2. **"진료 가능 여부는 전화로 확인해요"**는 전화번호가 있을 때만(`VetUi.callNote`). 새 테스트 F10-08(`EmergencyCardTest`).
+3. **스토어 스크린샷 8장 다시 찍음**: "시연 데이터" 표시 없이. 디버그 adb `--ez captureClean true`(ViewModel `AppState.captureClean`, 분할 창·다크 전환에도 유지) = `scripts/ui_capture.py --clean`, 끝나면 자동으로 false. 기본 동작은 그대로 표시(확인함). 원본 `artifacts/ui/store3/*-clean.png` → 앱 영역 1:1 → 1700×1212. 4번은 음성 8초가 지난 뒤 "잘 못 들었어요. 버튼으로 골라 주세요." 상태로 찍힘(실제 동작).
+- Playwright: 사용자 허락으로 `server/.venv`에 설치(1.64.1, 브라우저는 `%LOCALAPPDATA%\ms-playwright`). `server/requirements*.txt`에는 넣지 않음(녹화 도구용). `record_scenes.py`의 웹 장면은 `server\.venv\Scripts\python scripts/record_scenes.py`로 돌리면 영상(webm)으로 찍힌다.
+- **고유 테스트 수 = 앱 332 · 서버 81** (README·qa_report·release_notes 갱신).
+- **검증**: `./gradlew test` 종료 0, pytest 81 통과, 리허설 `--all` 1회 통과(143초, 9장면).
+
+## 제출 준비 묶음 (2026-11-03, `_private/PREFREEZE_PROMPT.md`)
+1. **Pleos 마켓 패키지 갱신** (11/02 패키지 위에 긴급 도움·새 대기 화면 반영): listing.md(상세 설명 "긴급 도움" 절·업데이트 노트·스크린샷 표), privacy.md·privacy.html("긴급 도움에서 고른 상황은 저장·전송 안 함" 한 단락), 스크린샷 05 → `05-emergency-vet.png`(정차 중 긴급 도움 → 병원), 06 → 새 대기 화면(1700×1212, 앱 영역 1:1). data_inventory·distraction_check는 12·13차에서 이미 반영. 메타데이터 검사: 저장소 PNG 89장에 caBX·tEXt·iTXt·zTXt·eXIf 0, 새 스크린샷·아이콘도 IHDR·IDAT·IEND만.
+2. **돌봄 카드 검수 대조표** `_private/care_review.md`(저장소 밖): 12장 44문장 — 일치 14 · 부분 26 · 근거 없음 4. 열어 본 페이지 Merck 4·RSPCA 5 + PDF 2, AVMA 2쪽은 본문이 비어 인용하지 않음. 주의: RSPCA "Nervous dogs"는 "Avoid reassuring your dog" — care_panting_anxious 1번(이름 부르며 쓰다듬기)과 반대. 찬물은 Merck(담그지 말 것)와 RSPCA(찬물 괜찮음)가 엇갈림 → 제안은 "시원한 물". reviewed는 그대로 false.
+3. **커밋 명령 목록** `_private/COMMIT_COMMANDS.md`: 11~14차가 같은 파일에 섞여 있어 차수별로는 못 나눔 → 파일마다 한 커밋, 기능 묶음 10개(앞 커밋 위에서 빌드되는 순서). 시작 `git status`·`git status --ignored`, 끝 `git status`가 깨끗해야 정상.
+4. **녹화 원본 자동 촬영** `scripts/record_scenes.py`: 1회 실행(`--no-wait`) → `artifacts/recording/2026-11-03/` mp4 10개(1920×1080, 모두 moov 있음, 합 약 260초) + `index.md`. 기본 내비 안내가 걸려 있지 않아 분할 창 장면(2·3)은 전체 창으로 찍힘(시작 전 확인이 안내 문구를 띄움 — 실제 녹화 전 사용자가 내비 안내를 건다). 병원 접수함·보호자 대기 페이지는 Playwright가 없어 Chrome 헤드리스 1초 간격 PNG(12장·8장, 폰 폭은 iframe으로 390px 배치). 처음 실행에서 4번 "주행 자극 보기"가 쉼표 화면 첫 화면 밖이라 못 찾음 → 한 번 끌어 올리고 다시 찾게 고쳐 `--only 4` 재촬영 통과, 7번도 폰 페이지 폭 수정 뒤 재촬영. `--only`는 index의 다른 줄을 그대로 둔다.
+5. **공개·Release 문서**: `docs/release_notes_v1.0.0.md`(기능·설치(디버그 앱 먼저 제거)·서버 없이/필요·알려진 제한·검증 숫자), `docs/release.md` 6절(About 한 줄·topics·GitHub Pages로 privacy.html 공개), README 제출 준비 절에 한 줄.
+6. **폰 QR 도우미** `demo_check.ps1 -DetectIp`: Wi-Fi(없으면 기본 경로 어댑터) IPv4 → `-ShareBase http://<IP>:8000`, 방화벽은 읽기만 하고 규칙이 없으면 관리자 명령(New/Remove-NetFirewallRule)만 출력. 이 PC는 Wi-Fi 어댑터가 없어 이더넷 192.168.0.x를 골랐다(폰과 같은 공유기인지 확인 필요). recording.md에 사용법.
+
+## 잠깐 대기 — 한눈에 크게 (2026-11-03, `_private/WAIT_PROMPT.md`)
+- **화면** (`ui/screens/WaitScreen.kt` 새 파일, PetScreens의 옛 WaitScreen은 옮김): 한 장 가운데 정렬 — 집·반려견 그림(글자 색으로 물들여 다크에서도 보임) → "주인이 곧 돌아와요"(기준 72 = metric의 2배, `WaitLayout`이 창 폭·높이에 맞춰 한 줄로) → 실내 온도 같은 크기 "24℃" + "실내 온도"(측정값 있을 때만, 없으면 줄 숨김) → "4분째" → "My owner will be back soon". 보호자 줄 [돌아왔어요][긴급 도움][설정] 보조 버튼(76dp, 1/3 창은 아이콘 빼고 한 줄).
+- **옮긴 것(지운 것 없음)**: 제한 시간 칩·설정 시간·실내 온도·배터리 사용·배터리·보호자 폰 QR·"폰 공유 연결 안 됨" → 설정 시트. 켤 때 안내("오래 혼자 두지 마세요")·여름 안내 → 보호자 줄 한 줄. 온도 오름 안내 → 온도 아래 앰버 한 줄. **바뀐 동작 1가지**: 제한 시간을 넘기면 전에는 배경이 앰버로 바뀌고 큰 글이 "보호자에게 알렸어요"였는데, 지금은 큰 글·배경 그대로 + 보호자 줄 "설정한 10분이 지났어요"(지시대로).
+- **에어컨 표시**: Pleos `HVAC.registerHvacAcState` → `SignalSample.hvacAcOn`이 코드에 있음 → 켜짐일 때만 "에어컨 켜짐" 작은 표시(온도 줄 옆). 앱은 공조를 제어하지 않는다.
+- **긴급 도움 버튼**: 대기 화면에서는 지시("차분하게")대로 앰버가 아닌 보조 버튼 + 경고 아이콘(다른 정차 화면은 앰버 그대로).
+- **캡처** `artifacts/ui/v8/`: 라이트 온도 있음 `10b-wait-temp-w3`, 온도 없음 `10d-wait-notemp-w3`, 넘김 `10c-wait-overdue-w2`, 시뮬레이터 실값 `10-wait-w2`, 설정 시트 `10e-wait-sheet`, 다크 `10b-wait-temp-dark2`·`10d-wait-notemp-dark2`, 1/3 `10b-wait-temp-third2`·`10c-wait-overdue-third2`. README `docs/screens/v8/06-wait.png` 교체.
+- **고유 테스트 수 = 앱 331 · 서버 81** (앱: 모듈별 한 빌드 변형, 소스 `@Test` 318 + 매개변수 1개 14경우). 앞 절의 "499"는 안드로이드 모듈을 디버그·릴리스로 두 번 센 값. README 대응표 두 곳(319·308)과 qa_report를 331로 통일.
+- **검증**: `./gradlew test` 종료 0(실패 0, 새 `WaitGlanceTest` 4개), pytest 81 통과, 리허설 `--all` 1회 통과(144초, 9장면 — 기본 5장면 포함, "(예비) 휴게소·잠깐 대기" 9초). 보호자 폰 페이지(server/app/pages.py)는 바꾸지 않음.
+
+## 긴급 도움 — 결과 (2026-11-03, 아래 계획대로 완료)
+- **분류**: 응급 말 48개 → EMERGENCY + 상황 4가지 **48/48 통과**(F10-01), 응급이 아닌 말 15개 그대로(F10-02, 구토 단독 = VOMIT, 반려견 이름 "초코"·"포도"는 위험 물질 아님 — "초코"는 규칙에서 뺐고 음식은 먹는 말과 함께일 때만). 기존 `PetDistressTest` 그대로 통과.
+- **카드 4개** (content/care, reviewed: false): 출처는 11/03 직접 연 Merck 2쪽·RSPCA 2쪽만. AVMA는 본문을 읽지 못해 뺐다. 페이지에 없는 2가지(경련 "입에 손 넣지 않기", 초콜릿·포도·양파 이름)는 sources에 "사용자 확인 필요".
+- **릴리스 미검수 차단**: `EmergencyCardUi.from` + `showDrafts = BuildConfig.DEBUG || 발표 모드 || 시뮬레이터` → 릴리스 실차는 경고 띠 + 병원 버튼만(F10-06 테스트). 릴리스 APK 실기 확인은 keystore가 없어 못 함(단위 테스트로만).
+- **화면**: 정차 화면 4곳 버튼(쉼표 왼쪽 패널 아래, 대기 "돌아왔어요" 위, 출발 전 프로필 칸 아래, 리포트 앱 바 — 1/2·1/3 창은 기존 두 버튼이 밀려나서 화면 아래로). 긴급 도움 화면(전체 창 고르기 | 카드·병원, 좁은 창은 고른 뒤 카드·병원 먼저). 동물병원 화면 위계 다시 배치(가장 가까운 곳 → [경로 안내][전화] → 사전 접수 그대로 → "다른 병원 보기" → 아래 고정 문구). 앱은 전화를 걸 수 없어(`tel:` 없음) [전화] = 번호 크게 + tel: QR. 캡처 `artifacts/ui/v8/18*`·`12c`·`*-third2`·`*-dark`, README 새 그림 3장 + 05·08·08c 교체.
+- **정차 중 음성** "콩이 초콜릿 먹었어" → 같은 카드(에뮬레이터 확인). 주행 중은 기존 흐름(한 줄 + 버튼 2개), 신고 기록 이름 = 상황 종류.
+- **곁가지 수정**: 새 여행(PREPARE)이면 지난 병원 안내(`goingVet`)를 끝낸다 — 긴급 도움 "경로 안내" 뒤 출발하지 않은 채 다음 리허설의 고속도로 장면이 병원 카드로 바뀌던 것. 리허설·캡처 시작에 `--es emergency none`(위로 연 화면은 장면 이동으로 닫히지 않음 — 원래 동작).
+- **문구 점검(5번)**: "건강해요"·"양호" 화면 문구 없음(주석·테스트의 "양호 아님"뿐). 주행 자극 설명 → "차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님"으로 통일(STIMULUS_NOTE·병원 공유·발표 비교·설정·PetTripLog, 리포트 그래프는 좁은 창에서 잘리지 않게 제목 아래 줄로).
+- **리포트 vs 실시간 신고 — 보고만(고치지 않음)**: ① 같은 신고가 쉼표 화면 "신고 1건 · 헐떡임(출발 39분 뒤)"·리포트 요약 "관찰 신고 1건"·타임라인 "0:39 헐떡임 신고" 세 형식으로 보인다(제안: 시각 표기를 "출발 뒤 0:39" 하나로). ② 리포트 "병원에 공유"와 긴급 도움 "바로 동물병원 찾기"가 같은 동물병원 화면을 연다 — 리포트 쪽은 공유 미리보기가 목적이라 제목을 "병원에 공유할 내용 보기"로 바꾸면 덜 헷갈림. ③ 정차 화면에서 병원 버튼이 "동물병원"(보조)과 "긴급 도움"(앰버) 두 개 — 의도된 구분(평소/급할 때)이지만 PT에서 한 줄 설명 필요.
+- **검증**: `./gradlew test` 종료 0 — testcase 499개(디버그·릴리스 단위 테스트 합, 실패 0, 새 테스트 8개: EmergencyKindTest 3·EmergencyCardTest 4·ScreenRouterTest 1). 서버 pytest 81 통과. 리허설 기본 1회 통과(68초), `--all` 통과(141초, 9장면 — 새 "(예비) 긴급 도움 → 위험 물질 → 병원" 11초). `--all` 첫 두 번은 각각 "쉼표 추천 75초 초과"(다음 실행 통과, 기존과 같은 흔들림), "고속도로"(위 goingVet — 고침) 실패.
+- **사용자 할 일**: 카드 4개 검수(care_breathing·seizure·bleeding·toxin: sources 페이지 본문과 3줄 대조, "사용자 확인 필요" 2곳) → `reviewed: true`면 릴리스에도 본문.
+
+## 긴급 도움 — 구현 계획 (2026-11-03, `_private/EMERGENCY_PROMPT.md`, 11/8 동결 전)
+코드 확인 결과: 앱은 전화를 직접 걸지 못한다(`tel:`·ACTION_DIAL·CALL_PHONE 없음) → "전화"는 번호를 크게 + `tel:` QR(기존 `LinkQr`)로 폰에서 걸게 한다.
+릴리스/디버그 구분은 `BuildConfig.DEBUG`(app 모듈), 발표 모드는 `AppState.demoOpen`(릴리스에도 있음).
+
+**재사용 (새 구조 안 만듦)**
+- 분류: `PetDistress.classify`·`DistressKind.EMERGENCY`·`advise`(문구 "가까운 동물병원으로 안내할게요"·VET) 그대로. 주행 중 흐름(`TripCoordinator.handleDistress` → `DriveContent.Distress` [동물병원으로] [괜찮아졌어요]) 그대로.
+- 카드: `CareSheet.parse`·`CareRepository`(assets = content/care), 화면 부품 `Panel`·`AlertStrip`·`SymptomTile`·`PauseButton`·`KeyValue`·`StatusChip("검수 전")`·`LinkQr`.
+- 병원: `openVets`(위치·DemoPartner)·`GoVet`(경유지, 누를 때만)·`IntakePanel`(사전 접수 그대로)·`ContactPanel`.
+- 색: `warningSoft`·`warning`·`warningInk`·`primary`만 (새 색 없음).
+
+**바꿀 파일**
+| 파일 | 변경 |
+| --- | --- |
+| engine/pet `PetDistress.kt` | `EmergencyKind { BREATHING, SEIZURE, BLEEDING, TOXIN }` + `emergencyKind(text)`. EMERGENCY 정규식에 4가지 말 추가(기존 패턴은 그대로 앞에 둠 → 기존 분류 불변). `advise(kind, s, emergency)` = 문구·행동 같고 `care`만 하위 카드 id. `label(kind, emergency)` = "호흡 곤란"·"경련·의식 이상"·"외상·출혈"·"위험 물질 섭취" |
+| core/uistate `CareSheet.kt` | 머리말 `voice`·`action`·`category`·`triggers` 읽기(기본값 있음). `EmergencyCard.from(sheet, showDrafts)` 순수 함수 = 미검수 + 릴리스(발표 모드 아님)면 본문·출처 빈 칸, 첫 줄 "바로 동물병원에 연락해요"만 |
+| core/uistate `ScreenStates.kt`·`UiContract.kt`·`Fixtures.kt` | `EmergencyUi`(상황 4개·고른 것·카드·가장 가까운 병원·로딩), `Screen.Emergency`, `UiEvent.OpenEmergency`·`PickEmergency(id)`, `Scene.EMERGENCY`·`EMERGENCY_CARD` |
+| app `ScreenRouter.kt` | `Overlay.EMERGENCY` → `Route.EMERGENCY`(주행이면 DRIVE가 먼저 — 주행 중 안 열림) |
+| app `MainViewModel.kt` | 긴급 도움 열기·고르기(병원 목록 같이 불러옴), 정차 중 음성 응급 → 같은 카드, adb `openEmergency`, 카드 공개 여부 = `BuildConfig.DEBUG \|\| demoOpen` |
+| app `TripCoordinator.kt` | `reply`에서 응급 하위 종류를 같이 넘김 → 신고 기록 `DistressRecord.label`에 상황 종류, `careId` = 하위 카드 |
+| app `CareRepository.kt` | `action: VET` 미검수 카드는 릴리스 "콩이 돌보기"에서도 본문 숨김(기존 8개 카드 표시는 그대로) |
+| app `Kit.kt` | `ButtonKind.WARNING`(연한 앰버 면 + 앰버 테두리 + 경고 아이콘 + warningInk, 높이 76dp 이상) — `PauseButton` 재사용 |
+| app `PetScreens.kt` | 정차 화면 4곳에 "긴급 도움" 버튼: 쉼표 = 왼쪽 패널 "동물병원" 아래, 대기 = 오른쪽 패널 "돌아왔어요" 위, 출발 전 = 프로필 패널 "프로필 바꾸기" 아래. `VetsScreen` 위계 다시 배치(① 가장 가까운 병원 ② [경로 안내][전화] ③ 사전 접수 그대로 ④ "다른 병원 보기") + 고정 문구 2줄 |
+| app `TripLogScreen.kt` | 앱 바 오른쪽 "긴급 도움" (1/3 창은 화면 아래) |
+| app 새 `ui/screens/EmergencyScreen.kt` | "어떤 상황인가요?" + 타일 2×2(1/3 창 1열) + "바로 동물병원 찾기" / 고르면 카드 + 병원 요약 + [경로 안내][전화] |
+| app `MainActivity.kt` | `Screen.Emergency` 그리기, adb `--es emergency toxin\|breathing\|seizure\|bleeding\|menu\|none` |
+| content/care 새 4개 | care_breathing·care_seizure·care_bleeding·care_toxin (id·title·category: emergency·triggers·voice ≤40자·action: VET·reviewed: false·sources), 3줄, 첫 줄 "바로 동물병원에 연락해요" |
+| scripts | rehearsal.py `--all`에 "(예비) 긴급 도움 → 위험 물질 섭취 → 병원"(기본 5장면 그대로), ui_capture.py 장면 추가 → artifacts/ui/v8/ |
+| docs | wording.md "긴급 도움" 표(먼저), states.md, README, test_plan, docs/store/distraction_check.md·data_inventory.md, demo_script |
+
+**테스트**
+- `PetDistressTest`: 기존 테스트 그대로 + 대표 발화 40개 이상 → EMERGENCY + 하위 종류, 구토 단독 = VOMIT, 일반 말 = null.
+- `CareSheetTest`: 새 카드 4개 형식(3줄·첫 줄·voice 40자·action VET·금지어), `EmergencyCard` 릴리스 미검수 차단·디버그/발표 모드 공개.
+- `ScreenRouterTest`: 긴급 도움은 정차 중만, 주행이면 DRIVE.
+- 끝: `./gradlew test` + 서버 pytest, 리허설 기본 1회 + `--all` 1회.
+
+**확인할 것(사용자)**: 카드 4개 검수 → `reviewed: true`면 릴리스에도 본문이 나온다.
+
+## Pleos App Market 제출 패키지 (2026-11-02 오후, 앱 코드·화면 변경 없음)
+- 읽은 Pleos 페이지: 심사 가이드 5개 하위 페이지(콘텐츠 안전·기능 성능·주의분산·등록 정보·개인정보 보안), 제출 가이드, UI 디자인 가이드 소개, 주행 안전 설계, 지역별 주행 제한, 앱 카테고리, 태깅 가이드, Basic button(숫자는 그림 안이라 못 읽음), AAOS 주의분산 가이드. 못 찾음: IARC 페이지 링크, 한국 주행 제한 규정.
+- `docs/store/`: data_inventory.md(코드 기준 표 + 불일치 12), privacy.md + `docs/privacy.html`(외부 리소스 없음), distraction_check.md, listing.md, screenshots 8장(1700×1212, 앱 영역 1:1, 테두리만 채움), icon-512.png(런처 벡터 렌더, 24KB).
+- 스크린샷: `scripts/ui_capture.py`에 장면 2개(07b 응급 신고 → 동물병원, 13b 도착 뒷문) 추가. `triplog()`는 점프 뒤 15초 기다렸다가 "내렸어요"를 누른다(바로 누르면 리포트 휴식 0번, BLOCKED 11/02).
+- C2PA 제거: v3·v4·v5·v5/assets 29장 + `docs/design/ui_design.png` 1장(다른 도구의 C2PA, 지난 "claude" 검색에 안 걸렸던 것) = 30장, `caBX` 청크만 뺐다. 제거 전후 IHDR+압축 해제 IDAT SHA-256이 모두 같다. 저장소 그림 100장 재검사 → 남은 C2PA·도구 이름 0.
+- 큰 발견(코드 결정 필요, BLOCKED): 주행 중 음성 신고가 마이크와 이어져 있지 않음, 반려견 이름·메모가 서버로 가고 "함께 보내기"가 자동으로 켜짐, 라이트 테마 대비 4.23·4.34.
+- `./gradlew test testDebugUnitTest` exit 0, 실패 0.
+
+## 공개 전 정리 + 리포트 간소화 (2026-11-02 오전)
+- 지운 것: `docs/design/mockups/` 전체 19개(옛 「쉼표」 시안 PNG 17장 01-drive~17-icon·overview.png·mockups.html). 가리키던 `docs/design/UI_SPEC.md`(폐기 문서)는 맨 위에 "삭제함" 한 줄 + 참조 16곳을 "(삭제) mockups/…"로.
+- 도구 이름 표기: docs/BLOCKED.md·docs/PROGRESS.md·todo.md → "코딩 에이전트"·"에이전트 지침 파일"·"(에이전트)", .gitignore 주석 2곳(무시 규칙 `.claude/`·`CLAUDE.md`는 그대로). .dockerignore는 주석에 없음(규칙 `.claude/`만).
+- 다시 검색(추적·새 파일 449개, gitignore 제외, 바이너리 포함, 대소문자 무시): 텍스트는 .gitignore·.dockerignore의 무시 규칙뿐. **PNG 29장**(docs/design/v3 2·v4 2·v5 2·v5/assets 23)에 `caBX` 청크 = C2PA 콘텐츠 자격 증명(생성 도구 출처 기록, "com.anthropic.claude.provided")이 있다. v5/assets는 앱 assets로 APK에 들어간다. 생성형 AI 그림의 출처 기록이라 지우지 않고 보고만 함(licenses/ASSETS.md "생성형 AI 디자인 도구"와 같은 사실). JPG 14장은 JFIF만, 텍스트 메타데이터 없음. exiftool이 없어(전역 설치는 묻고) Python으로 PNG 청크·JPEG APP 세그먼트를 직접 읽음.
+- 루트 문서의 「쉼표」 표현(그대로 둠, 재사용 설명·현재 용어): architecture.md 3·103·139·221행(쉼표에서 가져온 것 설명), "반려견 맞춤 쉼표"·"쉼표 화면"·"오늘의 쉼표"(현재 기능 이름), `engine:fatigue` 운전자 피로(F2 요인), api_spec.md 190행("쉼표 구분" = 쉼표 문자), 2.10 `passengerSummary.children`(서버 필드 그대로, 인원 수만)·2.11 `fatigue_peak` 이벤트·예시 "부산" 목적지. 파워냅·원정대·라디오·아직 멀었어는 루트 2개 문서에 없음(2.11에 "kid_question 삭제" 이력 한 줄).
+- LICENSE 새로(All rights reserved, 공모전 심사·열람 목적만, 예외: OSM ODbL 1.0·공공데이터 3종 제공처 조건·서드파티 라이브러리 각 라이선스 → licenses/ASSETS.md·README §7). 실명 없음. README §7·ASSETS.md 맨 위에 연결.
+- 리포트 간소화(화면 모양 바뀜 — 사용자 지시): 첫 화면 = 요약 한 줄 + 시간순 타임라인(한 줄 요약·"맞춤 정도"는 스크롤 밖 아래 고정). 앱 바 "주행 자극 자세히 보기"(↔ "타임라인 보기")를 누르면 주행 자극 그래프 + 병원에 보여 줄 내용(공유 버튼·지난 기록). 병원 공유 내용(`ShareReport`)은 그대로. 고갯길 비교·"주행 자극 보기"는 그대로 정차 중 버튼.
+- 스크립트: rehearsal.py 도착 장면(예비, 기본 목록 밖)·ui_capture.py `03-triplog`은 "오늘의 길"을 기다리고, `03b-triplog-detail`(새)·도착 장면은 "주행 자극 자세히 보기"를 눌러 "병원에 보여 줄 내용"을 확인. 첫 리허설에서 PT3 "맞춤 정도"가 타임라인 스크롤 아래로 밀려 막힘 → 스크롤 밖으로 옮겨 해결.
+- 리허설: 기본 1회 통과 70초, `--all` 1회 통과 130초. README 스크린샷 `docs/screens/v8/10-report.png`만 새로(앱 영역 1024×726). `10b-report-calibrated.png`는 옛 배치 그대로(지시대로 1장만).
+- 검증: `./gradlew test` 종료 0 — 319개(앱 171 + 그 밖 148), 실패 0.
+
+## AVD 메모리 3072MB 시도 + 리허설 3회 (2026-11-02 09시, 사용자 지시)
+- `config.ini` `hw.ramSize` 4096 → 3072(백업 후) → 콜드 부팅해도 게스트 MemTotal 4GB. `-verbose`: "Increasing RAM size to 4096MB"(에뮬레이터가 이 이미지 최소값으로 올림), `-memory 3072`도 같음 → **적용 불가, config.ini 원래 값(4096)으로 되돌림**. AVD 설정 변경 없음.
+- 리허설 연속 3회(문 이벤트 빌드, 재시작 없이) 통과: 77·68·66초 → [qa_report.md](qa_report.md).
+
+## 차량 이벤트 연결 — 문 (2026-11-02 오전, 11/8 동결 전, 새 화면 없음)
+- **Door API 확인 (javap Vehicle 2.3.2):** `Vehicle.getDoor(): Door`, `Door.checkDoorPositionCapabilities(Function2<CapabilityConfig, Map<DoorArea, AreaBounds<Integer>>, Unit>, Function1<Exception, Unit>)`, `getCurrentDoorPosition(DoorArea, Function1<Integer, Unit>, Function1<Exception, Unit>)`, `registerDoorPosition(DoorArea, DoorPositionListener)`·`unregisterDoorPosition`, `DoorPositionListener.onPositionUpdated(Integer)` + `VehicleListener.onFailed(Exception)`, `DoorArea(DoorValue...)`·`getValues()`, `DoorValue` ROW_1_LEFT·ROW_1_RIGHT·ROW_2_LEFT·ROW_2_RIGHT·ROW_3_LEFT·ROW_3_RIGHT·HOOD·REAR. `@RequiresPermission("pleos.car.permission.CAR_DOORS")`(읽기·등록), 쓰기는 `CONTROL_CAR_DOORS`(안 씀). 에뮬레이터: `CAR_DOORS` protectionLevel normal(설치 시 허용), 실차 모드 로그 "문 위치 지원 영역 6곳 → 쓰는 문 [ROW_1_LEFT, ROW_2_LEFT, ROW_2_RIGHT]". AAOS `DOOR_POS` 대체는 필요 없었음.
+- 위치 값의 뜻은 문서·aar에 없음 → 0만 닫힘, 그 밖은 열림(`DoorState.isOpen`, 실차 확인 예정). 운전석 = ROW_1_LEFT(좌핸들 가정, 실차 확인 예정).
+- 신호: `Signal.DOOR`, `SignalSample.doors: DoorState?`(운전석·뒷좌석 왼쪽·오른쪽, 문마다 nullable), `SignalMerge`, `PleosVehicleSource`(지원 영역만 등록), 시나리오 키프레임 `doorDriver`·`doorRearLeft`·`doorRearRight`, pet-trip에 DOOR + 문 6개 키프레임(휴게소 5252초 운전석, 도착 10915초 뒷문·10935초 운전석 — 모두 "내렸나요?"(10899초) 뒤라 리허설 그대로). 설정 "이 차에서 쓰는 신호"에 "문 열림 (도착·잠깐 내릴 때)" 한 줄, 발표 모드 신호 줄 "doors"(디버그 패널).
+- 동작 `engine/pet/DoorWatch`(닫힘 → 열림 순간만, P단만): a) 도착 + 뒷문 → `BoardingCheck.promptNow`로 "콩이 내렸나요?" 바로(기존 화면·문장) — **완료**. b) 휴게소 + 운전석 문 → 대기 모드는 켜지 않고 "문이 열렸어요. 차에 두고 다녀오면 "잠깐 다녀올게"라고 말해 주세요." 한 줄(정차마다 한 번) — **완료**. c) 도착 + 운전석 문 + (답 없음 또는 뒷문 한 번도 안 열림) → "문이 열렸어요." + 기존 "내렸나요?" 문장 한 번(여행마다 한 번, 반복·경적·외부 전송 없음) — **완료**. c)는 도착에서만(휴게소 운전석 문은 b). 문 신호가 없으면 셋 다 꺼지고 이전처럼 P단 60초.
+- 수동 재현: adb `--es door rear|driver|both|closed|none`(디버그, 시뮬레이터에서만 시나리오 값보다 먼저). 에뮬레이터에서 도착 장면 점프 뒤 `--es door rear` → 2초 안에 "콩이 내렸나요?"(기존 화면, 캡처 로컬 `artifacts/door-arrival.png`). docs/demo_script.md 한 줄.
+- 화면 모양 변화: 없음(설정 신호 목록에 줄 하나, 디버그 패널 줄 하나 — 기존 목록 재사용). 새 문구는 wording.md "문 이벤트" 표.
+- 문서: README(대응표 = 공모 요강 4항목 차량특화성·창의성·기술 활용성·사업성("기획서 6번 참고"), 완성도·주행 안전 내용은 기술 활용성·차량특화성 줄로 합침, **SDK 사용표**, **릴리스 APK / 서버 필요 표**, 실차 확인 예정에 문 신호, aar 확인 표에 문), states.md, wording.md, test_plan F6-06~F6-09, demo_script.
+- 검증: `./gradlew test` 종료 0 — 앱 319개(앱 모듈 171 + 그 밖 148, 실패 0, 새 테스트 `DoorWatchTest` 10개·`ScenarioPlayerTest` 1개). 리허설 1회 통과(69초, 문 키프레임 넣은 pet-trip). 서버는 바꾸지 않음(pytest 81, 오늘 아침 결과).
+
+## 시연 안정화 2차 (2026-11-02 아침, 11/8 동결 전 마지막 — 버그 수정·안정화만)
+- **원인 (한 줄):** 장면 점프로 취소된 쉼표 추천이 취소를 삼키고(문장 공급자 `runCatching`) 계속 진행해 초기화 뒤 화면을 다시 쓰고, 취소된 차례의 받아쓰기가 공용 응답 칸에 늦게 값을 넣어 다음 차례의 듣기 상태를 덮을 수 있었다(원래 멈춤은 재현하지 못함 — 이 두 경로를 막음).
+- 1차(아래 "시연 안정화와 제출 준비")에 더해: `ReplyGate` 감시 9초 → **8초**(어떤 경우에도 "듣는 중" 8초 이하), 테스트 F2-14에 "듣는 중 최장 시간 ≤ 8초" 검사, **F2-15 늦은 콜백 무시**(취소 뒤 5초에 온 "응"이 새 차례 상태·응답을 바꾸지 못함). `ReplyGateTest` 6개.
+- `scripts/demo_check.ps1` 다시 짬: 기본은 **점검만**(줄마다 OK/WARN/FAIL — Gradle 데몬 종료, adb 기기·부팅, 앱 설치·버전, PostgreSQL 컨테이너, 서버 상태(status·db·llm만), Ollama·gemma4:12b(WARN), PC 남은 메모리), `-Prepare`(켜기)·`-Rehearsal`(리허설 1회)·`-Stop`. 비밀값은 읽지도 출력하지도 않음. 11/02 실행: 에뮬레이터 꺼짐 상태 FAIL 1(adb), `-Prepare -Install` 뒤 8줄 OK.
+- 빌드 메모리 — **이전 값 기록(바꾸지 않음):** `org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8`, `kotlin.daemon.jvmargs=-Xmx2g`, `org.gradle.parallel=true`, `org.gradle.caching=true`. 제안은 BLOCKED.md 11/02(사용자 승인 필요). AVD도 제안만.
+- 리허설 연속 3회(재시작 없이) 통과: 70·76·86초 → [qa_report.md](qa_report.md) 표. 이어서 점프 20회 1회 통과(110초).
+- 돌봄 문구: care_nausea 제목 "침 흘림·하품 — 속이 불편할 때" 유지, **본문 되돌림**(1차에서 바꾼 마지막 줄 → 원래 "멀미가 자주 반복되면"). sources = Merck Veterinary Manual·AVMA "Pets in vehicles"·RSPCA "Dogs die in hot cars" 중 맞는 것만, 주소는 11/02 페이지를 직접 열어 확인한 3개(Merck 2·RSPCA 1)만. AVMA는 자동으로 본문을 읽지 못해 주소 비움 + "사용자 확인 필요", 맞는 자료가 없는 3개(불안 헐떡임·응급·잘 모르겠음)는 비움 + "사용자 확인 필요". reviewed=false 유지.
+- 릴리스: 서명 값을 `local.properties`(pause.keystore·pause.keyAlias·pause.keystorePassword·pause.keyPassword) 또는 환경 변수(PAUSE_*, 우선)에서 읽음. 값이 없으면 `assembleRelease`가 패키징 전에 안내 문구로 멈춤(`./gradlew test`는 영향 없음). versionName **1.0.0**, 출력 `gatigage-v1.0.0.apk`. R8은 기본 꺼짐 그대로(`-Ppause.minify=true` 옵트인, 켜져 있지 않음). 디버그 키 임시 서명으로 이름·`apksigner verify`·versionName 확인 후 지움(약 57MB). `.gitignore`에 `*.jks`·`*.keystore`·`local.properties` 있음. docs/release.md 단계 다시 씀.
+- README: 8개 상태 표 새로, 실차 확인 예정 표 항목 이름 맞춤 + **1920×1080 배치** 줄 추가, 시연 방법에 발표 모드(로고 5번 탭)·분할 창(손잡이 끌기), 대응표 숫자(앱 308·서버 81, 리허설 70·76·86초), 릴리스 절. 검색: 실명·개인 이메일·키 없음, 커밋 작성자 noreply 하나, 도구 이름 표기는 위 5번 항목(공개 문서 3개 파일), 진단·측정 표현은 부정형("측정 아님")만.
+- 화면 모양 변화: 없음(UI·문구 코드 변경 없음).
+- 검증: `./gradlew test` 종료 0 — 앱 308개(앱 모듈 170 + 그 밖 모듈 138, 실패 0). 서버 pytest 81 통과. (문 이벤트 뒤 319개, 위 절)
+
+## 시연 안정화와 제출 준비 (2026-11-02, 새 기능 없음)
+- 버그 "듣고 있어요" 멈춤(BLOCKED 11/01): 쉼표 추천 응답을 `trip/ReplyGate.kt`로 뗌 — 음성 8초 한 번 → 무조건 버튼(다시 묻기 없앰, `RestPhrases.askAgain` 삭제), 차례 번호(점프·초기화 뒤 지난 차례는 상태를 못 바꿈), 받아쓰기 결과는 그 차례 안에서만(전에는 취소된 차례의 받아쓰기가 공용 응답 칸에 ""를 넣음), 다른 스레드 감시(9초 넘은 "듣는 중" → 버튼, 화면 반영도 엔진 스레드 밖). `PhraseProvider`가 취소를 템플릿으로 삼키던 것 고침(취소된 제안이 초기화 뒤 화면을 덮을 수 있었음). 원래 멈춤은 재현하지 못함 — 가능한 경로를 막음.
+- 테스트: `ReplyGateTest` 5개(F2-13 8초 뒤 버튼·인식기 없음·버튼 15초·감시, F2-14 점프 20회 연속), `VoiceTest` 취소 1개. 앱 307개 통과(0 실패).
+- 에뮬레이터 점프 20회(`python scripts/rehearsal.py --jumps 20`): 이전 빌드 1회 통과(버튼까지 45.2초). 최종 빌드 5회 중 3회 통과(45.4·45.3·45.7초). 실패 1회는 마지막 점프 직후 에뮬레이터 자체가 꺼짐(04:49, 앱 로그 정상 진행 중), 1회는 끝 화면에 기본 내비가 앞에 있었음(같이가개가 뒤로 감, 로그가 지워져 원인 미확인 — 디버그 APK를 막 다시 설치한 직후).
+- R8 릴리스 빌드 첫 실행 크래시 발견·수정: `TripCoordinator` init이 속성 선언보다 앞이라 엔진 스레드가 생성자보다 먼저 `onSnapshot` → `auto` null. init을 클래스 끝으로. 서명 없는 R8 APK 11.2 MB, 디버그 키 임시 서명본으로 실행 확인.
+- 프로필 칸 "거의 안 해요/가끔/자주 해요" → "덜 예민/보통/예민"(wording.md).
+- 돌봄 문구: care_nausea 제목 "속이 불편할 때", 마지막 줄 "멀미" 표현 바꿈. sources 8개 = 자료 후보(Merck 2·AVMA 3·RSPCA 1, 주소는 11/02 웹 검색으로 확인, 본문 대조 전) + 찾지 못한 2개 "확인 필요". reviewed=false 유지.
+- 메모리: AVD `hw.ramSize=4096`, 시연 중 게스트 실제 사용 약 2GB(MemAvailable 1.9GB), 호스트 qemu 5.3GB(작업 집합). PC 32GB 중 Chrome 약 8.5GB. `scripts/demo_check.ps1`(메모리 → DB·서버 → 에뮬레이터 → 설치 → 내비 안내 → 리허설, `-Stop` 정리), docs/recording.md·README에 연결. AVD 설정은 바꾸지 않음(사용자 결정 대기).
+- 문서: README(실차 확인 예정 표 11/02, 대응표에 완성도·주행 안전 줄, 시연 방법, 데이터 출처·라이선스 절, Windows 명령의 깨진 글자 `\a` 고침), release.md(`C:\keys\` 단계), licenses/ASSETS.md(ZXing), test_plan F2-13·F2-14, BLOCKED, wording.
+
+### PT 리허설 연속 3회 (재시작 없이, 최종 빌드, 2026-11-02 04:4x)
+| 회차 | 걸린 시간(초) | 출발 체크 | 고속도로 | PT1 고갯길 비교 | PT2 병원 사전 접수 | PT3 쓸수록 맞춰짐 | 실패 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 71 (장면 합 67) | 12 | 3 | 9 | 30 | 14 | 없음 |
+| 2 | 68 (66) | 11 | 3 | 9 | 29 | 14 | 없음 |
+| 3 | 67 (67) | 12 | 3 | 9 | 30 | 14 | 없음 |
+(장면별 값은 회차별 `artifacts/rehearsal3/timing*.md`. 같은 조건으로 그 전 빌드에서도 3회 연속 통과: 68·66·67초.)
+
+## 커밋 대기열 (같이가개 15차 — 긴급 도움 작은 수정, 11/03) — 14차 다음에 (실제 명령은 `_private/COMMIT_COMMANDS.md` 7·8·9·10번에 합침)
+1. `[긴급] 제휴 병원 사전 접수 버튼, 번호 없으면 전화 확인 줄 숨김` — core/uistate `ScreenStates.kt`(VetUi.callNote·intakeButton), `EmergencyCardTest.kt`(F10-08), app `ui/screens/EmergencyScreen.kt`
+2. `[시연] 캡처 때만 시연 데이터 표시 숨김` — app `MainViewModel.kt`·`MainActivity.kt`(디버그 adb captureClean), `scripts/ui_capture.py --clean`
+3. `[DOC] 스토어 스크린샷 8장 다시 찍음, 테스트 수 332` — `docs/store/screenshots/*.png`, `docs/store/listing.md`, `test_plan.md`, `docs/qa_report.md`, `README.md`, `docs/release_notes_v1.0.0.md`, `docs/PROGRESS.md`
+
+## 커밋 대기열 (같이가개 14차 — 제출 준비 묶음, 11/03) — 13차 다음에 (실제 명령은 `_private/COMMIT_COMMANDS.md`, 11~14차를 기능 묶음 10개로)
+1. `[시연] -DetectIp, 녹화 원본 자동 촬영` — `scripts/demo_check.ps1`, `scripts/record_scenes.py`, `docs/recording.md`
+2. `[DOC] 마켓 패키지 갱신(긴급 도움·대기), 릴리스 노트 초안, 공개 절차` — `docs/store`(listing·privacy·screenshots 05·06), `docs/privacy.html`, `docs/release.md`, `docs/release_notes_v1.0.0.md`, `README.md`, `docs/PROGRESS.md`
+
+## 커밋 대기열 (같이가개 13차 — 잠깐 대기 한눈에 크게, 11/03) — 12차 다음에
+1. `[대기] 잠깐 대기 화면 한 장으로 크게 (온도는 측정값만, 영어 한 줄)` — 새 `app/.../ui/screens/WaitScreen.kt`·`presentation/WaitLayout.kt`, `ui/screens/PetScreens.kt`(옛 WaitScreen 뺌), `presentation/UiMapper.kt`, `MainViewModel.kt`, core/uistate `ScreenStates.kt`·`Fixtures.kt`·`UiContract.kt`(Scene.WAIT_NOTEMP), 새 `app/src/test/.../WaitGlanceTest.kt`, `scripts/ui_capture.py`
+2. `[문서] 대기 화면·고유 테스트 수 반영` — `docs/wording.md`, `docs/states.md`, `README.md`, `docs/screens/v8/06-wait.png`, `test_plan.md`, `docs/qa_report.md`, `docs/store/listing.md`·`distraction_check.md`, `docs/PROGRESS.md`
+
+## 커밋 대기열 (같이가개 12차 — 긴급 도움, 11/03) — 11차 다음에
+1. `[긴급] 응급 말 4가지 구분 (호흡·경련·출혈·위험 물질)` — engine/pet `PetDistress.kt`, 새 `EmergencyKindTest.kt`
+2. `[긴급] 응급 카드 4개 초안 (reviewed=false)` — content/care `care_breathing.md`·`care_seizure.md`·`care_bleeding.md`·`care_toxin.md`, `content/care/README.md`
+3. `[긴급] 응급 카드 상태·릴리스 미검수 차단` — core/uistate `CareSheet.kt`·`ScreenStates.kt`·`UiContract.kt`·`Fixtures.kt`, 새 `EmergencyCardTest.kt`, app `trip/CareRepository.kt`
+4. `[긴급] 긴급 도움 화면·라우팅·정차 화면 버튼` — app `presentation/ScreenRouter.kt`, `MainViewModel.kt`, `MainActivity.kt`, `trip/TripCoordinator.kt`, `ui/components/Kit.kt`, 새 `ui/screens/EmergencyScreen.kt`, `ui/screens/PetScreens.kt`, `ui/screens/TripLogScreen.kt`, `app/src/test/.../ScreenRouterTest.kt`
+5. `[긴급] 동물병원 화면 위계 (가장 가까운 곳 먼저, 전화 번호·QR)` — `ui/screens/PetScreens.kt`(VetsScreen·ContactPanel), `ui/screens/EmergencyScreen.kt`(NearestVet)
+6. `[문구] 주행 자극 설명 통일 (가속·제동·회전)` — `ScreenStates.kt`, `UiMapper.kt`, `Fixtures.kt`, `PetTripLog.kt`, `CompareScreen.kt`, `DemoPanel.kt`, `PetScreens.kt`(설정), `TripLogScreen.kt`, `RestructureTest.kt`
+7. `[시연] 리허설·캡처에 긴급 도움 장면` — `scripts/rehearsal.py`, `scripts/ui_capture.py`
+8. `[문서] 긴급 도움 반영` — `docs/wording.md`, `docs/states.md`, `README.md`, `docs/screens/v8/05-rest.png`·`08-vets.png`·`08c-vets-call.png`·`16-emergency.png`·`16b-emergency-third.png`·`16c-vets-dark.png`, `test_plan.md`, `docs/store/distraction_check.md`·`data_inventory.md`, `docs/demo_script.md`, `docs/PROGRESS.md`
+(1·3·4는 서로 의존 — 한 번에 커밋해도 됨. 11차 대기열과 같은 파일(README·PetScreens·TripCoordinator·MainViewModel·content/care·PROGRESS)이 겹치므로 11차를 먼저 커밋.)
+
+## 커밋 대기열 (같이가개 11차 — 시연 안정화, 11/02) — 10차(ff95949) 다음에
+1. `[FIX] 쉼표 추천 응답: 음성 8초 뒤 무조건 버튼, 점프 뒤 늦은 콜백 무시` — `app-android/app/src/main/kotlin/com/emop/pause/trip/ReplyGate.kt app-android/app/src/test/kotlin/com/emop/pause/trip/ReplyGateTest.kt app-android/app/src/main/kotlin/com/emop/pause/trip/TripCoordinator.kt app-android/voice app-android/engine/planner test_plan.md`
+2. `[FIX] 프로필 칸 문구 덜 예민·보통·예민` — `app-android/app/src/main/kotlin/com/emop/pause/ui/screens/PetScreens.kt`
+3. `[BUILD] 릴리스 1.0.0: 서명 값 local.properties·환경 변수, 없으면 안내 후 멈춤, gatigage-v1.0.0.apk` — `app-android/app/build.gradle.kts docs/release.md`
+4. `[DOC] 돌봄 문구 제목·자료 후보` — `content/care docs/wording.md`
+5. `[DOC] 시연 점검 스크립트, 리허설 기록, README 최종 점검` — `scripts docs README.md licenses`
+(1번의 TripCoordinator에는 init 위치 변경(R8 첫 실행 크래시)도 들어 있다. 새 파일: `ReplyGate.kt`, `ReplyGateTest.kt`, `scripts/demo_check.ps1`. 5번 `docs`는 3·4번에서 뺀 나머지: BLOCKED·PROGRESS·qa_report·recording.)
+6. `[FEAT] 문 신호(Pleos Door): 도착 뒷문 → 내렸나요 바로, 휴게소 운전석 문 → 대기 모드 제안, 도착 후 안전 안내 한 번` — `app-android/core/model app-android/core/vehicle app-android/engine/pet app-android/sim app-android/app/src/main/kotlin/com/emop/pause/trip/TripCoordinator.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/ui/screens/DemoPanel.kt scenarios/pet-trip.json scripts/gen_demo_data.py`
+7. `[DOC] SDK 사용표, 릴리스·서버 기능 표, 대응표 심사 항목 4개` — `README.md docs/states.md docs/wording.md docs/demo_script.md test_plan.md docs/PROGRESS.md`
+(6번의 TripCoordinator는 1번과 같은 파일 — 1번을 먼저 커밋하려면 `git add -p`로 나누거나 1·6번을 한 커밋으로. 새 파일: `engine/pet/.../DoorWatch.kt`, `DoorWatchTest.kt`. 5번 `docs`에서 7번 문서는 빼고 커밋.)
+8. `[CHORE] 옛 쉼표 시안 삭제, 문서의 도구 이름 표기 정리` — `docs/design/mockups docs/design/UI_SPEC.md docs/BLOCKED.md todo.md .gitignore` (삭제는 `git add -A docs/design/mockups`)
+9. `[DOC] LICENSE (공모전 심사·열람 목적, 데이터·라이브러리 예외)` — `LICENSE README.md licenses/ASSETS.md`
+10. `[UI] 도착 리포트 첫 화면을 요약·타임라인으로, 그래프는 자세히 보기` — `app-android/app/src/main/kotlin/com/emop/pause/ui/screens/TripLogScreen.kt scripts/rehearsal.py scripts/ui_capture.py docs/screens/v8/10-report.png docs/states.md docs/PROGRESS.md`
+(README·PROGRESS·states는 7·9·10번에 걸쳐 있다 — 7~10번을 한 커밋으로 묶어도 된다.)
+11. `[DOC] Pleos App Market 제출 패키지: 데이터 처리 표·개인정보 처리방침·주의분산 점검표·등록 문서·스크린샷 8장·아이콘` — `docs/store docs/privacy.html README.md docs/BLOCKED.md docs/PROGRESS.md scripts/ui_capture.py`
+12. `[CHORE] 디자인 PNG 30장 C2PA 메타데이터 청크 제거(픽셀 그대로)` — `docs/design/v3 docs/design/v4 docs/design/v5 docs/design/ui_design.png`
+(11번의 README·PROGRESS·BLOCKED는 7~10번과 같은 파일 — 7~11번을 한 커밋으로 묶어도 된다. 앱 코드는 바꾸지 않았다.)
 
 ## 마지막 UI 수정 (2026-11-01, 사용자 결정 2개 + 캡처 검수 6건, 11/8 UI 동결)
 - 결정 1 개인 보정 안 ①: 엔진이 두 값을 낸다 — `MotionState.index`(보정 전, 화면·기록·비교) / `personal`(개인 보정 × "이상해요" 가중, PetRestPlanner·PetDistress). 예보는 `trajectory`(보정 전) + `personalPredicted`·`personalPeak`(안내 문구·예보 단계). `MotionConstants.sensitivity`에서 보정 계수를 빼고 `personalScale`로. DemoNumbersTest DM-08(계수 상한으로 돌려도 분마다 같은 숫자). PT3 리포트 보정 뒤에도 최고 55.
@@ -44,15 +227,15 @@
   - 앱 `./gradlew test` 종료 0 — 고유 298개 실패 0 (새 `RestructureTest` 12개, `ScreenRouterTest` ST-02). 서버 pytest 81 통과.
   - PT 리허설 `scripts/rehearsal.py` 5장면 OK 66초 — PT2는 음성 동의 "네"를 넣고(`TripCoordinator.ask`가 마이크와 화면·adb 응답 중 먼저 온 것), PT3는 음성 신고 "콩이 토했어" → 리포트 "맞춤 정도: 기록 4회".
   - 서버 문구: 기록 요약 프롬프트·템플릿·쉼표 이유를 주행 자극으로, LLM 요약 금지어에 "멀미".
-  - 문서: [states.md](states.md)(8개 상태·전환·데이터 출처), [wording.md](wording.md)(옛 표현 → 새 표현), test_plan(F1-11·F5-12·F7-05b·F7-06·F7-08·F7-09·ST-01~03), ui_contract(v8 계약), STYLE_V6(v8 화면), BLOCKED(분할 창 해결, 보정이 주행 자극 숫자를 바꾸는 문제·점프 뒤 실시간 신고·1920), demo_numbers, CLAUDE.md 결정. README·architecture·flowchart·demo_script·motion_model 등은 문구표대로 정리.
+  - 문서: [states.md](states.md)(8개 상태·전환·데이터 출처), [wording.md](wording.md)(옛 표현 → 새 표현), test_plan(F1-11·F5-12·F7-05b·F7-06·F7-08·F7-09·ST-01~03), ui_contract(v8 계약), STYLE_V6(v8 화면), BLOCKED(분할 창 해결, 보정이 주행 자극 숫자를 바꾸는 문제·점프 뒤 실시간 신고·1920), demo_numbers, 에이전트 지침 파일 결정. README·architecture·flowchart·demo_script·motion_model 등은 문구표대로 정리.
   - 캡처 `artifacts/ui/v8/`: `sheet-drive-nav.png`(주행, 분할 창), `sheet-vet.png`, `sheet-stopped.png`, `sheet-report.png`, `sheet-rehearsal.png`.
 
-## 커밋 대기열 (같이가개 10차 — 마지막 UI 수정, 11/01) — 9차(a013157) 다음에
+## 커밋 대기열 (같이가개 10차 — 처리됨: 사용자가 `ff95949`로 커밋)
 1. `[RS] 개인 보정은 예보·쉼표에만, 점프 뒤 실시간 신고 유지` — `app-android/engine app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/runtime app-android/core/uistate app-android/app/src/test`
 2. `[UI] 길 안내 한 줄·쉼표 추천 잘림·링크 QR·출발 전 줄바꿈` — `app-android/app/src/main/kotlin/com/emop/pause/ui app-android/app/build.gradle.kts app-android/gradle/libs.versions.toml`
 3. `[RS] 서버 요약 "(휴식 제외)"` — `server/app/llm/phrases.py server/tests`
 4. `[DOC] 발표 숫자 최종, README v8 스크린샷, 녹화 방법` — `README.md docs test_plan.md scripts`
-(1·2번은 화면 계약(`ScreenStates.kt`)을 함께 바꾸므로 `git add -A` 한 번으로 묶어도 된다. 새 파일: `ui/components/Qr.kt`, `docs/screens/v8/`. `CLAUDE.md`는 gitignore.)
+(1·2번은 화면 계약(`ScreenStates.kt`)을 함께 바꾸므로 `git add -A` 한 번으로 묶어도 된다. 새 파일: `ui/components/Qr.kt`, `docs/screens/v8/`. 에이전트 지침 파일는 gitignore.)
 
 ## 커밋 대기열 (같이가개 9차 — 처리됨: 사용자가 `a013157`로 커밋)
 1. `[RS] 주행 자극·관찰 상태 분리, 8개 상태, 개인 보정 자동` — `app-android/core app-android/engine app-android/app/src/main/kotlin/com/emop/pause/trip app-android/app/src/main/kotlin/com/emop/pause/presentation app-android/app/src/main/kotlin/com/emop/pause/MainViewModel.kt app-android/app/src/main/kotlin/com/emop/pause/MainActivity.kt app-android/app/src/main/kotlin/com/emop/pause/runtime app-android/data app-android/app/src/test`
@@ -262,7 +445,7 @@
 ## 2026-10-29 — 단계 J 서버 + G 데이터 삭제
 - 한 일: api_spec 남은 엔드포인트 전부 — `/content/episodes`·`/content/playlists`(배낭 편성, 앱과 같은 규칙)·`/content/missions`(reviewed=true만), `/llm/kid-answer`(**LLM 없이 템플릿만**), `/trips`·`/trips/{id}/events`(clientEventId 멱등)·`PATCH /trips/{id}`(종료 후 409)·`/trips/{id}/report`, `DELETE /devices/me`. 콘텐츠 적재 잡 `app.jobs.load_content`. 미들웨어: 요청 ID(X-Request-ID 에코·생성), JSON 한 줄 접근 로그(토큰·본문 없음), 기기당 분당 120회 레이트 리밋(429 + Retry-After, /health 제외). `server/Dockerfile`, `.dockerignore`, compose `api` 서비스(host.docker.internal로 Ollama). 앱 "모두 지우기" → `ServerSession.forget()`(서버 삭제 성공 시 토큰 폐기, 오프라인이면 토큰 유지).
 - 검증: 서버 pytest **45 통과**·3 skip(PG), 새 `test_content_trips.py` 15개. `./gradlew test assembleDebug` 171개 통과(forget 테스트 포함). `docker compose config` 통과, 이미지 빌드는 Docker 데몬 꺼짐 → BLOCKED.
-- 결정: `/llm/kid-answer`는 LLM을 부르지 않는다 — CLAUDE.md 규칙 4가 api_spec 예시(source=ollama)보다 우선. api_spec §2.9 갱신, §2.14·공통(요청 ID·레이트 리밋) 추가.
+- 결정: `/llm/kid-answer`는 LLM을 부르지 않는다 — 에이전트 지침 파일 규칙 4가 api_spec 예시(source=ollama)보다 우선. api_spec §2.9 갱신, §2.14·공통(요청 ID·레이트 리밋) 추가.
 - 다음: I 발표 모드(로직), G 첫 실행·설정 로직 점검, K 출시 준비(versionCode 자동).
 
 ## 2026-10-29 — 단계 H 품질
