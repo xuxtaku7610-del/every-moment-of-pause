@@ -1,0 +1,22 @@
+Copyright (c) 2026 같이가개 개발자. All rights reserved.
+
+이 저장소의 소스 코드·문서·그림은 공모전 심사와 열람 목적으로만 사용할 수 있다.
+심사위원과 열람자는 이 저장소를 내려받아 읽고, 빌드하고, 에뮬레이터나 차량에서 실행해 볼 수 있다.
+그 밖의 복제·수정·배포·상업적 이용은 저작권자의 서면 허락 없이는 할 수 없다.
+
+예외 — 아래 자료는 이 라이선스가 아니라 각자의 조건을 따른다.
+
+1. OpenStreetMap에서 가져온 도로 형상 데이터(scenarios/geo/mountain_road.gpx 등)
+   © OpenStreetMap contributors, Open Database License (ODbL) 1.0
+   https://opendatacommons.org/licenses/odbl/1-0/
+
+2. 공공데이터 — 각 제공처의 이용 조건을 따른다.
+   - 한국관광공사 TourAPI(반려동물 동반여행) 데이터·사진
+   - 지방행정 인허가 데이터(동물병원)
+   - 한국도로공사 휴게소 데이터
+
+3. 서드파티 라이브러리·글꼴·아이콘(ZXing, Pretendard, Fluent UI Emoji 등)
+   - 각자의 라이선스를 따른다.
+
+자료별 출처와 라이선스 전문은 licenses/ASSETS.md, licenses/ 폴더,
+README.md "데이터 출처·라이선스" 절에 있다.
