@@ -7,10 +7,41 @@
 1. 커밋 대기열 11차 처리(아래, 12개). 스토어 제출 전 결정: docs/BLOCKED.md "11/02 (스토어)" 줄들.
 2. 메모리: AVD 3072MB는 에뮬레이터 최소값(4096MB) 때문에 적용 불가(11/02 시도, 원래 값 유지). 남은 제안은 gradle.properties 힙 줄이기 — 시연 중에는 Chrome 탭 정리가 가장 효과적.
 3. keystore 만들기(`C:\keys\`, docs/release.md 1단계) → local.properties 네 줄 또는 환경 변수(2단계) → `assembleRelease` → `apksigner verify`·설치 확인(3~4단계) → GitHub Releases에 `gatigage-v1.0.0.apk`.
-4. `content/care` 검수: **새 응급 카드 4개(11/03, 위 "긴급 도움 — 결과")** + 기존 sources "사용자 확인 필요" 5곳(AVMA 주소 2, 비운 3), care_nausea 마지막 줄 "멀미가 자주 반복되면"(본문이라 그대로 둠) → `reviewed: true`.
+4. ~~`content/care` 검수~~ → 11/03 처리(아래 "돌봄 카드 검수 반영"). 수의사 검수가 가능하면 한 번 더.
 5. (11/02 처리함) 공개 문서의 도구 이름 표기 정리 — 아래 "공개 전 정리" 절.
-6. `licenses/ASSETS.md` 【도구명】, LICENSE(11/02 추가, 공모전 심사·열람만 허용) 문구 확인, README 대응표 사업성 줄("기획서 6번 참고")이 기획서 번호와 맞는지 확인, 문 신호 실차 확인(위치 값 뜻·운전석 위치), 동물병원 데이터 이용 조건 확인.
+6. ~~`licenses/ASSETS.md` 도구명~~ → 도구 이름은 적지 않음(11/03). LICENSE(11/02 추가, 공모전 심사·열람만 허용) 문구 확인, README 대응표 사업성 줄("기획서 6번 참고")이 기획서 번호와 맞는지 확인, 문 신호 실차 확인(위치 값 뜻·운전석 위치), 동물병원 데이터 이용 조건 확인.
 7. 실제 폰으로 대기·도착 예정·병원 접수함 QR 열기, 시연 영상 녹화(docs/recording.md, 녹화 전 `demo_check.ps1 -Prepare -ShareBase …`, 브라우저 탭 정리).
+
+## README 마무리 + 심사위원 첫 실행 (2026-11-03, `_private/README_FIX_PROMPT.md`)
+- **빈칸 채움**: README 사업성 확대 3단계(국내 → 연동 → 해외·확장) + 2차(PT) 계획 "콩이 도우미", 상용화 사진 업로드 방식, 고객 지원 = GitHub Issues(README·listing·privacy.md·privacy.html, 이메일·전화 안 씀), 처리방침 시행일 2026-11-13. README의 빈칸 표시는 0개(영상·Releases는 `<!-- TODO 11/13 -->`).
+- **시연 주행 안내 띠** (DM-10, `DemoTripHint`): 실차 모드 출발 전 화면에서 속도·기어가 10초 동안 없거나 **에뮬레이터 기기**(Build HARDWARE ranchu 등)면 화면 아래 파랑 띠 "차량 신호가 없어요. 시연 주행으로 둘러볼까요?" + [시연 주행 시작]·[닫기]. Pleos 에뮬레이터는 실차 모드에서도 속도 0(AAOS)·기어 P(Pleos SDK)를 줘서 신호 조건만으로는 안 뜸 → 기기 판별 추가(사용자 결정). 시작 = 발표 모드에서 pet-trip 고르기와 같은 `useScenario`. 닫으면 그 실행 동안 안 뜸, 주행 화면·시뮬레이터에는 없음. README 실행 4단계·listing 심사 노트·release_notes·wording 갱신.
+- **에뮬레이터 확인**: `--ez vehicle true` → 온보딩 "나중에" → 10초 뒤 띠 → [시연 주행 시작] → 콩이·강릉 2시간 34분 출발 전 화면("시연 데이터"), 띠 사라짐.
+- **대표 이미지 다시 찍음**: 기본 내비 강릉씨티호텔 안내 중(사용자가 건 안내가 풀려 있어 최근 목록 → 목적지로 다시 걸음) `ui_capture.py --out hero --nav --clean` → 원본 `artifacts/ui/hero/01-drive-hero2.png`(앱 새로 띄운 뒤, 처음 장은 지난 리허설의 병원 안내가 남아 버림) → 1700×1212 `docs/store/screenshots/02-drive-split.png` 교체, README 첫 이미지도 이 파일로. 캡션에서 "시연 데이터" 설명·"1/3" 뺌(이 장은 1/2 분할).
+- **남은 빈칸 정리**: listing 처리방침 주소 `https://xuxtaku7610-del.github.io/every-moment-of-pause/privacy.html`(11/13 Pages를 켜면 열림 주석), 프로젝트 ID·IARC·SDK 권한 승인 = "실제 마켓 출시 신청 때 입력(공모전 단계에서는 해당 없음)". 접속 기록은 서버를 띄워 확인한 사실대로: uvicorn 기본 접속 로그가 IP:포트·요청 경로(쿼리의 좌표 포함)를 서버 실행 창·`artifacts/demo_check/uvicorn.*.log`(개발 PC)에 남김, 외부 전송 없음, 자동 삭제 없음 → "출시 전 좌표를 빼고 보관 기간·자동 삭제". 앱 자체 JSON 접속 로그(`pause.access`)는 핸들러가 없어 지금은 출력되지 않음. 【도구명】은 "도구 이름은 적지 않는다"로(ASSETS·todo·PROGRESS), release.md 처리방침 줄도 주소로. 저장소 전체 【 】 검색 0건(_private·artifacts·build·.venv 제외).
+- 검증(2차): `./gradlew test` 종료 0, pytest 81 통과, 리허설 `--all` 1회 통과(144초, 9장면 OK).
+- **고유 테스트 수 = 앱 339 · 서버 81** (app +7). 검증: `./gradlew test` 종료 0, 리허설 `--all` 1회 통과(141초, 9장면 OK).
+
+## 커밋 대기열 (같이가개 18차 — README 마무리·시연 주행 띠, 11/03) — 실제 명령은 `_private/COMMIT_COMMANDS.md` 3~5번
+1. `[시연] 출발 전 화면 시연 주행 안내 띠` — `DemoTripHint.kt`·`DemoTripHintTest.kt`·`MainViewModel.kt`·`PetScreens.kt`·core/uistate `ScreenStates.kt`·`UiContract.kt`
+2. README 빈칸·실행 4단계 → 17차 README 커밋에 함께
+3. `docs/store/privacy.md`·`docs/privacy.html`·`docs/qa_report.md`·`docs/release.md`·`licenses/ASSETS.md`·`todo.md`·`docs/store/screenshots/02-drive-split.png`(+ listing·release_notes·wording·test_plan·PROGRESS) → 문서 커밋에 함께
+
+## README 개편 — 심사위원 기준 (2026-11-03, `_private/README_PROMPT.md`)
+- README 385줄 → 약 390줄이지만 첫 화면(제목·한 줄 소개·링크 줄·대표 화면·문제 → 해결 3줄·심사 기준 표)만 펼쳐 두고, 개발자용 상세 실행·기술 스택·저장소 구조·8개 상태·개인정보·데이터 출처·참고는 `<details>`로 접음. 순서는 지시의 1~11번.
+- 새 문서: `docs/features.md`(배경·단계별 표·F1~F10·뺀 것·공통 원칙), `docs/screens.md`(화면 21장 표·캡처 설명), `docs/tech_notes.md`(빌드 설정·SDK 호환성·aar 확인 결과·Playground 현황·주행 안전 규칙·DB 테스트 정책·minSdk 근거).
+- 첫 화면에서 뺀 것: "가칭", "「쉼표」에서 전환", 날짜별 기록, 내부 버전 이름(v8 등) → docs/features.md·docs/screens.md. 깨져 있던 중복 대응표(옛 119~124줄)는 심사 기준 표·검증 절로 합침.
+- 핵심 기능 6칸은 스토어 스크린샷(시연 표시 없는 것) 재사용, 대표 화면은 기본 내비 안내 중 실제 분할 창 `docs/screens/v8/02-drive-nav.png`(지금 내비 안내가 꺼져 있어 새로 찍지 않음, 캡션에 "시연 데이터" 설명).
+- 비워 둔 것: 시연 영상·Releases 링크(`<!-- TODO 11/13 -->`). 확대 3단계·사진 업로드·고객 지원·시행일은 README_FIX에서 채움(위).
+- 검사: 상대 경로 링크·이미지 전부 존재(README·features·screens·tech_notes), 앵커 링크 존재, mermaid는 mermaid-cli 임시 실행으로 렌더 확인, 금지 표현은 "반려견 측정·진단 아님" 부정문만.
+
+## 돌봄 카드 검수 반영 (2026-11-03, 사용자 지시 · `_private/care_review.md` 기준)
+- **본문**: seizure 2번("몸을 붙잡지 말고, 부딪힐 물건을 치우고 주변을 조용히 해요." — "입에 손" 뺌), emergency 4번·panting_hot 3번("시원한 물로 몸을 적셔요(물에 담그지는 않아요)", panting_hot은 뒤에 "바로 동물병원에 연락해요." 유지), panting_anxious 1·3번, nausea 2번(3번 유지), vomit 1·2번, unsure 2번 삭제(4줄 → 3줄)·4번. 나머지 줄은 그대로.
+- **sources**: 대조표 "추가할 만한 페이지"대로 — AVMA·"사용자 확인 필요"·"(비움)"이 모두 없어짐(Merck·RSPCA만, bleeding·breathing·vomit은 그대로 + 검수 표시).
+- **reviewed: true 12장.** 화면의 "검수 전" 알약이 사라지고 릴리스에도 응급 카드 본문이 나온다. 차단 규칙은 그대로(reviewed=false 카드면 숨김 — 테스트는 copy로 확인).
+- **주행 중 음성**: 바뀐 본문과 어긋나는 줄 없음 → 그대로(응급 카드 voice 4개는 "바로 동물병원에 연락해요. …" 40자 이하, PetDistress 한 줄 안내 7개는 체크리스트 내용을 말하지 않음).
+- **테스트**: CareSheetTest(reviewed=true, "사용자 확인 필요"·AVMA 없음, 시원한 물·담그지 않음, "미지근" 없음), EmergencyCardTest(reviewed=true, 지금 카드는 릴리스에도 본문), Fixtures(쉼표 돌봄 카드·응급 카드 문구·reviewed). 고유 수 그대로 332.
+- **스토어 스크린샷 05** 검수 뒤 다시 찍음(`--clean`, "검수 전" 알약 없음). listing·README·release_notes·wording·BLOCKED·content/care/README·test_plan 갱신.
+- **검증**: `./gradlew test` 종료 0, 리허설 `--all` 1회 통과(145초, 9장면 OK).
 
 ## 긴급 도움 작은 수정 3개 (2026-11-03, 11/8 동결 전)
 1. **제휴 병원 [사전 접수]**: 긴급 도움의 가장 가까운 병원이 제휴(시연용 가상) 병원이면 [경로 안내] 아래 [사전 접수](보조) → `UiEvent.OpenVets` = 기존 동물병원 화면 사전 접수(IntakePanel) 그대로. 동물병원 화면의 NearestVet에는 버튼을 넣지 않음(옆에 사전 접수 패널이 이미 있음). 에뮬레이터: 휴게소 → 긴급 도움 → 위험 물질 → [사전 접수] → 사전 접수 패널 확인.
@@ -148,6 +179,14 @@
 | 2 | 68 (66) | 11 | 3 | 9 | 29 | 14 | 없음 |
 | 3 | 67 (67) | 12 | 3 | 9 | 30 | 14 | 없음 |
 (장면별 값은 회차별 `artifacts/rehearsal3/timing*.md`. 같은 조건으로 그 전 빌드에서도 3회 연속 통과: 68·66·67초.)
+
+## 커밋 대기열 (같이가개 17차 — README 개편, 11/03) — 16차 다음에 (실제 명령은 `_private/COMMIT_COMMANDS.md` 3번)
+1. `[DOC] README 심사위원 기준 개편, 기능·화면·기술 메모 문서 분리` — `README.md`, 새 `docs/features.md`·`docs/screens.md`·`docs/tech_notes.md`, `docs/PROGRESS.md`
+
+## 커밋 대기열 (같이가개 16차 — 돌봄 카드 검수 반영, 11/03) — 사용자가 11~15차를 커밋한 뒤(`bab6b4b`까지) 남은 것 (실제 명령은 `_private/COMMIT_COMMANDS.md`)
+1. `[돌봄] 카드 12장 사용자 검수 반영 (문구·출처, reviewed=true)` — `content/care/*.md`, core/uistate `Fixtures.kt`, `CareSheetTest.kt`, `EmergencyCardTest.kt`
+2. `[DOC] 검수 끝 반영, 스크린샷 05 다시 찍음` — `docs/store/screenshots/05-emergency-vet.png`, `docs/store/listing.md`, `README.md`, `docs/release_notes_v1.0.0.md`, `docs/wording.md`, `docs/BLOCKED.md`, `test_plan.md`, `docs/PROGRESS.md`
+- 앞 묶음은 사용자가 `a263fd6`까지 커밋함.
 
 ## 커밋 대기열 (같이가개 15차 — 긴급 도움 작은 수정, 11/03) — 14차 다음에 (실제 명령은 `_private/COMMIT_COMMANDS.md` 7·8·9·10번에 합침)
 1. `[긴급] 제휴 병원 사전 접수 버튼, 번호 없으면 전화 확인 줄 숨김` — core/uistate `ScreenStates.kt`(VetUi.callNote·intakeButton), `EmergencyCardTest.kt`(F10-08), app `ui/screens/EmergencyScreen.kt`
@@ -325,7 +364,7 @@
 (2번과 4번이 같은 파일(MainViewModel·ScreenStates·UiMapper)을 고치므로 `git add -A` 한 번이 안전하다.)
 
 ## V5 후속 (2026-10-30 저녁) — 사용자 결정 5개 + 분할 창·리허설·README·녹화
-- 결정 1: 디자이너 그림 = 사용자가 생성형 AI 디자인 도구로 직접 제작 → `licenses/ASSETS.md`(도구명 【도구명】), 디버그 전용 해제(main assets, 시트·안 쓰는 원본은 APK 제외).
+- 결정 1: 디자이너 그림 = 사용자가 생성형 AI 디자인 도구로 직접 제작 → `licenses/ASSETS.md`(도구 이름은 적지 않음, 11/03 정리), 디버그 전용 해제(main assets, 시트·안 쓰는 원본은 APK 제외).
 - 결정 2: 실내/실외·대형견을 판정하지 않음 → `space_note`·`size_note`(동반 조건 원문 문장), 화면 태그는 동반 구분만. 편의시설 목록의 "테라스"는 제외.
 - 결정 3: 서울·경기(영동고속도로 축 15km) + 강원 → 117곳(서울 34·경기 14·강원 69, 사진 71). 추가 호출 50건, 캐시 120개.
 - 결정 4: vets.csv에 업태·진료 대상 열 없음 → 이름 규칙 유지(224곳 제외). 그런 열이 있으면 먼저 쓰도록(`KIND_COLUMNS`, 테스트). 기준·건수 `docs/plan/public_data.md`.

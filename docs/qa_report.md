@@ -26,7 +26,7 @@
 - 같은 날 이전 빌드(감시 9초)에서도 3회 연속 통과: 71·68·67초 (docs/PROGRESS.md).
 
 
-- **고유 테스트 수 (2026-11-03, 기획서에 넣을 값): 앱 332개 · 서버 81개, 모두 통과.** (11/03 긴급 도움 작은 수정으로 core/uistate +1) 앱은 모듈별로 한 빌드 변형만 센다(안드로이드 모듈은 `testDebugUnitTest`, JVM 모듈은 `test`) — `./gradlew test`는 안드로이드 모듈을 디버그·릴리스로 두 번 돌려 결과 파일 합이 499가 되지만 같은 테스트다. 내역: app 114 · engine/pet 40 · engine/planner 37 · voice 30 · engine/motion 23 · core/uistate 20 · data 18 · core/model 11 · engine/fatigue 11 · engine/needs 10 · sim 7 · core/vehicle 4 · engine/pause 4 · core/restriction 3 (소스의 `@Test` 319개 + 매개변수 테스트 1개 14경우). 서버 `pytest --collect-only` 81.
+- **고유 테스트 수 (2026-11-03, 기획서에 넣을 값): 앱 339개 · 서버 81개, 모두 통과.** (11/03 긴급 도움 작은 수정으로 core/uistate +1, 시연 주행 안내 띠로 app +7) 앱은 모듈별로 한 빌드 변형만 센다(안드로이드 모듈은 `testDebugUnitTest`, JVM 모듈은 `test`) — `./gradlew test`는 안드로이드 모듈을 디버그·릴리스로 두 번 돌려 결과 파일 합이 513이 되지만 같은 테스트다. 내역: app 121 · engine/pet 40 · engine/planner 37 · voice 30 · engine/motion 23 · core/uistate 20 · data 18 · core/model 11 · engine/fatigue 11 · engine/needs 10 · sim 7 · core/vehicle 4 · engine/pause 4 · core/restriction 3 (소스의 `@Test` 326개 + 매개변수 테스트 1개 14경우). 서버 `pytest --collect-only` 81.
 - (이전 기록) 앱 단위 테스트: `./gradlew test` **243 통과, 실패 0** (debug, 10/29). 서버: `pytest` **61 통과**(PostgreSQL 3개 포함, Docker Desktop 켬).
 - 근거: **자동** = 단위·시나리오 테스트(이름에 ID), **에뮬레이터** = `Pleos_Connect_API34`에서 시뮬레이터 `pet-trip`으로 확인(캡처는 로컬 `artifacts/pet/`, 저장소에 없음), **미검증** = 사람 확인이 필요.
 - 화면은 최소 레이아웃(디자인 v5 대기). 모양 항목은 다시 본다.
