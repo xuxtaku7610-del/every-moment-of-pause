@@ -265,7 +265,7 @@ def scenario(mountain_len_m):
             k += 1
 
     kf(label="depart", trip="NOT_STARTED", driveState="PARKED", gear="PARK", speedKph=0, socPercent=82, charging=False,
-       hvacTempC=23, parkingBrake=None)
+       hvacTempC=23, parkingBrake=None, doorDriver=False, doorRearLeft=False, doorRearRight=False)
     frames[-1].pop("parkingBrake")
     t = 60
     kf(label="출발 체크 완료", trip="ACTIVE")
@@ -280,7 +280,13 @@ def scenario(mountain_len_m):
     kf(label="휴게소 진입", speedKph=30)
     drive(140_000, 30)
     kf(label="rest_stop", driveState="PARKED", gear="PARK", speedKph=0, socPercent=57)
-    t += 300
+    # 문 이벤트 b) (차량 이벤트 연결 11/02): 정차 20초 뒤 운전석 문 열림 → "잠깐 다녀올게" 제안 한 줄, 10초 뒤 닫힘
+    t_stop = t
+    t = t_stop + 20
+    kf(doorDriver=True, speedKph=0)
+    t = t_stop + 30
+    kf(doorDriver=False, speedKph=0)
+    t = t_stop + 300
     kf(label="wait", hvacTempC=24, speedKph=0)
     t += 900  # 대기 15분 (제한 10분 → 초과 장면)
     kf(label="대기 끝", hvacTempC=25, speedKph=0)  # 정차 끝에 속도 0 (없으면 정차 중 속도가 0→40으로 보간됐다)
@@ -299,13 +305,19 @@ def scenario(mountain_len_m):
     kf(label="arrive", speedKph=30)
     drive(total, 30)
     kf(label="도착", trip="ENDED", driveState="PARKED", gear="PARK", speedKph=0, socPercent=33, remainDistanceM=0, remainTimeSec=0, hvacTempC=27)
-    t += 120
+    # 문 이벤트 (11/02): "내렸나요?"(도착 60초 뒤)가 나온 다음에 둔다 — 리허설(도착 장면)은 그대로.
+    # 76초 뒤 뒷문(오른쪽) 열림·닫힘, 96초 뒤 운전석 문 열림 → 답이 없으면 c) 안전 안내 한 번. a)는 발표 모드 수동(`--es door rear`).
+    t_end = t
+    for dt, door in ((76, {"doorRearRight": True}), (86, {"doorRearRight": False}), (96, {"doorDriver": True}), (106, {"doorDriver": False})):
+        t = t_end + dt
+        kf(remainDistanceM=0, remainTimeSec=0, **door)
+    t = t_end + 120
     kf(label="도착 체크", remainDistanceM=0, remainTimeSec=0)
     return {
         "name": "pet-trip",
         "description": "같이가개 시연: 서울→강릉, 콩이(소형·9살·멀미 성향 높음). depart·highway·rest_stop(횡성)·wait·mountain_road(대관령 옛길, OSM)·arrive.",
         "startClock": "09:00",
-        "capabilities": ["SPEED", "GEAR", "BATTERY_SOC", "CHARGING", "HVAC_TEMP"],
+        "capabilities": ["SPEED", "GEAR", "BATTERY_SOC", "CHARGING", "HVAC_TEMP", "DOOR"],
         "setup": {"ev": True, "sleepHours": 7,
                   "pet": {"name": "콩이", "size": "SMALL", "ageYears": 9, "motionTendency": "HIGH", "pottyIntervalMin": 90}},
         "route": {

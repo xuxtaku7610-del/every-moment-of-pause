@@ -97,6 +97,10 @@ data class Keyframe(
     val hvacTempC: Float? = null,
     val hvacAc: Boolean? = null,
     val recirculation: Boolean? = null,
+    /** 문 열림 (capabilities에 DOOR). 운전석·뒷좌석 왼쪽·오른쪽, 키프레임 사이에는 이전 값 유지. */
+    val doorDriver: Boolean? = null,
+    val doorRearLeft: Boolean? = null,
+    val doorRearRight: Boolean? = null,
     val remainDistanceM: Float? = null,
     val remainTimeSec: Float? = null,
 )

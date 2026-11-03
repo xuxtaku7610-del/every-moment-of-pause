@@ -5,6 +5,8 @@
     <uses-permission android:name="pleos.car.permission.CAR_ENERGY" />
     <!-- 기어(Gear API). 문서에 매핑이 없어 에뮬레이터에서 확인 (2026-10-28). -->
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
+    <!-- 문 위치 읽기 (Door.getCurrentDoorPosition·registerDoorPosition, javap 2026-11-02) -->
+    <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
 
     <!-- AAOS 차량 속성 (AaosPropertySource). CAR_SPEED·CAR_ENERGY는 dangerous라 런타임에 묻는다 (에뮬레이터 확인). -->
     <uses-permission android:name="android.car.permission.CAR_SPEED" />

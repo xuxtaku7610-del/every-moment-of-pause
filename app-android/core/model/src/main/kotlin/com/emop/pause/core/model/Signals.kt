@@ -1,7 +1,7 @@
 package com.emop.pause.core.model
 
 /** 앱이 읽는 차량 신호. 차종마다 지원 여부가 다르므로 값은 모두 nullable (architecture §3.1 신호 수급 전략). */
-enum class Signal { SPEED, GEAR, PARKING_BRAKE, BATTERY_SOC, CHARGING, HVAC_TEMP, HVAC_AC, HVAC_RECIRCULATION, HEADING }
+enum class Signal { SPEED, GEAR, PARKING_BRAKE, BATTERY_SOC, CHARGING, HVAC_TEMP, HVAC_AC, HVAC_RECIRCULATION, HEADING, DOOR }
 
 /**
  * 신호를 어디서 받았는지 (COMMERCIAL_READINESS A P0). 발표 모드·설정 "이 차에서 쓰는 신호"에 표시한다.
@@ -24,7 +24,30 @@ data class SignalSample(
     val recirculationOn: Boolean? = null,
     /** 진행 방위(도, 0=북). NaviHelper `CurrentLocationInfo.heading` — 멀미 예보의 횡가속 (같이가개 F1). */
     val headingDeg: Double? = null,
+    /** 문 열림 (Pleos Vehicle SDK `Door`, 2026-11-02). 문 신호를 지원하지 않으면 null → 문 이벤트 기능만 꺼진다. */
+    val doors: DoorState? = null,
 )
+
+/**
+ * 문 열림 여부. 문마다 지원이 다를 수 있어 각각 nullable(그 문을 모르면 null).
+ * 값은 SDK 문 위치(Int)를 [DoorState.isOpen]으로 바꾼 것 — 0만 닫힘, 그 밖은 열림 (문서에 뜻이 없음, 실차 확인 예정).
+ */
+data class DoorState(
+    val driverOpen: Boolean? = null,
+    val rearLeftOpen: Boolean? = null,
+    val rearRightOpen: Boolean? = null,
+) {
+    /** 뒷문 하나라도 열림. 두 뒷문을 모두 모르면 null. */
+    val rearOpen: Boolean?
+        get() = if (rearLeftOpen == null && rearRightOpen == null) null else rearLeftOpen == true || rearRightOpen == true
+
+    companion object {
+        val CLOSED = DoorState(driverOpen = false, rearLeftOpen = false, rearRightOpen = false)
+
+        /** SDK 문 위치 → 열림. 0만 닫힘으로 본다 (실차 확인 예정: 위치 값 범위·반열림). */
+        fun isOpen(position: Int?): Boolean? = position?.let { it != 0 }
+    }
+}
 
 data class LatLng(val lat: Double, val lng: Double)
 

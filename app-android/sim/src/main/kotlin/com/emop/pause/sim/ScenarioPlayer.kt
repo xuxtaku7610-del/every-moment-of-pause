@@ -1,5 +1,6 @@
 package com.emop.pause.sim
 
+import com.emop.pause.core.model.DoorState
 import com.emop.pause.core.model.DriveState
 import com.emop.pause.core.model.Signal
 import com.emop.pause.core.model.SignalSample
@@ -77,6 +78,9 @@ class ScenarioPlayer(
     companion object {
         val SPEEDS = listOf(1, 10, 100)
 
+        private fun doorsAt(driver: Boolean?, rearLeft: Boolean?, rearRight: Boolean?): DoorState? =
+            if (driver == null && rearLeft == null && rearRight == null) null else DoorState(driver, rearLeft, rearRight)
+
         fun frameAt(scenario: Scenario, tSec: Double): SimFrame {
             val frames = scenario.timeline
             val caps = scenario.capabilities
@@ -103,6 +107,7 @@ class ScenarioPlayer(
                 hvacTempC = cap(Signal.HVAC_TEMP, lerp { it.hvacTempC }),
                 hvacAcOn = cap(Signal.HVAC_AC, held { it.hvacAc }),
                 recirculationOn = cap(Signal.HVAC_RECIRCULATION, held { it.recirculation }),
+                doors = cap(Signal.DOOR, doorsAt(held { it.doorDriver }, held { it.doorRearLeft }, held { it.doorRearRight })),
             )
             return SimFrame(
                 tSec = tSec,

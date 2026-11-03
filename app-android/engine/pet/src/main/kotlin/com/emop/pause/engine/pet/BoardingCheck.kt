@@ -70,6 +70,21 @@ class BoardingCheck {
         return ArrivalPrompt(strong, i.cabinTempC).also { pending = it }
     }
 
+    /**
+     * 문 이벤트(DoorWatch a·c)로 지금 바로 "내렸나요?" — 60초를 기다리지 않는다. P단·여행 끝일 때만, 여행마다 한 번(이미 물었으면 null).
+     */
+    fun promptNow(i: ArrivalInput): ArrivalPrompt? {
+        val parked = when (i.gear) {
+            Gear.PARK -> true
+            null, Gear.UNKNOWN -> i.parkingBrakeOn == true
+            else -> false
+        }
+        if (prompted || confirmedLeft || !parked || !i.tripEnding) return null
+        prompted = true
+        val strong = i.cabinTempC?.let { it >= HOT_C } ?: (i.month in SUMMER)
+        return ArrivalPrompt(strong, i.cabinTempC).also { pending = it }
+    }
+
     /** "내렸어요". 이때부터 이동 기록 화면으로 넘어갈 수 있다 (F6-04). */
     fun confirmLeft() {
         pending = null

@@ -1,12 +1,15 @@
 package com.emop.pause.core.vehicle
 
 import ai.pleos.playground.vehicle.Vehicle
+import ai.pleos.playground.vehicle.api.model.area.DoorArea
 import ai.pleos.playground.vehicle.api.model.area.SeatArea
 import ai.pleos.playground.vehicle.api.model.capability.AccessType
 import ai.pleos.playground.vehicle.api.model.capability.CapabilityConfig
+import ai.pleos.playground.vehicle.constant.area.DoorValue
 import ai.pleos.playground.vehicle.constant.area.SeatValue
 import ai.pleos.playground.vehicle.constant.control.VehicleGear
 import ai.pleos.playground.vehicle.constant.unit.TemperatureUnit
+import ai.pleos.playground.vehicle.listener.DoorPositionListener
 import ai.pleos.playground.vehicle.listener.EvBatteryStateOfChargeListener
 import ai.pleos.playground.vehicle.listener.GearSelectionListener
 import ai.pleos.playground.vehicle.listener.HvacAcStateListener
@@ -14,6 +17,7 @@ import ai.pleos.playground.vehicle.listener.HvacRecirculationStateListener
 import ai.pleos.playground.vehicle.listener.HvacTemperatureListener
 import android.content.Context
 import android.util.Log
+import com.emop.pause.core.model.DoorState
 import com.emop.pause.core.model.Gear
 import com.emop.pause.core.model.Signal
 import com.emop.pause.core.model.SignalSample
@@ -32,6 +36,13 @@ import kotlinx.coroutines.flow.flow
  * getHVAC().registerHvacTemperature/registerHvacAcState/registerHvacRecirculationState(SeatArea, listener)와
  * 각 checkHvac*Capabilities, 초기값용 getHvacTemperature/getHvacAcState/getHvacRecirculationState/getEvBatteryStateOfCharge.
  * 리스너는 값이 바뀔 때만 오므로 등록 직후 get*으로 현재 값을 한 번 읽는다.
+ *
+ * 문 (차량 이벤트 연결, javap Vehicle 2.3.2 확인 2026-11-02): `Vehicle.getDoor(): Door`,
+ * `Door.checkDoorPositionCapabilities((CapabilityConfig, Map<DoorArea, AreaBounds<Int>>) -> Unit, (Exception) -> Unit)`,
+ * `Door.getCurrentDoorPosition(DoorArea, (Int?) -> Unit, (Exception) -> Unit)`, `Door.registerDoorPosition(DoorArea, DoorPositionListener)`·
+ * `unregisterDoorPosition`, `DoorPositionListener.onPositionUpdated(Int?)`·`onFailed(Exception)`, `DoorArea(vararg DoorValue)`·`getValues()`,
+ * `DoorValue.ROW_1_LEFT/ROW_1_RIGHT/ROW_2_LEFT/ROW_2_RIGHT/…/HOOD/REAR`. 권한 `pleos.car.permission.CAR_DOORS`(읽기·등록에 붙은 @RequiresPermission).
+ * 위치 값의 뜻은 문서·aar에 없다 → 0만 닫힘, 그 밖은 열림([DoorState.isOpen], 실차 확인 예정). 운전석 = ROW_1_LEFT(좌핸들 가정, 실차 확인 예정).
  *
  * 없는 신호: 속도(VehicleSpeedListener는 SDK에서 제거됨), 충전 중 여부(EvChargeState는 공개 API에 노출 안 됨).
  * 두 값은 null로 두고 엔진이 가중치를 재정규화한다. TODO(pleos-sdk): 대체 수단 결정 후 채운다.
@@ -71,6 +82,27 @@ class PleosVehicleSource(context: Context) : VehicleSource {
         override fun onHvacAcStateUpdated(state: Boolean?) = update { it.copy(hvacAcOn = state) }
         override fun onFailed(e: Exception) = fail(Signal.HVAC_AC, e)
     }
+    /** 문 영역별 리스너 (지원하는 영역만 등록). */
+    private val doorListeners = mutableMapOf<DoorArea, DoorPositionListener>()
+    private fun doorListener(slot: DoorValue) = object : DoorPositionListener {
+        override fun onPositionUpdated(position: Int?) = setDoor(slot, position)
+        override fun onFailed(e: Exception) = fail(Signal.DOOR, e)
+    }
+
+    private fun setDoor(slot: DoorValue, position: Int?) {
+        val open = DoorState.isOpen(position)
+        update {
+            val d = it.doors ?: DoorState()
+            it.copy(
+                doors = when (slot) {
+                    DRIVER_DOOR -> d.copy(driverOpen = open)
+                    DoorValue.ROW_2_LEFT -> d.copy(rearLeftOpen = open)
+                    else -> d.copy(rearRightOpen = open)
+                },
+            )
+        }
+    }
+
     private val recirculationListener = object : HvacRecirculationStateListener {
         override fun onHvacAutoRecirculationStateUpdated(state: Boolean?) = update { it.copy(recirculationOn = state) }
         override fun onFailed(e: Exception) = fail(Signal.HVAC_RECIRCULATION, e)
@@ -132,6 +164,24 @@ class PleosVehicleSource(context: Context) : VehicleSource {
                 }
             }, { e -> fail(Signal.HVAC_RECIRCULATION, e) })
         }
+        val door = vehicle.getDoor()
+        guard(Signal.DOOR) {
+            door.checkDoorPositionCapabilities({ cfg, supported ->
+                if (cfg.readable()) guard(Signal.DOOR) {
+                    // 지원 영역 중 운전석·뒷좌석 왼쪽·오른쪽만. 하나도 없으면 문 신호 미지원.
+                    val slots = DOOR_SLOTS.mapNotNull { v -> supported.keys.firstOrNull { v in it.values }?.let { it to v } }
+                    Log.i(TAG, "문 위치 지원 영역 ${supported.size}곳 → 쓰는 문 ${slots.map { it.second }}")
+                    if (slots.isEmpty()) return@guard
+                    addCapability(Signal.DOOR)
+                    for ((area, v) in slots) {
+                        val l = doorListener(v)
+                        doorListeners[area] = l
+                        door.registerDoorPosition(area, l)
+                        door.getCurrentDoorPosition(area, { p -> setDoor(v, p) }, { e -> warnRead(Signal.DOOR, e) })
+                    }
+                }
+            }, { e -> fail(Signal.DOOR, e) })
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -143,6 +193,7 @@ class PleosVehicleSource(context: Context) : VehicleSource {
             areas[Signal.HVAC_TEMP]?.let { hvac.unregisterHvacTemperatureCurrent(it, tempListener) }
             areas[Signal.HVAC_AC]?.let { hvac.unregisterHvacAcState(it, acListener) }
             areas[Signal.HVAC_RECIRCULATION]?.let { hvac.unregisterHvacRecirculationState(it, recirculationListener) }
+            doorListeners.forEach { (area, l) -> vehicle.getDoor().unregisterDoorPosition(area, l) }
         }
         vehicle.release()
     }
@@ -186,6 +237,9 @@ class PleosVehicleSource(context: Context) : VehicleSource {
 
     private companion object {
         const val TAG = "PleosVehicle"
+        /** 좌핸들 가정: 운전석 = 1열 왼쪽 (실차 확인 예정). */
+        val DRIVER_DOOR = DoorValue.ROW_1_LEFT
+        val DOOR_SLOTS = listOf(DRIVER_DOOR, DoorValue.ROW_2_LEFT, DoorValue.ROW_2_RIGHT)
 
         fun VehicleGear.toModel(): Gear = when (this) {
             VehicleGear.GEAR_PARK -> Gear.PARK

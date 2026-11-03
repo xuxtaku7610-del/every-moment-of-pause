@@ -7,7 +7,8 @@
     "GEAR",
     "BATTERY_SOC",
     "CHARGING",
-    "HVAC_TEMP"
+    "HVAC_TEMP",
+    "DOOR"
   ],
   "setup": {
     "ev": true,
@@ -99,6 +100,9 @@
       "socPercent": 82,
       "charging": false,
       "hvacTempC": 23,
+      "doorDriver": false,
+      "doorRearLeft": false,
+      "doorRearRight": false,
       "remainDistanceM": 230000,
       "remainTimeSec": 9200
     },
@@ -1626,6 +1630,20 @@
       "remainTimeSec": 3600
     },
     {
+      "t": 5252,
+      "doorDriver": true,
+      "speedKph": 0,
+      "remainDistanceM": 90000,
+      "remainTimeSec": 3600
+    },
+    {
+      "t": 5262,
+      "doorDriver": false,
+      "speedKph": 0,
+      "remainDistanceM": 90000,
+      "remainTimeSec": 3600
+    },
+    {
       "t": 5532,
       "label": "wait",
       "hvacTempC": 24,
@@ -2369,6 +2387,30 @@
       "remainDistanceM": 0,
       "remainTimeSec": 0,
       "hvacTempC": 27
+    },
+    {
+      "t": 10915,
+      "remainDistanceM": 0,
+      "remainTimeSec": 0,
+      "doorRearRight": true
+    },
+    {
+      "t": 10925,
+      "remainDistanceM": 0,
+      "remainTimeSec": 0,
+      "doorRearRight": false
+    },
+    {
+      "t": 10935,
+      "remainDistanceM": 0,
+      "remainTimeSec": 0,
+      "doorDriver": true
+    },
+    {
+      "t": 10945,
+      "remainDistanceM": 0,
+      "remainTimeSec": 0,
+      "doorDriver": false
     },
     {
       "t": 10959,

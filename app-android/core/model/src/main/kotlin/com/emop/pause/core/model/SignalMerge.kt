@@ -30,6 +30,7 @@ object SignalMerge {
             hvacTempC = pick(Signal.HVAC_TEMP)?.hvacTempC,
             hvacAcOn = pick(Signal.HVAC_AC)?.hvacAcOn,
             recirculationOn = pick(Signal.HVAC_RECIRCULATION)?.recirculationOn,
+            doors = pick(Signal.DOOR)?.doors,
         )
         return MergedSignals(sample, sources)
     }

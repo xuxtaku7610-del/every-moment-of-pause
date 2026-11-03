@@ -93,4 +93,19 @@ class ScenarioPlayerTest {
         assertEquals(true, player.frame.value.sample.charging)
         assertThrows<IllegalArgumentException> { player.setSpeed(3) }
     }
+
+    @Test
+    fun `F6-07 F6-08 pet-trip 문 이벤트 - 휴게소 운전석 문, 도착 뒤 뒷문·운전석 문 (내렸나요 60초 뒤)`() {
+        val s = load("pet-trip")
+        fun doors(t: Double) = ScenarioPlayer.frameAt(s, t).sample.doors
+        assertEquals(com.emop.pause.core.model.DoorState.CLOSED, doors(0.0))
+        assertEquals(true, doors(5_252.0)?.driverOpen)
+        assertEquals(false, doors(5_262.0)?.driverOpen)
+        // 도착(10839초) + 60초 = "내렸나요?" 뒤에 문이 열린다 → 리허설 도착 장면은 그대로
+        assertEquals(false, doors(10_899.0)?.rearOpen)
+        assertEquals(true, doors(10_915.0)?.rearOpen)
+        assertEquals(true, doors(10_935.0)?.driverOpen)
+        // 문 신호를 빼면 null
+        assertNull(ScenarioPlayer.frameAt(s.copy(capabilities = s.capabilities - com.emop.pause.core.model.Signal.DOOR), 5_252.0).sample.doors)
+    }
 }
