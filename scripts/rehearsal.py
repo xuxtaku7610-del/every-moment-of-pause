@@ -5,7 +5,8 @@ artifacts/rehearsal/에 캡처, 장면별 걸린 시간을 artifacts/rehearsal/t
 병원 접수함은 노트북이 병원 역할: 접수함 페이지를 열고(Playwright가 있으면 캡처) "도착하면 바로 볼게요"를 누른다.
 
     python scripts/rehearsal.py [--phone]     # --phone: 접수함 페이지를 Playwright(설치된 Chrome)로 함께 캡처
-    python scripts/rehearsal.py --all         # 예비 장면(쉼표 추천·잠깐 대기)까지
+    python scripts/rehearsal.py --all         # 예비 장면(쉼표 추천·잠깐 대기·긴급 도움)까지
+    python scripts/rehearsal.py --jumps 20    # 장면 점프 20회 연속 뒤 쉼표 추천이 버튼까지 가는지 (BLOCKED 11/01)
 """
 import urllib.request
 import argparse
@@ -71,6 +72,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phone", action="store_true")
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--jumps", type=int, default=0, help="장면 점프 N회 연속 뒤 쉼표 추천 확인만 한다")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     rows: list[tuple[str, float, str]] = []
@@ -83,7 +85,8 @@ def main() -> int:
         print(f"{name}: {time.time() - s:.1f}s {note}", flush=True)
 
     def depart():
-        start(sim="pet-trip", onboard="done", scene="none", seek=0, action="pause", speed=1, demo=False)
+        # emergency=none: 앞 실행에서 열어 둔 긴급 도움 겹침을 닫는다 (위로 연 화면은 장면 이동으로 닫히지 않는다)
+        start(sim="pet-trip", onboard="done", scene="none", seek=0, action="pause", speed=1, demo=False, emergency="none")
         if not wait_for("출발 전 체크", 20):
             return "막힘: 출발 체크 화면이 안 뜸"
         shot("01-depart")
@@ -241,6 +244,24 @@ def main() -> int:
         shot("04-accepted")
         return None
 
+    def jumps():
+        # 발표 장면 시각을 섞어 1.5초 간격으로 점프(말하는 중·듣는 중에 끊긴다) → 3420초 쉼표 추천이
+        # 음성 8초 뒤 버튼("여기서 쉴게요")까지 가야 한다. 에뮬레이터는 TTS·STT가 없어 바로 버튼이 정상.
+        order = [3420, 2400, 3420, 1800, 5240, 3420, 0, 8748, 3420, 10843]
+        start(sim="pet-trip", onboard="done", scene="none", seek=0, action="play", speed=1, demo=False)
+        for i in range(a.jumps):
+            start(seek=order[i % len(order)], action="play", speed=1)
+            time.sleep(1.5 if i % 2 else 4.0)
+        start(seek=3420, action="play", speed=1)
+        s = time.time()
+        if not wait_for("여기서 쉴게요", 60):
+            shot("jumps-stuck")
+            return f"막힘: 점프 {a.jumps}회 뒤 쉼표 추천 버튼이 60초 안에 안 나옴"
+        print(f"  점프 {a.jumps}회 뒤 버튼까지 {time.time() - s:.1f}초", flush=True)
+        shot("jumps-suggest")
+        start(say="나중에")
+        return None
+
     def rest():
         start(seek=5240, action="play", speed=1)
         if not wait_for("잠깐 다녀올게", 25):
@@ -290,6 +311,32 @@ def main() -> int:
         shot("09-arrival-walk")
         return None
 
+    def emergency():
+        # 긴급 도움 (11/03): 휴게소 정차 → "긴급 도움" → "위험 물질 섭취" → 응급 카드 → 병원 경로 안내 (adb 재현: --es emergency toxin)
+        start(seek=5240, action="play", speed=1)
+        xy = wait_for("긴급 도움", 25)
+        if not xy:
+            return "막힘: 쉼표 화면에 긴급 도움 버튼 없음"
+        shot("12-rest-emergency")
+        tap(xy)
+        xy = wait_for("위험 물질 섭취", 10)
+        if not xy:
+            return "막힘: 상황 고르기 화면이 안 뜸"
+        shot("12b-emergency-menu")
+        tap(xy)
+        if not wait_for("바로 동물병원에 연락해요", 10):
+            return "막힘: 응급 카드가 안 뜸"
+        xy = wait_for("경로 안내", 15)
+        if not xy:
+            return "막힘: 가장 가까운 병원 경로 안내 버튼 없음"
+        shot("12c-emergency-card")
+        tap(xy)
+        # 경유지를 넣으면 겹친 화면이 닫히고 쉼표 화면으로 돌아온다 (경로 결과 안내는 주행 화면 한 줄·음성)
+        if not wait_for("잠깐 다녀올게", 10):
+            return "막힘: 경로 안내 뒤 쉼표 화면으로 안 돌아옴"
+        shot("12d-emergency-route")
+        return None
+
     def arrival():
         start(seek=10843, action="play", speed=1)
         xy = wait_for("내렸어요", 100)
@@ -297,16 +344,28 @@ def main() -> int:
             return "막힘: 도착 체크가 100초 안에 안 나옴"
         shot("10-arrival")
         tap(xy)
-        if not wait_for("병원에 보여 줄 내용", 15):
+        if not wait_for("오늘의 길", 15):
             return "막힘: 이동 기록이 안 뜸"
         time.sleep(3)
         shot("11-triplog")
+        # 첫 화면은 요약 + 타임라인만 (11/02 간소화). 그래프·병원에 보여 줄 내용은 "주행 자극 자세히 보기"
+        detail = wait_for("주행 자극 자세히 보기", 5)
+        if not detail:
+            return "막힘: 자세히 보기 버튼이 없음"
+        tap(detail)
+        if not wait_for("병원에 보여 줄 내용", 10):
+            return "막힘: 자세히 보기에 병원에 보여 줄 내용이 안 뜸"
+        time.sleep(2)
+        shot("11b-triplog-detail")
         return None
 
     scenes = [("출발 체크", depart), ("고속도로", highway), ("PT1 고갯길 비교", compare), ("PT2 이상 → 병원 사전 접수", intake),
               ("PT3 쓸수록 맞춰짐", calibrate)]
-    if a.all:
-        scenes += [("(예비) 콩이가 헥헥거려", distress), ("(예비) 쉼표 추천", suggest), ("(예비) 휴게소·잠깐 대기", rest)]
+    if a.jumps:
+        scenes = [(f"장면 점프 {a.jumps}회 → 쉼표 추천", jumps)]
+    elif a.all:
+        scenes += [("(예비) 콩이가 헥헥거려", distress), ("(예비) 쉼표 추천", suggest), ("(예비) 휴게소·잠깐 대기", rest),
+                   ("(예비) 긴급 도움 → 위험 물질 → 병원", emergency)]
     for name, fn in scenes:
         step(name, fn)
     total = time.time() - t0

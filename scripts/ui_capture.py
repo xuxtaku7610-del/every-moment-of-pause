@@ -71,7 +71,7 @@ def nav_unsplit() -> None:
 
 
 def sim(seek: int, wait: str | None = None, timeout: float = 30, settle: float = 6, speed: int = 1, **extra: object) -> bool:
-    r.start(sim="pet-trip", onboard="done", scene="none", demo=False, compare=False, seek=seek, action="play", speed=speed, **extra)
+    r.start(sim="pet-trip", onboard="done", scene="none", demo=False, compare=False, seek=seek, action="play", speed=speed, emergency="none", **extra)
     ok = True
     if wait:
         ok = r.wait_for(wait, timeout) is not None
@@ -98,6 +98,15 @@ def distress() -> bool:
     return r.wait_for("괜찮아졌어요", 15) is not None
 
 
+def distress_vet() -> bool:
+    # 스토어 스크린샷 (11/02): 응급 신고 → "가까운 동물병원으로 안내할게요"
+    if not sim(2400, "다음 쉼표", settle=2):
+        return False
+    r.start(say="콩이가 계속 토해")
+    time.sleep(1)
+    return r.wait_for("가까운 동물병원", 15) is not None
+
+
 def wait_mode() -> bool:
     if not sim(5540, settle=2):
         return False
@@ -109,12 +118,54 @@ def wait_mode() -> bool:
 
 def triplog() -> bool:
     # 도착 장면으로 바로 점프: 건너뛴 구간은 엔진이 1초씩 따라잡은 값으로 이동 기록을 채운다(2026-10-31, 처음부터 달린 것과 같은 숫자)
-    if not sim(10843, "내렸어요", timeout=100, settle=1):
+    # 점프 뒤 따라잡기가 끝나기 전에 "내렸어요"를 누르면 저장 요약의 휴식 수가 0으로 남는다(11/02 스토어 캡처) → 15초 기다린다
+    if not sim(10843, "내렸어요", timeout=100, settle=15):
         return False
     xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
     if xy:
         r.tap(xy)
-    ok = r.wait_for("병원에 보여 줄 내용", 15) is not None
+    # 첫 화면 = 요약 + 타임라인 (11/02 간소화)
+    ok = r.wait_for("오늘의 길", 15) is not None
+    time.sleep(3)
+    return ok
+
+
+def triplog_detail() -> bool:
+    # "주행 자극 자세히 보기": 그래프 + 병원에 보여 줄 내용
+    if not triplog():
+        return False
+    xy = r.wait_for("주행 자극 자세히 보기", 5)
+    if not xy:
+        return False
+    r.tap(xy)
+    ok = r.wait_for("병원에 보여 줄 내용", 10) is not None
+    time.sleep(2)
+    return ok
+
+
+def emergency(kind: str | None) -> bool:
+    # 긴급 도움 (11/03): 휴게소 정차(시뮬레이터 실제 값) → 정차 화면 "긴급 도움" → (kind) 응급 카드 + 가장 가까운 병원
+    if not sim(5240, "긴급 도움", timeout=25, settle=2):
+        return False
+    r.start(emergency=kind or "menu")
+    if not r.wait_for("어떤 상황인가요?", 10):
+        return False
+    if kind and not r.wait_for("바로 동물병원에 연락해요", 10):
+        return False
+    r.wait_for("경로 안내", 10) if kind else None
+    time.sleep(2)
+    return True
+
+
+def emergency_vets() -> bool:
+    # 동물병원 화면 개선본 (휴게소 정차 → 긴급 도움 → 바로 동물병원 찾기)
+    if not emergency(None):
+        return False
+    xy = r.wait_for("바로 동물병원 찾기", 5)
+    if not xy:
+        return False
+    r.tap(xy)
+    ok = r.wait_for("가장 가까운 동물병원", 15) is not None
     time.sleep(3)
     return ok
 
@@ -131,21 +182,35 @@ SCREENS = {
     "01-drive": lambda: sim(1800, "다음 쉼표", settle=8),
     "02-forecast": lambda: sim(8748, "덜 흔들려요", timeout=40, settle=2),
     "03-triplog": triplog,
+    "03b-triplog-detail": triplog_detail,
     "04-pet": lambda: fixture("pet"),
     "05-depart": depart,
     "06-suggest": lambda: sim(3420, "여기서 쉴게요", timeout=75, settle=1),
     "07-distress": distress,
+    "07b-distress-vet": distress_vet,
     "08-vet-drive": lambda: fixture("vet_drive"),
     "09-rest": lambda: sim(5240, "잠깐 다녀올게", timeout=25, settle=2),
     "10-wait": wait_mode,
+    # 잠깐 대기 한눈에 크게 (11/03): 온도 있음(24℃) · 제한 시간 넘김 · 온도 신호 없음
+    "10b-wait-temp": lambda: fixture("wait"),
+    "10c-wait-overdue": lambda: fixture("wait_overdue"),
+    "10d-wait-notemp": lambda: fixture("wait_notemp"),
     "11-places": lambda: fixture("places"),
     "12-vets": lambda: fixture("vets"),
     "12b-vets-call": lambda: fixture("vets_call"),
     "17-stimulus": lambda: fixture("stimulus"),
     "13-arrival": lambda: sim(10843, "내렸어요", timeout=100, settle=1),
+    # 도착 후 뒷문 열림(시나리오 10915초) → "콩이 내렸나요?" 바로 (문 이벤트 a, 11/02)
+    "13b-arrival-door": lambda: sim(10905, "내렸어요", timeout=40, settle=1),
     "14-settings": lambda: fixture("settings"),
     "15-onboarding": lambda: fixture("onboard_1"),
     "16-compare": compare,
+    # 긴급 도움 (11/03)
+    "18-rest-emergency": lambda: sim(5240, "긴급 도움", timeout=25, settle=2),
+    "18b-emergency-menu": lambda: emergency(None),
+    "18c-emergency-toxin": lambda: emergency("toxin"),
+    "18d-emergency-vets": emergency_vets,
+    "18e-emergency-fixture": lambda: fixture("emergency_card"),
 }
 
 
@@ -209,6 +274,7 @@ def main() -> int:
     ap.add_argument("--size", help="예: 1920x1080 — adb shell wm size로 바꿔 찍고 끝나면 wm size reset")
     ap.add_argument("--sheet", help="찍지 않고 screens(파일 이름, .png 생략)를 한 장으로: 2칸 격자")
     ap.add_argument("--nav", action="store_true", help="런처 분할 창(같이가개 + 기본 내비)으로 찍는다")
+    ap.add_argument("--clean", action="store_true", help="스토어 스크린샷용: 찍는 동안만 \"시연 데이터\" 표시 숨김(디버그 adb captureClean), 끝나면 되돌림")
     a = ap.parse_args()
     global OUT
     OUT = r.ROOT / "artifacts" / "ui" / a.out
@@ -231,6 +297,9 @@ def main() -> int:
         if a.dark:
             subprocess.run(["adb", "shell", "cmd", "uimode", "night", "yes"], capture_output=True, env=r.ENV)
             time.sleep(2)
+        if a.clean:
+            r.start(captureClean=True)
+            time.sleep(1)
         for n in names:
             ok = SCREENS[n]()
             # 장면에 들어간 뒤 분할한다 (분할한 채 am start로 장면을 열면 런처가 분할을 푼다).
@@ -266,7 +335,7 @@ def main() -> int:
             print("wm size reset:", subprocess.run(["adb", "shell", "wm", "size"], capture_output=True, text=True, env=r.ENV).stdout.strip(), flush=True)
             time.sleep(6)
             resize(FULL_RIGHT)
-    r.start(scene="none", compare=False)
+    r.start(scene="none", compare=False, captureClean=False)
     return 0
 
 
