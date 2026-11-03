@@ -124,6 +124,23 @@ fun DepartScreen(ui: DepartUi, on: On) {
                 DepartRoute(ui, on, Modifier.fillMaxWidth(), wide = false)
             }
         }
+        if (ui.demoHint) DemoHintStrip(on)
+    }
+}
+
+/** 차량 신호가 없거나 에뮬레이터일 때 화면 아래 한 줄 (DM-10). 정차 중 출발 전 화면에만 — 주행 화면에는 없다. */
+@Composable
+private fun DemoHintStrip(on: On) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_sport_utility_vehicle, iconAsset = "ic_car", accent = c.primary, soft = c.primarySoft) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(DepartUi.DEMO_HINT, style = Pause.type.section, color = c.text, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(d.gapS))
+            PauseButton(DepartUi.DEMO_START, { on(UiEvent.StartDemoTrip) }, compact = true)
+            Spacer(Modifier.width(d.gapS))
+            PauseButton("닫기", { on(UiEvent.DismissDemoHint) }, kind = ButtonKind.SECONDARY, compact = true)
+        }
     }
 }
 

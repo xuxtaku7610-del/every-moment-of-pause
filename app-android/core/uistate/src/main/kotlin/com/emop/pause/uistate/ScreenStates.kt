@@ -160,7 +160,14 @@ data class DepartUi(
     val route: String? = null,
     /** "2시간 50분". */
     val duration: String? = null,
-)
+    /** 차량 신호가 없거나 에뮬레이터일 때 시연 주행 안내 띠 (DM-10). 실차에는 false. */
+    val demoHint: Boolean = false,
+) {
+    companion object {
+        const val DEMO_HINT = "차량 신호가 없어요. 시연 주행으로 둘러볼까요?"
+        const val DEMO_START = "시연 주행 시작"
+    }
+}
 
 // ───────────── 쉼표 (정차) ─────────────
 

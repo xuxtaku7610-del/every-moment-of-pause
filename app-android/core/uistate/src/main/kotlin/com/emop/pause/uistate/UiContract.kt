@@ -86,6 +86,10 @@ sealed interface UiEvent {
     data class ToggleCheck(val kind: CheckKind) : UiEvent
     /** "이대로 출발". 체크를 다 해야 보낸다. 처음이면 마이크 권한을 먼저 묻는다(화면 밖 Activity 처리). */
     data object StartTrip : UiEvent
+    /** 출발 전 안내 띠 [시연 주행 시작] → pet-trip 시나리오 (발표 모드 패널에서 고르는 것과 같은 동작, DM-10). */
+    data object StartDemoTrip : UiEvent
+    /** 안내 띠 닫기 — 그 실행 동안 다시 안 뜬다. */
+    data object DismissDemoHint : UiEvent
 
     // 화면 열고 닫기 (정차 중에만)
     data object OpenPet : UiEvent

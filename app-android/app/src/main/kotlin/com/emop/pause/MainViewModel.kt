@@ -25,6 +25,8 @@ import com.emop.pause.engine.motion.RouteShape
 import com.emop.pause.engine.pet.LimitEstimate
 import com.emop.pause.engine.pet.PetTripLog
 import com.emop.pause.engine.pet.PetTripRecord
+import com.emop.pause.presentation.DemoScenes
+import com.emop.pause.presentation.DemoTripHint
 import com.emop.pause.presentation.Overlay
 import com.emop.pause.presentation.Route
 import com.emop.pause.presentation.ScreenRouter
@@ -98,6 +100,8 @@ data class AppState(
     val demoOpen: Boolean = false,
     /** 디버그 adb `--ez captureClean true`: 스토어 스크린샷 캡처 때만 "시연 데이터" 표시를 숨긴다(11/03). 앱 기본 동작은 false. */
     val captureClean: Boolean = false,
+    /** 출발 전 시연 주행 안내 띠 (DM-10, [DemoTripHint]). */
+    val demoHint: Boolean = false,
     val scene: Scene? = null,
     val restChoice: Int = 15,
     /** 프로필 편집 중인 값 (저장 전). */
@@ -156,6 +160,9 @@ class MainViewModel @Inject constructor(
     private val recorder = TripRecorder()
     private var lastRecordedSec = -1L
     private val logoTaps = mutableListOf<Long>()
+    private val demoTripHint = DemoTripHint(
+        DemoTripHint.isEmulator(android.os.Build.HARDWARE.orEmpty(), android.os.Build.MODEL.orEmpty(), android.os.Build.FINGERPRINT.orEmpty()),
+    )
 
     /** 화면 계약 (docs/ui_contract.md): 화면은 이 값만 그린다. */
     val ui: StateFlow<AppUiState> = combine(runtime.snapshot, trip.ui, _app) { s, t, a -> uiState(s, t, a) }
@@ -210,6 +217,13 @@ class MainViewModel @Inject constructor(
                     else if (s.mode == AppMode.PREPARE) _app.update { it.copy(goingVet = null, vetDriving = false) }
                 }
                 tickIntake(s)
+                val hint = demoTripHint.update(
+                    System.currentTimeMillis(),
+                    vehicle = s.source == SourceMode.VEHICLE,
+                    onDepart = s.mode == AppMode.PREPARE && !s.driveState.forcesDrivingUi,
+                    hasSpeedOrGear = s.sample.speedKph != null || s.sample.gear != null,
+                )
+                if (hint != _app.value.demoHint) _app.update { it.copy(demoHint = hint) }
             }
         }
     }
@@ -235,7 +249,10 @@ class MainViewModel @Inject constructor(
         val screen = when (route) {
             Route.SCENE -> Fixtures.screen(a.scene!!)
             Route.DRIVE -> Screen.Drive(UxPolicy.apply(withVet(UiMapper.drive(s, t), a), ux))
-            Route.DEPART -> Screen.Depart(UiMapper.depart(s, t, a.limit?.let { PetTripLog.limitPhrase(t.pet.name, it) }, t.profileSaved == true || s.simSetup?.pet != null))
+            Route.DEPART -> Screen.Depart(
+                UiMapper.depart(s, t, a.limit?.let { PetTripLog.limitPhrase(t.pet.name, it) }, t.profileSaved == true || s.simSetup?.pet != null)
+                    .copy(demoHint = a.demoHint && s.source == SourceMode.VEHICLE),
+            )
             Route.REST -> Screen.Rest(
                 UiMapper.rest(s, t, a.restChoice, recorder.currentStop, t.wait.limitSec / 60)
                     .copy(care = t.careId?.let { care.ui(it, showDrafts(s, a)) }, distressChips = DISTRESS_CHIPS.map { it.first }),
@@ -295,6 +312,11 @@ class MainViewModel @Inject constructor(
             UiEvent.DeclineSuggestion -> reply("나중에")
             is UiEvent.ToggleCheck -> trip.toggleCheck(UiMapper.checkItem(e.kind))
             UiEvent.StartTrip -> startTrip()
+            UiEvent.StartDemoTrip -> startDemoTrip()
+            UiEvent.DismissDemoHint -> {
+                demoTripHint.dismiss()
+                _app.update { it.copy(demoHint = false) }
+            }
             UiEvent.OpenPet -> _app.update { it.copy(overlay = Overlay.PET, petDraft = trip.ui.value.pet) }
             UiEvent.OpenSettings -> _app.update { it.copy(overlay = Overlay.SETTINGS) }
             UiEvent.OpenPlaces -> openPlaces()
@@ -346,6 +368,12 @@ class MainViewModel @Inject constructor(
 
     // ───────────── 공급원 ─────────────
     fun scenarioNames() = runtime.scenarioNames()
+    /** 안내 띠 [시연 주행 시작]: 발표 모드 패널에서 pet-trip을 고르는 것과 같은 동작 (DM-10). 띠는 그 실행 동안 다시 안 뜬다. */
+    private fun startDemoTrip() {
+        demoTripHint.dismiss()
+        _app.update { it.copy(demoHint = false) }
+        useScenario(DemoScenes.SCENARIO)
+    }
     fun useScenario(name: String) = runtime.useScenario(name)
     fun useVehicle(fillScenario: String? = null) = runtime.useVehicle(fillScenario)
     fun onVehiclePermissionGranted() = runtime.refreshVehicleProperties()
