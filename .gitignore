@@ -8,7 +8,7 @@ local.properties
 *.jks
 *.keystore
 
-# Claude Code 개인 설정
+# 코딩 에이전트 개인 설정
 .claude/settings.local.json
 
 # 로컬 도구 설정
@@ -32,7 +32,7 @@ captures/
 # 스크린샷 등 로컬 산출물
 artifacts/
 
-# 로컬 에이전트 지침 (CLAUDE.md와 같은 내용)
+# 로컬 에이전트 지침 (에이전트 지침 파일과 같은 내용)
 AGENTS.md
 
 # 공공데이터 원본 파일(크고 자주 바뀜) — server/data/raw/README.md만 커밋
