@@ -15,7 +15,7 @@ class EmergencyCardTest {
     private fun sheet(id: String) = CareSheet.parse(id, File(dir, "care_$id.md").readText())!!
 
     @Test
-    fun `F10-04 응급 카드 4개 형식 — 첫 줄 바로 동물병원, 3줄, voice 40자, action VET, 검수 전`() {
+    fun `F10-04 응급 카드 4개 형식 — 첫 줄 바로 동물병원, 3줄, voice 40자, action VET, 검수 끝`() {
         assertEquals(listOf("breathing", "seizure", "bleeding", "toxin"), ids)
         ids.forEach { id ->
             val s = sheet(id)
@@ -25,7 +25,7 @@ class EmergencyCardTest {
             assertEquals("emergency", s.category, id)
             assertNotNull(s.voice, id)
             assertTrue(s.voice!!.length <= 40, "$id voice ${s.voice!!.length}자")
-            assertFalse(s.reviewed, "$id — 사용자 검수 전에는 reviewed=false")
+            assertTrue(s.reviewed, "$id — 11/03 사용자 검수 끝 → reviewed=true")
             assertTrue(s.sources.isNotBlank(), id)
             assertTrue(s.lines.all { it.length <= 48 }, id)
         }
@@ -46,19 +46,24 @@ class EmergencyCardTest {
         assertTrue(EmergencyCardUi.showDrafts(debugBuild = true, demoMode = false))
         assertTrue(EmergencyCardUi.showDrafts(debugBuild = false, demoMode = true))
         ids.forEach { id ->
-            val hidden = EmergencyCardUi.from(sheet(id), showDrafts = false)
+            // 차단 규칙은 그대로: 검수 전(reviewed=false) 카드면 릴리스에서 본문을 숨긴다
+            val draft = sheet(id).copy(reviewed = false)
+            val hidden = EmergencyCardUi.from(draft, showDrafts = false)
             assertTrue(hidden.hidden, id)
             assertEquals(emptyList<String>(), hidden.lines, id)
             assertNull(hidden.source, id)
-            val shown = EmergencyCardUi.from(sheet(id), showDrafts = true)
+            val shown = EmergencyCardUi.from(draft, showDrafts = true)
             assertFalse(shown.hidden, id)
             assertEquals(2, shown.lines.size, "$id — 첫 줄은 경고 띠에")
             assertFalse(shown.reviewed, id)
         }
-        // 검수가 끝나면(reviewed=true) 릴리스에도 본문이 나온다
-        val ok = EmergencyCardUi.from(sheet("toxin").copy(reviewed = true), showDrafts = false)
-        assertFalse(ok.hidden)
-        assertEquals(2, ok.lines.size)
+        // 검수가 끝난 지금 카드(reviewed=true)는 릴리스에도 본문이 나온다 (11/03)
+        ids.forEach { id ->
+            val ok = EmergencyCardUi.from(sheet(id), showDrafts = false)
+            assertFalse(ok.hidden, id)
+            assertEquals(2, ok.lines.size, id)
+            assertNotNull(ok.source, id)
+        }
         assertEquals("바로 동물병원에 연락해요", EmergencyCardUi.LEAD)
         assertEquals("응급 판단이나 진단을 대신하지 않아요.", EmergencyUi.DISCLAIMER)
     }
