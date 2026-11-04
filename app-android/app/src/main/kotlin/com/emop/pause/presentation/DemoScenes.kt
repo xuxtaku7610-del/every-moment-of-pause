@@ -16,6 +16,8 @@ data class DemoJump(
     val say: String? = null,
     /** 시뮬레이터 장면용 실내 온도(여름 장면). 실차는 측정값만 쓴다. */
     val cabinTempC: Float? = null,
+    /** 콩이 도우미 질문 (점프 뒤 `MainViewModel.ask`: 주행 중이면 음성 답, 정차 중이면 도우미 화면). */
+    val ask: String? = null,
 )
 
 object DemoScenes {
@@ -41,5 +43,14 @@ object DemoScenes {
         DemoJump("주변 추천", 10_040, expectMode = AppMode.DRIVING),
         // 도착 후 P단 60초가 지나면 "콩이 내렸나요?"
         DemoJump("도착 체크", 10_843, expectMode = AppMode.ARRIVED),
+    )
+
+    /**
+     * 콩이 도우미 장면 (HELPER_PROMPT 5번) — [JUMPS]와 따로 둔다(장면 숫자 대조 DemoNumbersTest는 기존 장면만).
+     * ① 주행 중 "콩이가 초콜릿 먹은 것 같아" → 응급 흐름(1줄 안내 + 병원 제안 음성), ② 휴게소 정차 "쉬할 데 있어?" → 놀이터 휴게소 답 → [여기서 쉴게요] 경유지.
+     */
+    val HELPER_JUMPS = listOf(
+        DemoJump("도우미 · 주행 중 응급", 2_460, expectMode = AppMode.DRIVING, ask = "콩이가 초콜릿 먹은 것 같아"),
+        DemoJump("도우미 · 쉬할 곳", 5_300, expectMode = AppMode.PAUSE, expectCause = PauseCause.REST, ask = "쉬할 데 있어?"),
     )
 }

@@ -30,6 +30,15 @@ class VoiceQueueTest {
         assertEquals(Utterance.Answer(Reply.UNKNOWN), VoiceIntent.parse(null))
     }
 
+    @Test
+    fun `F11-03 조용히 해 줘 · 오늘은 안 타요 (v10-1), 응답 단어는 그대로`() {
+        for (t in listOf("조용히 해 줘", "좀 조용히", "말 좀 그만 해")) assertEquals(Utterance.Quiet, VoiceIntent.parse(t), t)
+        for (t in listOf("오늘은 안 타요", "콩이 안 타", "오늘은 혼자 가")) assertEquals(Utterance.DayOff, VoiceIntent.parse(t), t)
+        assertEquals(Utterance.Answer(Reply.LATER), VoiceIntent.parse("괜찮아요"))
+        assertEquals(Utterance.Answer(Reply.YES), VoiceIntent.parse("들를게요"))
+        assertEquals(Utterance.StartWait, VoiceIntent.parse("잠깐 다녀올게"))
+    }
+
     // ───────── 큐 ─────────
 
     private class FakeOut : SpeechOutput {

@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 음성 응답("응/나중에")용 Android 기본 STT. 권한이 없으면 버튼 응답으로 동작한다. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 여행 중 포그라운드 서비스 (v10-1 3번): 엔진·안내 음성 유지 = specialUse, 앱이 뒤에 있을 때 듣기 = microphone. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- 상주 알림 "같이가개가 콩이와의 이동을 챙기고 있어요" (API 33+ 런타임 권한, 출발 버튼에서 묻는다). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".PauseApp"
@@ -31,6 +37,15 @@
                 android:name="distractionOptimized"
                 android:value="true" />
         </activity>
+
+        <service
+            android:name=".service.TripService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse|microphone">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="반려견과 이동하는 동안 기본 내비가 전체 화면이어도 굽은 길 예보·쉼표 추천·응급 안내를 음성으로 계속 알리기 위해" />
+        </service>
 
     </application>
 </manifest>

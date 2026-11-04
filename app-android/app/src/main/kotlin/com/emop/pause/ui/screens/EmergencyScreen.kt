@@ -31,7 +31,7 @@ import com.emop.pause.ui.components.AlertStrip
 import com.emop.pause.ui.components.ButtonKind
 import com.emop.pause.ui.components.Choice
 import com.emop.pause.ui.components.Divider
-import com.emop.pause.ui.components.Panel
+import com.emop.pause.ui.components.Block
 import com.emop.pause.ui.components.PauseButton
 import com.emop.pause.ui.components.QrCode
 import com.emop.pause.ui.components.StatusChip
@@ -43,6 +43,13 @@ import com.emop.pause.uistate.EmergencyUi
 import com.emop.pause.uistate.MotionTone
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.VetUi
+import com.emop.pause.ui.components.Title
+import com.emop.pause.ui.components.Body
+import com.emop.pause.ui.components.Caption
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import com.emop.pause.ui.components.Metric
 
 /*
  * 긴급 도움 (2026-11-03, `_private/EMERGENCY_PROMPT.md` 3번) — 정차 화면 위 겹침, 주행 중에는 열리지 않는다(화면 선택이 막는다).
@@ -86,7 +93,7 @@ fun EmergencyScreen(ui: EmergencyUi, on: On) {
 private fun PickPanel(ui: EmergencyUi, on: On, m: Modifier, wc: WidthClass) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(m, pad = d.u(24f), spacing = d.gap) {
+    Block(m, pad = d.u(24f), spacing = d.gap) {
         Text("어떤 상황인가요?", style = Pause.type.title, color = c.text)
         // 타일 2×2 (전체·1/2 창), 1/3 창은 1열
         val perRow = if (wc == WidthClass.THIRD) 1 else 2
@@ -125,8 +132,8 @@ private fun ChipRow(ui: EmergencyUi, on: On, narrow: Boolean) {
 private fun RelatedPanel(ui: EmergencyUi, on: On, m: Modifier) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(m, pad = d.u(24f), spacing = d.gapS) {
-        Text("관련 안내", style = Pause.type.section, color = c.text)
+    Block(m, pad = d.u(24f), spacing = d.gapS) {
+        Caption("관련 안내")
         ui.options.filter { it.id != ui.selected }.forEach { o ->
             PauseButton(o.label, { on(UiEvent.PickEmergency(o.id)) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = optionIcon(o.id), compact = true)
         }
@@ -144,14 +151,15 @@ private fun RelatedPanel(ui: EmergencyUi, on: On, m: Modifier) {
 private fun CardAndVet(ui: EmergencyUi, card: EmergencyCardUi, on: On, m: Modifier) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(m, pad = d.u(24f), spacing = d.gapS) {
+    Block(m, pad = d.u(24f), spacing = d.gapS) {
         AlertStrip(Modifier.fillMaxWidth(), icon = R.drawable.fe_warning, iconAsset = "ic_warning") {
-            Text(EmergencyCardUi.LEAD, style = Pause.type.section, color = c.warningInk)
-            Text(card.title, style = Pause.type.sub, color = c.text)
+            // 경고 띠 첫 줄 = 제목 크기(이보다 크게 쓰지 않는다), 상황 이름 = 설명
+            Text(EmergencyCardUi.LEAD, style = Pause.type.title, color = c.warningInk)
+            Text(card.title, style = Pause.type.body, color = c.text)
         }
         card.lines.forEach { line -> Text("· $line", style = Pause.type.body, color = c.text) }
         Divider()
-        Text("가장 가까운 동물병원", style = Pause.type.metricLabel, color = c.sub)
+        Text("가장 가까운 동물병원", style = Pause.type.caption, color = c.sub)
         val vet = ui.vet
         when {
             vet != null -> NearestVet(vet, on, intake = true, routeLabel = "가까운 병원 경로 안내", noPhoneLine = false)
@@ -181,10 +189,17 @@ internal fun NearestVet(v: VetUi, on: On, modifier: Modifier = Modifier, intake:
     var showPhone by rememberSaveable(v.id) { mutableStateOf(false) }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(d.gapS)) {
         Text(if (v.sample) v.name.removePrefix("[샘플] ") else v.name, style = Pause.type.title, color = c.text, maxLines = 2)
-        Row(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalAlignment = Alignment.CenterVertically) {
-            Text(listOfNotNull(v.distance.takeIf { it.isNotBlank() }, v.minutes?.let { "도착까지 약 ${it}분" }).joinToString(" · "), style = Pause.type.bodyStrong, color = c.text)
-            v.status?.let { StatusChip(it, MotionTone.CALM) }
-            if (v.partner) StatusChip("시연용 제휴") else if (v.sample) StatusChip("샘플", neutral = true)
+        // v10: 가장 중요한 한 가지 = 거리·도착까지(수치), 상태 알약은 그 옆
+        Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f)), verticalAlignment = Alignment.Bottom) {
+            v.distance.takeIf { it.isNotBlank() }?.let { dist ->
+                val num = dist.takeWhile { it.isDigit() || it == '.' }
+                Metric("거리", num.ifEmpty { dist }, unit = dist.removePrefix(num).ifEmpty { null })
+            }
+            v.minutes?.let { Metric("도착까지 약", "$it", unit = "분") }
+            Row(horizontalArrangement = Arrangement.spacedBy(d.unit), modifier = Modifier.padding(bottom = d.u(8f))) {
+                v.status?.let { StatusChip(it, MotionTone.CALM) }
+                if (v.partner) StatusChip("시연용 제휴") else if (v.sample) StatusChip("샘플", neutral = true)
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
             PauseButton(routeLabel, { on(UiEvent.GoVet(v.id)) }, Modifier.weight(if (v.phone != null) 1.4f else 1f), icon = Icons.Rounded.Navigation)
@@ -193,7 +208,7 @@ internal fun NearestVet(v: VetUi, on: On, modifier: Modifier = Modifier, intake:
         // 긴급 도움에서 가장 가까운 곳이 제휴 병원이면 기존 사전 접수(동물병원 화면의 IntakePanel)로 — 흐름 재사용 (11/03)
         if (intake && v.intakeButton) PauseButton("사전 접수", { on(UiEvent.OpenVets) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Send)
         // 긴급 도움에서는 번호가 없으면 줄 자체를 숨긴다 (11/03) — 동물병원 목록은 그대로 "전화번호 정보 없음"
-        if (v.phone == null && noPhoneLine) Text("전화번호 정보 없음", style = Pause.type.sub, color = c.sub)
+        if (v.phone == null && noPhoneLine) Text("전화번호 정보 없음", style = Pause.type.caption, color = c.sub)
         val phone = v.phone
         if (showPhone && phone != null) {
             Divider()
@@ -201,12 +216,12 @@ internal fun NearestVet(v: VetUi, on: On, modifier: Modifier = Modifier, intake:
                 QrCode("tel:" + phone.filter { it.isDigit() }, d.u(112f))
                 Spacer(Modifier.width(d.gap))
                 Column(Modifier.weight(1f)) {
-                    Text(phone, style = Pause.type.metricSmall, color = c.primary, maxLines = 1, softWrap = false)
-                    Text("폰으로 걸어 주세요 (폰 카메라로 찍으면 전화 앱이 열려요)", style = Pause.type.sub, color = c.sub)
+                    Text(phone, style = Pause.type.metric, color = c.primary, maxLines = 1, softWrap = false)
+                    Text("폰으로 걸어 주세요 (폰 카메라로 찍으면 전화 앱이 열려요)", style = Pause.type.caption, color = c.sub)
                 }
             }
         }
         // 전화번호가 없으면 "전화로 확인" 안내는 뺀다 (11/03)
-        v.callNote?.let { Text(it, style = Pause.type.sub, color = c.sub) }
+        v.callNote?.let { Text(it, style = Pause.type.caption, color = c.sub) }
     }
 }

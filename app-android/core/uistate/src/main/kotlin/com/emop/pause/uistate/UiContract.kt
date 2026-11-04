@@ -26,6 +26,8 @@ sealed interface Screen {
     data class Settings(val ui: SettingsUi) : Screen
     /** 긴급 도움 (정차 중만): 상황 고르기 → 응급 카드 + 가장 가까운 병원. */
     data class Emergency(val ui: EmergencyUi) : Screen
+    /** 콩이 도우미 (정차 중만, HELPER_PROMPT): 질문 칩 6개 · 음성 · 정차 중 타이핑 · 답 카드(최근 5개). 주행 중은 음성만. */
+    data class Helper(val ui: HelperUi) : Screen
     /** 첫 실행 3단계 (반려견 프로필 → 차량 연동 → 흔들림에 예민한 정도). */
     data class Onboarding(val ui: OnboardingUi) : Screen
 }
@@ -44,6 +46,10 @@ data class AppUiState(
     val state: ServiceState = ServiceState.STOPPED,
     /** 시뮬레이터·장면 고정 값: 앱 바에 "시연 데이터" (재정비 원칙 5). 실차는 false. */
     val demoData: Boolean = false,
+    /** v10-3 사진: 시연 데이터면 콩이 사진, 아니면 올린 사진 또는 실루엣. */
+    val demoPhoto: Boolean = true,
+    /** id 없는 사진 자리가 쓸 아이 (오늘 타는 첫 아이). */
+    val primaryPetId: Long? = null,
 )
 
 /**
@@ -95,6 +101,48 @@ sealed interface UiEvent {
     data object StartDemoTrip : UiEvent
     /** 안내 띠 닫기 — 그 실행 동안 다시 안 뜬다. */
     data object DismissDemoHint : UiEvent
+    /** "오늘은 안 타요" (v10-1): 그날 운행 동안 안내를 모두 끈다. [DayOn]은 다시 켜기. */
+    data object DayOff : UiEvent
+    /** [지난번과 같아요] (v10-3): 지난번 출발 체크를 한 번에. */
+    data object SameAsLast : UiEvent
+    /** 오늘 타는 아이 칩 (v10-3, 여러 개). */
+    data class ToggleRider(val id: Long) : UiEvent
+    /** 프로필 탭·추가·지우기 (v10-3, 최대 3). */
+    data class EditPet(val id: Long) : UiEvent
+    data object AddPet : UiEvent
+    data object DeletePet : UiEvent
+    /** 여러 마리 신고에서 누구인지 고르기 (정차 화면). */
+    data class PickWho(val name: String) : UiEvent
+    /** [폰으로 사진 올리기] (v10-3 2번): 서버 업로드 QR(10분) → 받으면 기기에 저장. */
+    data object StartPhotoUpload : UiEvent
+
+    // 콩이 도우미 (HELPER_PROMPT, 정차 중 화면)
+    data object OpenHelper : UiEvent
+    /** 질문 칩·입력칸 보내기. */
+    data class AskHelper(val text: String) : UiEvent
+    /** 입력칸 글 (정차 중에만 키보드). */
+    data class SetHelperText(val text: String) : UiEvent
+    /** 음성으로 묻기 (받아쓰기 8초). */
+    data object HelperVoice : UiEvent
+    /** 답 카드의 행동 버튼 하나 (VET·NEAREST_STOP·POTTY_SPOT·WAIT_MODE·NEXT_REST) — [index] = 답 카드 순서(최근이 0). */
+    data class HelperAct(val index: Int) : UiEvent
+
+    // 도착 요약 (v10-3 5번)
+    /** [폰으로 기록 받기]: 서버에 기록 페이지를 만들고 QR을 띄운다. */
+    data object SendReportToPhone : UiEvent
+    /** 차 안 리포트 닫기 → 도착 요약으로. */
+    data object CloseReport : UiEvent
+    data object DayOn : UiEvent
+
+    // 주행 중 운전자가 먼저 말하기 (v10-1)
+    /** [눌러서 말하기]: 받아쓰기 8초 → 기존 분류(신고·응급·잠깐 다녀올게·응답·조용히·오늘은 안 타요). 마이크 권한은 Activity가 먼저 묻는다. */
+    data object PushToTalk : UiEvent
+
+    // 설정 — 안내 빈도 (v10-1)
+    /** 0 많이 · 1 보통 · 2 적게. */
+    data class SetGuidance(val level: Int) : UiEvent
+    /** 조용히 모드 켜고 끄기 (응급·쉼표 추천만, 1시간 또는 정차 때까지). */
+    data object ToggleQuiet : UiEvent
 
     // 화면 열고 닫기 (정차 중에만)
     data object OpenPet : UiEvent

@@ -21,6 +21,8 @@ data class WaitShareState(
     val connected: Boolean = false,
     /** 보호자가 폰 페이지에서 "돌아가는 중"을 눌렀다. */
     val returning: Boolean = false,
+    /** 누른 사람 — 보호자 1·2 (v10-3, 이름 없음). 모르면 null. */
+    val returningBy: Int? = null,
 )
 
 /** 서버 호출부. 테스트에서 가짜로 바꾼다. */
@@ -28,6 +30,8 @@ interface WaitShareApi {
     suspend fun start(limitMin: Int): Pair<String, String>
     /** 상태를 올리고, 보호자가 "돌아가는 중"을 눌렀는지 받는다. */
     suspend fun update(token: String, body: WaitUpdateReq): Boolean
+    /** v10-3: 누가 눌렀는지(보호자 1·2)까지. 기본은 [update]만 (번호 모름). */
+    suspend fun updateWho(token: String, body: WaitUpdateReq): Pair<Boolean, Int?> = update(token, body) to null
     suspend fun end(token: String)
 }
 
@@ -81,8 +85,9 @@ class WaitShare(
         val t = token ?: return
         val s = latest
         val body = WaitUpdateReq(if (s.overdue) "overdue" else "waiting", s.elapsedSec, maxOf(1, s.limitSec / 60), s.batteryNow, s.cabinTempC)
-        val r = runCatching { a.update(t, body) }
-        _state.update { it.copy(connected = r.isSuccess, returning = it.returning || r.getOrDefault(false)) }
+        val r = runCatching { a.updateWho(t, body) }
+        val (back, who) = r.getOrDefault(false to null)
+        _state.update { it.copy(connected = r.isSuccess, returning = it.returning || back, returningBy = it.returningBy ?: who) }
     }
 
     private fun finish() {

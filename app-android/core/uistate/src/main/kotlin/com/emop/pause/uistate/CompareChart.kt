@@ -53,6 +53,18 @@ object CompareChart {
         )
     }
 
+    /** 선의 최고값 (v10 비교 수치). */
+    fun peak(points: List<ComparePoint>): Int = points.maxOfOrNull { it.index } ?: 0
+
+    /** 거리로 가중한 평균 (사다리꼴) — 점 간격이 고르지 않아도 같은 길이로 비교한다. */
+    fun mean(points: List<ComparePoint>): Int {
+        if (points.size < 2) return points.firstOrNull()?.index ?: 0
+        var area = 0.0
+        for (i in 1 until points.size) area += (points[i].km - points[i - 1].km) * (points[i].index + points[i - 1].index) / 2.0
+        val len = points.last().km - points.first().km
+        return if (len <= 0f) points.last().index else (area / len).roundToInt()
+    }
+
     fun extraLabel(sec: Int): String = "+${sec / 60}분 ${sec % 60}초"
 
     fun kmLabel(km: Double): String = String.format(Locale.US, "%.1fkm", km)

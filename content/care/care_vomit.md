@@ -1,5 +1,10 @@
 ---
+id: vomit
 title: 구토
+category: driving
+triggers: [토했, 토해, 토하면, 구토, 게워]
+voice: 음식은 주지 말고, 물은 조금씩만 줘요.
+action: NEAREST_STOP
 reviewed: true
 sources: Merck Veterinary Manual (Merck & Co.) — "Vomiting in Dogs" https://www.merckvetmanual.com/dog-owners/digestive-disorders-of-dogs/vomiting-in-dogs (11/03 사용자 검수, 출처 페이지 직접 열어 대조)
 ---

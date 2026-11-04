@@ -61,10 +61,53 @@ interface PauseApi {
     /** 병원 응답·열람 여부 (F5-09). */
     @GET("eta/{token}")
     suspend fun etaStatus(@Path("token") token: String): EtaStatusRes
+
+    /** v10-3: 폰으로 받는 이동 기록 (`/report/<토큰>`, 24시간, 위치 없음). */
+    @POST("reports")
+    suspend fun reportShare(@Body body: ReportShareReq): ShareLinkRes
+
+    /** v10-3: 반려견 사진 QR 업로드 시작 (`/upload/<토큰>`, 10분). */
+    @POST("photos")
+    suspend fun photoStart(): ShareLinkRes
+
+    /** 콩이 도우미 2단계 (앱 규칙이 못 고른 질문·카드 설명). 원문은 서버가 저장하지 않는다. */
+    @POST("helper/ask")
+    suspend fun helperAsk(@Body body: HelperAskReq): HelperAskRes
+
+    /** 올라온 사진: 204 = 아직, 200 = 이미지 바이트(서버는 이때 지운다). */
+    @GET("photos/{token}")
+    suspend fun photoFetch(@Path("token") token: String): retrofit2.Response<okhttp3.ResponseBody>
 }
 
 /** 보호자 폰이 "돌아가는 중"을 누르면 [returning] = true. */
-@Serializable data class WaitStatusRes(val state: String = "waiting", val returning: Boolean = false)
+@Serializable data class WaitStatusRes(val state: String = "waiting", val returning: Boolean = false, val returningBy: Int? = null)
+
+@Serializable data class ShareLinkRes(val token: String, val pageUrl: String, val expiresAt: String)
+
+@Serializable data class HelperAskReq(val text: String, val allowed: List<String>, val explain: Boolean = true)
+@Serializable data class HelperAskRes(val route: String, val id: String? = null, val confidence: Double = 0.0, val answer: String? = null, val grounded: Boolean = false, val source: String = "none", val latencyMs: Int = 0)
+
+@Serializable data class TimelineDto(val kind: String, val time: String, val title: String, val detail: String? = null)
+@Serializable data class MarkDto(val kind: String, val minute: Int, val lengthMin: Int = 0, val label: String = "")
+@Serializable data class RowDto(val key: String, val value: String)
+
+/** 폰으로 받는 이동 기록 (v10-3). 위치·경로 필드는 없다 — 서버도 정의되지 않은 필드를 422로 거절한다. */
+@Serializable
+data class ReportShareReq(
+    val petNames: List<String>,
+    val date: String,
+    val destination: String? = null,
+    val totalMin: Int,
+    val distance: String? = null,
+    val stops: Int,
+    val reports: Int,
+    val timeline: List<TimelineDto> = emptyList(),
+    val series: List<Int> = emptyList(),
+    val sampleMin: Int = 5,
+    val marks: List<MarkDto> = emptyList(),
+    val share: List<RowDto> = emptyList(),
+    val insight: String? = null,
+)
 
 @Serializable
 data class EtaShareReq(

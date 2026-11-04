@@ -140,6 +140,14 @@ data class DriveUi(
     val observation: ObservationUi = ObservationUi("관찰 기록 없음"),
     /** 음성 힌트 한 줄 ("“콩이 토했어”라고 말하면 기록해요"). */
     val voiceHint: String? = null,
+    /** 앱 바 오른쪽 작은 한 줄 "27km · 도착 오전 11:45" (v10-1 — 회전·도착 카드는 옆 기본 내비와 겹쳐 뺐다). */
+    val barLine: String? = null,
+    /** [눌러서 말하기]를 보일지 (버튼 2개 카드·듣는 중·RESTRICTED면 false). */
+    val talk: Boolean = content !is DriveContent.Suggest && content !is DriveContent.Nearby && content !is DriveContent.Distress,
+    /** 마이크 권한을 거절했음 → 버튼 대신 글자 힌트. */
+    val micDenied: Boolean = false,
+    /** 조용히 모드 중 (응급·쉼표 추천만). */
+    val quiet: Boolean = false,
 )
 
 enum class VoiceSheetState { LISTENING, FAILED }
@@ -148,7 +156,8 @@ enum class VoiceSheetState { LISTENING, FAILED }
 
 enum class CheckKind { HARNESS, WATER, POTTY_BAGS }
 
-data class CheckUi(val kind: CheckKind, val label: String, val checked: Boolean)
+/** [missedBefore] = 최근 3번 출발 중 빠뜨린 적이 있고 지금도 체크 안 함 (v10-3 — 다시 강조). */
+data class CheckUi(val kind: CheckKind, val label: String, val checked: Boolean, val missedBefore: Boolean = false)
 
 /** "콩이 · 소형 · 9살 · 흔들림에 예민한 편(보호자 응답)". */
 data class PetSummaryUi(val name: String, val line: String, val sample: Boolean = false)
@@ -171,9 +180,21 @@ data class DepartUi(
     val duration: String? = null,
     /** 차량 신호가 없거나 에뮬레이터일 때 시연 주행 안내 띠 (DM-10). 실차에는 false. */
     val demoHint: Boolean = false,
+    /** "오늘은 안 타요"를 고른 날 (v10-1) — 체크 대신 "오늘은 안내를 쉬어요" + [다시 켜기]. */
+    val dayOff: Boolean = false,
+    /** [지난번과 같아요] 보일지 (v10-3 3번). */
+    val sameAsLast: Boolean = false,
+    /** 오늘 타는 아이 (v10-3 1번) — 프로필이 2개 이상일 때만 보인다. */
+    val riders: List<RiderUi> = emptyList(),
 ) {
     companion object {
         const val DEMO_HINT = "차량 신호가 없어요. 시연 주행으로 둘러볼까요?"
+        /** v10-1 "오늘은 안 타요" (docs/wording.md). */
+        const val DAY_OFF = "오늘은 안 타요"
+        /** v10-3 출발 체크 기억 (docs/wording.md). */
+        const val SAME_AS_LAST = "지난번과 같아요"
+        const val MISSED = "지난번에 빠뜨렸어요"
+        const val DAY_OFF_LINE = "오늘은 안내를 쉬어요. 함께 타면 다시 켜 주세요."
         const val DEMO_START = "시연 주행 시작"
     }
 }
@@ -208,6 +229,10 @@ data class RestUi(
     val observation: ObservationUi = ObservationUi("관찰 기록 없음"),
     /** "주행 자극 보기" 버튼 (기록이 있을 때만). */
     val stimulusAvailable: Boolean = false,
+    /** 정차 때 한 줄씩 (v10-1): 자동 시작 뒤 출발 체크, 앱이 뒤에 있을 때 답이 없던 추천. */
+    val notices: List<String> = emptyList(),
+    /** 여러 마리 신고에서 누구인지 못 들었음 (v10-3) → "누가 그랬나요?" + 이름 고르기. */
+    val whoAsk: List<String> = emptyList(),
 )
 
 /**
@@ -226,6 +251,15 @@ data class StimulusUi(
     /** 예보 근거 한 줄 ("경로 형상: 시연 경로 (OSM GPX) · 속도 기준"). */
     val basis: String? = null,
     val note: String = STIMULUS_NOTE,
+    /** v10 그래프: 엔진 예측 1분 간격(0번 = 지금, 최대 21개). 주행 중이 아니면(정차) 비어 있다 — 지어내지 않는다. */
+    val ahead: List<Int> = emptyList(),
+    /** 굽은 길이 시작하는 분(지금 기준)·길이(분). 예보가 없으면 null. */
+    val curveStartMin: Int? = null,
+    val curveLenMin: Int? = null,
+    /** "3.4km 앞" — 굽은 길 시작까지 거리. */
+    val curveKm: String? = null,
+    /** 지금 시각(하루 중 분, 신호 시계) — 축·구간 레이블 "12:05~12:17". */
+    val clockMinute: Int? = null,
 )
 
 const val STIMULUS_NOTE = "차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님"
@@ -236,7 +270,12 @@ data class ShareUi(
     /** 보호자 폰에서 열 주소. 없으면 "폰 공유 연결 안 됨". */
     val url: String?,
     val connected: Boolean,
-)
+) {
+    companion object {
+        /** 두 번째 보호자 주소 (v10-3): 같은 대기 화면, "돌아가는 중"만 보호자 2로 남는다. */
+        fun second(url: String): String = url + (if ('?' in url) "&" else "?") + "g=2"
+    }
+}
 
 data class WaitUi(
     /** "주인이 곧 돌아와요". */
@@ -265,6 +304,8 @@ data class WaitUi(
     val english: String = WAIT_ENGLISH,
     /** 제한 시간을 넘김: 아래 보호자 줄에만 앰버 "설정한 10분이 지났어요" (큰 글은 그대로, 빨강·깜박임 없음). */
     val overdueLine: String? = null,
+    /** v10-3: "보호자 2가 돌아가는 중이에요" (누른 사람만, 이름 없음). */
+    val returningBy: String? = null,
 )
 
 const val WAIT_ENGLISH = "My owner will be back soon"
@@ -416,10 +457,21 @@ data class SummaryUi(
     val duration: String,
     val stops: Int,
     val reports: Int,
+    /** v10-3: [폰으로 기록 받기]로 만든 기록 페이지 주소 (QR). 아직 안 만들었으면 null. */
+    val phoneUrl: String? = null,
+    /** 만드는 중. */
+    val phoneBusy: Boolean = false,
+    /** 서버가 있어 폰 기록을 만들 수 있는지 (없으면 한 줄 안내). */
+    val phoneAvailable: Boolean = true,
 ) {
     companion object {
         const val TITLE = "오늘도 함께해서 고마워요"
-        const val OPEN_REPORT = "이동 기록 보기"
+        /** v10-3: 리포트는 주 흐름에서 빼고 원하는 사람만 — 차 안 리포트는 작은 [자세히 보기]. */
+        const val OPEN_REPORT = "자세히 보기"
+        const val PHONE = "폰으로 기록 받기"
+        const val FINISH = "마치기"
+        const val PHONE_NONE = "서버에 연결되면 폰으로 기록을 받을 수 있어요"
+        const val PHONE_HINT = "폰 카메라로 찍으면 기록이 열려요 · 24시간 · 위치 없음"
     }
 }
 
@@ -486,11 +538,23 @@ data class PetEditUi(
     val problems: List<String>,
     /** 처음 실행: 닫기 대신 "나중에". */
     val firstRun: Boolean,
+    /** v10-3 여러 마리: 저장된 프로필 탭(최대 3, [RiderUi.selected] = 지금 고치는 것), 추가·지우기 가능 여부. */
+    val profiles: List<RiderUi> = emptyList(),
+    val canAdd: Boolean = false,
+    val canDelete: Boolean = false,
+    /** v10-3 사진: 서버가 있어 폰으로 올릴 수 있는지, 업로드 QR 주소(10분), 기다리는 중. */
+    val photoAvailable: Boolean = false,
+    val photoUrl: String? = null,
+    /** 올릴 수 없을 때 한 줄 ("서버에 연결되면 …" / "저장한 뒤 …"). */
+    val photoNote: String? = null,
     /** "콩이 맞춤 정도: 기록 5회, 민감도 보통 → 조금 높음" (기록이 있을 때). */
     val calibration: String? = null,
 )
 
 data class SignalRowUi(val name: String, val inUse: Boolean, val source: String? = null)
+
+/** 여러 마리 칩 하나 (v10-3): 출발 전 "오늘 타는 아이"·프로필 탭. [id]는 기기 저장 행 id. */
+data class RiderUi(val id: Long, val name: String, val selected: Boolean)
 
 // ───────────── 온보딩 3단계 (11번): 반려견 프로필 → 차량 연동 → 흔들림에 예민한 정도(보호자 응답) ─────────────
 
@@ -519,6 +583,10 @@ data class SettingsUi(
     val voiceSuggest: Boolean = true,
     val reduceMotion: Boolean = false,
     val signals: List<SignalRowUi> = emptyList(),
+    /** 안내 빈도 0 많이 · 1 보통 · 2 적게 (v10-1). */
+    val guidance: Int = 1,
+    /** 조용히 모드 (응급·쉼표 추천만). */
+    val quiet: Boolean = false,
     val version: String = "",
     /** "앞 구간 형상: 시연 경로 (OSM GPX)" / "회전 안내 + 진행 방위" (UPGRADE 5). */
     val shapeSource: String? = null,
@@ -533,3 +601,44 @@ val DATA_CREDITS = listOf(
     "아이콘: Material Symbols Rounded (Apache-2.0), Microsoft Fluent UI Emoji Flat (MIT)",
     "글꼴: Pretendard (SIL OFL 1.1)",
 )
+
+// ───────────── 콩이 도우미 (HELPER_PROMPT, 정차 중) ─────────────
+
+/**
+ * 도우미 답 카드 하나: 제목 + 3~4줄 + 행동 버튼 1개(없으면 null) + 출처 한 줄. [reviewed] = false면 "검수 전"(디버그·발표 모드만 이 카드가 나온다 —
+ * 릴리스는 미검수 카드를 답으로 쓰지 않는다). [question]은 화면에만 잠깐(기록·서버 저장 없음).
+ */
+data class HelperAnswerUi(
+    val question: String,
+    val title: String,
+    val lines: List<String>,
+    val action: String? = null,
+    val actionLabel: String? = null,
+    val source: String? = null,
+    val reviewed: Boolean = true,
+    /** 모델이 카드만 근거로 풀어 쓴 답(근거 검사 통과)인지 — 아니면 카드 줄 그대로. */
+    val explained: Boolean = false,
+    /** 응급이면 경고 띠. */
+    val emergency: Boolean = false,
+)
+
+data class HelperUi(
+    /** 상황별 질문 칩 6개 (정차·대기·충전·출발 전). */
+    val chips: List<String>,
+    val answers: List<HelperAnswerUi> = emptyList(),
+    val text: String = "",
+    val listening: Boolean = false,
+    val busy: Boolean = false,
+    /** 키보드 허용 (정차 + UX 제한 없음). */
+    val typing: Boolean = true,
+) {
+    companion object {
+        const val TITLE = "콩이 도우미"
+        const val NOTE = "검수한 돌봄 카드와 앱 정보로만 답해요 · 진단이 아니에요"
+        const val UNKNOWN = "그건 아직 잘 몰라요."
+        const val UNKNOWN_VET = "가까운 동물병원에 물어봐요."
+        const val UNKNOWN_REST = "다음 쉼터에서 살펴봐요."
+        const val DRAFT = "검수 전"
+    }
+}
+

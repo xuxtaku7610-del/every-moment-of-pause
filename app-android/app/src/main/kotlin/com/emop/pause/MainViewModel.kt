@@ -30,6 +30,7 @@ import com.emop.pause.presentation.DemoTripHint
 import com.emop.pause.presentation.Overlay
 import com.emop.pause.presentation.Route
 import com.emop.pause.presentation.ScreenRouter
+import com.emop.pause.presentation.ShareMapper
 import com.emop.pause.presentation.UiMapper
 import com.emop.pause.runtime.SignalRuntime
 import com.emop.pause.runtime.Snapshot
@@ -51,6 +52,21 @@ import com.emop.pause.engine.pet.EmergencyKind
 import com.emop.pause.engine.pet.PetDistress
 import com.emop.pause.data.PlaceSource
 import com.emop.pause.trip.ShapeMode
+import com.emop.pause.trip.PhotoStore
+import com.emop.pause.trip.HelperAnswers
+import com.emop.pause.trip.HelperFacts
+import com.emop.pause.trip.HelperReply
+import com.emop.pause.trip.PottySpot
+import com.emop.pause.engine.pet.HelperRouter
+import com.emop.pause.engine.pet.HelperRoute
+import com.emop.pause.uistate.HelperUi
+import com.emop.pause.data.net.HelperAskReq
+import com.emop.pause.uistate.RiderUi
+import com.emop.pause.core.model.PetGroup
+import com.emop.pause.trip.GuidanceLevel
+import com.emop.pause.voice.Reply
+import com.emop.pause.voice.Utterance
+import com.emop.pause.voice.VoiceIntent
 import com.emop.pause.trip.CalibrationStore
 import com.emop.pause.engine.motion.CalibrationSample
 import com.emop.pause.engine.motion.MotionAnswer
@@ -79,6 +95,7 @@ import com.emop.pause.core.model.AppMode
 import com.emop.pause.data.net.EtaShareReq
 import com.emop.pause.data.net.EtaUpdateReq
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -136,11 +153,24 @@ data class AppState(
     /** 증상 메모 (기기에만, SymptomMemoStore). */
     val vetMemo: VetMemo = VetMemo(),
     val memoListening: Boolean = false,
-    /** 이 반려견 개인 보정 기록 수·계수 (프로필 화면 문구). */
+    /** 이 반려견 개인 보정 기록 수·계수 (프로필 화면 문구). [calibrationPet] = 그 계수의 아이(여러 마리면 가장 예민한 아이). */
+    val calibrationPet: String? = null,
     val calibrationCount: Int = 0,
     val calibrationScale: Double = 1.0,
     /** 긴급 도움에서 고른 상황 (응급 카드 id). 안 골랐으면 null. */
     val emergency: String? = null,
+    /** [눌러서 말하기] 마이크 권한을 거절함 (v10-1) → 버튼 대신 글자 힌트. */
+    val micDenied: Boolean = false,
+    /** 도착 요약 [폰으로 기록 받기] 주소 (v10-3, 24시간). 새 여행이면 지운다. */
+    val reportUrl: String? = null,
+    val reportBusy: Boolean = false,
+    /** [폰으로 사진 올리기] QR 주소 (v10-3, 10분). 받으면 null. */
+    val photoUrl: String? = null,
+    /** 콩이 도우미 답 (최근 5개, 최근이 앞). 질문 원문은 화면에만 — 저장·서버 기록 없음. */
+    val helper: List<HelperReply> = emptyList(),
+    val helperText: String = "",
+    val helperListening: Boolean = false,
+    val helperBusy: Boolean = false,
 )
 
 @HiltViewModel
@@ -155,8 +185,11 @@ class MainViewModel @Inject constructor(
     private val memoStore: SymptomMemoStore,
     private val calibration: CalibrationStore,
     private val care: CareRepository,
+    private val photoStore: PhotoStore,
 ) : ViewModel() {
     val snapshot: StateFlow<Snapshot> = runtime.snapshot
+    /** 반려견 사진 (프로필 id → Bitmap, 기기에만). MainActivity가 화면에 넣는다. */
+    val photos: StateFlow<Map<Long, android.graphics.Bitmap>> = photoStore.photos
     val tripUi: StateFlow<TripUi> = trip.ui
     private val _app = MutableStateFlow(AppState())
     val app: StateFlow<AppState> = _app.asStateFlow()
@@ -174,16 +207,16 @@ class MainViewModel @Inject constructor(
 
     init {
         _app.update { it.copy(vetMemo = runCatching { memoStore.load() }.getOrDefault(VetMemo())) }
-        viewModelScope.launch { trip.ui.collect { t -> if (t.pet.name != calibratedFor) applyCalibration(t.pet.name) } }
+        viewModelScope.launch { trip.ui.collect { t -> if (riderNames(t).joinToString(",") != calibratedFor) applyCalibration() } }
         trip.voiceEnabled = settings.voiceSuggest
         trip.eager = settings.timing == 0
         viewModelScope.launch { refreshLimit() }
         // 개인 보정은 음성 신고·조용한 구간에서 자동으로 (질문 없음, 재정비 원칙 3)
         viewModelScope.launch {
-            trip.calibrationSamples.collect { sample ->
-                val pet = trip.ui.value.pet.name
-                calibration.add(pet, sample)
-                applyCalibration(pet)
+            // v10-3 여러 마리: 신고는 그 아이에게, 조용한 구간은 탄 아이 모두에게 — 엔진 계수는 가장 예민한(가장 큰) 아이
+            trip.calibrationSamples.collect { ev ->
+                ev.names.forEach { calibration.add(it, ev.sample) }
+                applyCalibration()
             }
         }
         // 발표 모드 점프: 건너뛴 구간을 엔진이 따라잡은 값(멀미·피로·정차·증상)으로 이동 기록을 다시 쌓는다 — 처음부터 달린 것과 같은 숫자.
@@ -222,7 +255,9 @@ class MainViewModel @Inject constructor(
                 }
                 trip.goingVet = _app.value.goingVet != null
                 // 새 여행(출발 전)이면 도착 요약 → 리포트 열림을 처음으로
-                if (s.mode == AppMode.PREPARE && _app.value.reportOpen) _app.update { it.copy(reportOpen = false) }
+                if (s.mode == AppMode.PREPARE && (_app.value.reportOpen || _app.value.reportUrl != null)) _app.update { it.copy(reportOpen = false, reportUrl = null) }
+                // 새 도착(아직 "내렸어요" 전)이면 지난 리포트 열림·폰 기록 링크를 지운다 — 도착 흐름은 늘 요약에서 시작
+                if (!trip.ui.value.leftConfirmed && (_app.value.reportOpen || _app.value.reportUrl != null)) _app.update { it.copy(reportOpen = false, reportUrl = null) }
                 tickIntake(s)
                 val hint = demoTripHint.update(
                     System.currentTimeMillis(),
@@ -256,14 +291,18 @@ class MainViewModel @Inject constructor(
         )
         val screen = when (route) {
             Route.SCENE -> Fixtures.screen(a.scene!!)
-            Route.DRIVE -> Screen.Drive(UxPolicy.apply(withVet(UiMapper.drive(s, t), a), ux))
+            Route.DRIVE -> Screen.Drive(UxPolicy.apply(withVet(UiMapper.drive(s, t), a).copy(micDenied = a.micDenied), ux))
             Route.DEPART -> Screen.Depart(
                 UiMapper.depart(s, t, a.limit?.let { PetTripLog.limitPhrase(t.pet.name, it) }, t.profileSaved == true || s.simSetup?.pet != null)
-                    .copy(demoHint = a.demoHint && s.source == SourceMode.VEHICLE),
+                    .copy(
+                        demoHint = a.demoHint && s.source == SourceMode.VEHICLE, dayOff = t.dayOff,
+                        // 오늘 타는 아이 (v10-3) — 프로필이 2개 이상일 때만
+                        riders = t.pets.takeIf { it.size >= 2 }?.map { p -> RiderUi(p.id, p.name, p.id in t.riderIds) }.orEmpty(),
+                    ),
             )
             Route.REST -> Screen.Rest(
                 UiMapper.rest(s, t, a.restChoice, recorder.currentStop, t.wait.limitSec / 60)
-                    .copy(care = t.careId?.let { care.ui(it, showDrafts(s, a)) }, distressChips = DISTRESS_CHIPS.map { it.first }),
+                    .copy(care = t.careId?.let { care.ui(it, showDrafts(s, a)) }, distressChips = DISTRESS_CHIPS.map { it.first }, whoAsk = t.whoAsk),
             )
             Route.WAIT -> Screen.Wait(UiMapper.wait(t.wait, t, acOn = s.sample.hvacAcOn))
             Route.PLACES -> Screen.Places(UiMapper.places(a.along, a.near, a.loading))
@@ -272,6 +311,12 @@ class MainViewModel @Inject constructor(
                     intake = a.intake?.let(::intakeUi),
                     preview = (a.goingVet ?: a.vets?.items?.firstOrNull())?.takeIf { it.partner }
                         ?.let { v -> UiMapper.vetPreview(t.pet.name, a.vetMemo, todayLine(a), UiMapper.vetMinutes(v.distanceKm)) }.orEmpty(),
+                ),
+            )
+            Route.HELPER -> Screen.Helper(
+                HelperUi(
+                    chips = helperChips(s, t), answers = a.helper.map { it.ui }, text = a.helperText,
+                    listening = a.helperListening, busy = a.helperBusy, typing = UxPolicy.setupAllowed(ux),
                 ),
             )
             Route.EMERGENCY -> Screen.Emergency(
@@ -286,8 +331,8 @@ class MainViewModel @Inject constructor(
             Route.ARRIVAL -> Screen.Arrival(UiMapper.arrival(t).copy(tripLine = arrivalLine(t)))
             Route.SUMMARY -> Screen.Summary(summaryUi(t))
             Route.TRIPLOG -> Screen.TripLog(tripLog(s, t, a))
-            Route.STIMULUS -> Screen.Stimulus(UiMapper.stimulus(t, recorder.log().motionPeak.takeIf { t.motion.drivingSec > 0 }))
-            Route.PET -> Screen.PetProfile(UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = false).copy(calibration = calibrationLine(t.pet.name, a)))
+            Route.STIMULUS -> Screen.Stimulus(UiMapper.stimulus(t, recorder.log().motionPeak.takeIf { t.motion.drivingSec > 0 }, s.clockMinute))
+            Route.PET -> Screen.PetProfile(petEditUi(a.petDraft ?: t.pet, t, a))
             Route.SETTINGS -> Screen.Settings(settingsUi(s))
             Route.ONBOARDING -> Screen.Onboarding(
                 OnboardingUi(a.onboardStep, UiMapper.petEdit(a.petDraft ?: t.pet, firstRun = true), signalRows(s), MotionQuiz.ui(a.quiz), MotionQuiz.result(a.quiz)),
@@ -306,6 +351,9 @@ class MainViewModel @Inject constructor(
             state = ScreenRouter.serviceState(route, (screen as? Screen.Drive)?.ui?.content, a.goingVet != null),
             // 시뮬레이터 값·발표 장면 고정은 화면에 "시연 데이터"를 붙인다 (재정비 원칙 5)
             demoData = (simulation || route == Route.SCENE) && !a.captureClean,
+            // 사진: 시연(시뮬레이터·장면 고정)이면 콩이 사진, 실차는 올린 사진 또는 실루엣 (v10-3). 캡처용 숨김과는 따로
+            demoPhoto = simulation || route == Route.SCENE,
+            primaryPetId = t.riderIds.firstOrNull() ?: t.pets.firstOrNull()?.id,
         )
     }
 
@@ -324,11 +372,38 @@ class MainViewModel @Inject constructor(
             is UiEvent.ToggleCheck -> trip.toggleCheck(UiMapper.checkItem(e.kind))
             UiEvent.StartTrip -> startTrip()
             UiEvent.StartDemoTrip -> startDemoTrip()
+            UiEvent.DayOff -> trip.setDayOff(true)
+            UiEvent.SameAsLast -> trip.sameAsLast()
+            UiEvent.DayOn -> trip.setDayOff(false)
+            UiEvent.PushToTalk -> pushToTalk()
+            is UiEvent.SetGuidance -> {
+                trip.setGuidanceLevel(GuidanceLevel.entries.getOrElse(e.level) { GuidanceLevel.NORMAL })
+                bump()
+            }
+            UiEvent.ToggleQuiet -> trip.setQuiet(!trip.ui.value.quiet)
             UiEvent.DismissDemoHint -> {
                 demoTripHint.dismiss()
                 _app.update { it.copy(demoHint = false) }
             }
-            UiEvent.OpenPet -> _app.update { it.copy(overlay = Overlay.PET, petDraft = trip.ui.value.pet) }
+            UiEvent.OpenPet -> trip.ui.value.let { t ->
+                // 저장된 프로필을 고친다 (합친 설정·시나리오 반려견이 아니라)
+                _app.update { it.copy(overlay = Overlay.PET, petDraft = t.pets.firstOrNull { p -> p.id in t.riderIds } ?: t.pets.firstOrNull() ?: t.pet) }
+            }
+            is UiEvent.EditPet -> trip.ui.value.pets.firstOrNull { it.id == e.id }?.let { p -> _app.update { it.copy(petDraft = p, photoUrl = null) } }
+            UiEvent.AddPet -> if (trip.ui.value.pets.size < PetGroup.MAX) _app.update { it.copy(petDraft = PetProfile("", id = 0), photoUrl = null) }
+            UiEvent.DeletePet -> _app.value.petDraft?.takeIf { it.id != 0L && trip.ui.value.pets.size > 1 }?.let { d ->
+                trip.deletePet(d.id)
+                photoStore.delete(d.id)
+                _app.update { it.copy(petDraft = trip.ui.value.pets.firstOrNull { p -> p.id != d.id }) }
+            }
+            is UiEvent.ToggleRider -> trip.toggleRider(e.id)
+            is UiEvent.PickWho -> trip.assignWho(e.name)
+            UiEvent.StartPhotoUpload -> startPhotoUpload()
+            UiEvent.OpenHelper -> _app.update { it.copy(overlay = Overlay.HELPER) }
+            is UiEvent.AskHelper -> askHelper(e.text)
+            is UiEvent.SetHelperText -> _app.update { it.copy(helperText = e.text.take(HELPER_TEXT_MAX)) }
+            UiEvent.HelperVoice -> helperVoice()
+            is UiEvent.HelperAct -> helperAct(e.index)
             UiEvent.OpenSettings -> _app.update { it.copy(overlay = Overlay.SETTINGS) }
             UiEvent.OpenPlaces -> openPlaces()
             UiEvent.OpenVets -> openVets()
@@ -344,12 +419,14 @@ class MainViewModel @Inject constructor(
             is UiEvent.GoVet -> goVet(e.id)
             UiEvent.ConfirmLeft -> confirmLeft()
             UiEvent.OpenReport -> _app.update { it.copy(reportOpen = true) }
+            UiEvent.CloseReport -> _app.update { it.copy(reportOpen = false) }
+            UiEvent.SendReportToPhone -> sendReportToPhone()
             UiEvent.FinishTrip -> finishTrip()
             UiEvent.OpenStimulus -> _app.update { it.copy(overlay = Overlay.STIMULUS) }
             UiEvent.ShareReport -> openVets()
             UiEvent.ResetCalibration -> {
-                calibration.reset(trip.ui.value.pet.name)
-                applyCalibration(trip.ui.value.pet.name)
+                calibration.reset((_app.value.petDraft ?: trip.ui.value.pet).name)
+                applyCalibration()
             }
             is UiEvent.SetPetName -> editPet { it.copy(name = e.name.take(PetProfile.NAME_MAX)) }
             is UiEvent.SetPetSize -> editPet { it.copy(size = PetSize.valueOf(e.size.name)) }
@@ -377,6 +454,174 @@ class MainViewModel @Inject constructor(
     }
 
     private fun bump() = _app.update { it.copy() }
+
+    /**
+     * [눌러서 말하기] (v10-1 2번): 받아쓰기 8초 → 들은 말을 기존 분류 그대로([reply]) — 이상 신고·응급 4가지·잠깐 다녀올게·
+     * 조용히 해 줘·오늘은 안 타요. 못 들었거나 모르는 말이면 결과 한 줄만.
+     */
+    private fun pushToTalk() {
+        viewModelScope.launch {
+            val heard = trip.listenOnce()
+            when {
+                heard == null -> trip.notify(TALK_FAILED)
+                // 콩이 도우미 (HELPER_PROMPT): 돌봄 질문이면 음성 답 — 응급 말은 그 안에서 기존 흐름이 먼저
+                HelperRouter.isQuestion(heard) && driveHelper(heard) -> Unit
+                understood(heard) -> reply(heard)
+                else -> trip.notify(TALK_HINT)
+            }
+        }
+    }
+
+    // ───────────── 콩이 도우미 (HELPER_PROMPT) ─────────────
+
+    /** 이번 실행의 도우미 기록 — 고른 카드 id·시각만 (질문 원문은 남기지 않는다). */
+    private val helperLog = ArrayDeque<Pair<String, Long>>()
+
+    private fun helperCards(s: Snapshot, a: AppState) = care.helperCards(showDrafts(s, a))
+
+    private fun helperFacts(s: Snapshot, t: TripUi): HelperFacts {
+        val drive = UiMapper.drive(s, t)
+        val spot = t.stops.filter { it.distanceAlongRouteKm > t.traveledKm + 0.5 && com.emop.pause.engine.planner.Facility.PET_ZONE in it.facilities }
+            .minByOrNull { it.distanceAlongRouteKm }
+            ?.let { st -> PottySpot(st.id, st.name, "${UiMapper.km(st.distanceAlongRouteKm - t.traveledKm)} 앞", st.lat, st.lng, "반려견 놀이터 (휴게소 데이터)") }
+        val cabin = (if (s.source == SourceMode.SIMULATION) trip.demoCabinTempC else null) ?: s.sample.hvacTempC
+        return HelperFacts(
+            nextRest = drive.nextStopName?.let { n -> drive.nextStopMin?.let { n to it } },
+            pottySpot = spot,
+            cabinTempC = cabin,
+            wait = t.wait.takeIf { it.active }?.let { (it.elapsedSec / 60) to (it.limitSec / 60) },
+            chargingMin = if (s.pauseCause == com.emop.pause.core.model.PauseCause.CHARGING) -1 else null,
+        )
+    }
+
+    /** 상황별 질문 칩 6개 (docs/wording.md "콩이 도우미"). */
+    private fun helperChips(s: Snapshot, t: TripUi): List<String> = when {
+        t.wait.active -> HELPER_CHIPS_WAIT
+        s.pauseCause == com.emop.pause.core.model.PauseCause.CHARGING -> HELPER_CHIPS_CHARGING
+        s.mode == AppMode.PREPARE -> HELPER_CHIPS_DEPART
+        else -> HELPER_CHIPS_REST
+    }
+
+    /**
+     * 정차 중 질문 하나: ① 규칙 분류(오프라인) — 응급이면 기존 긴급 도움 흐름 ② 카드면 서버가 카드만 근거로 풀어 쓴 답(근거 검사 통과만)
+     * ③ 모르고 위험 낱말이 없으면 서버 2단계(임베딩 → LLM 분류) ④ 그래도 모르면 "그건 아직 잘 몰라요". 서버가 없거나 늦으면 ①의 결과로.
+     */
+    private fun askHelper(raw: String) {
+        val text = raw.trim().take(HELPER_TEXT_MAX)
+        if (text.isEmpty() || _app.value.helperBusy) return
+        val s = snapshot.value
+        val t = trip.ui.value
+        val a = _app.value
+        val drafts = showDrafts(s, a)
+        val cards = helperCards(s, a)
+        val route = HelperRouter.route(text, cards)
+        if (route is HelperRoute.Emergency) {
+            // 분류보다 먼저 기존 EMERGENCY 흐름 (긴급 도움 카드 + 병원) — 도우미가 막거나 늦추지 않는다
+            _app.update { it.copy(helperText = "") }
+            reply(text)
+            if (!s.driveState.forcesDrivingUi && _app.value.overlay != Overlay.EMERGENCY) openEmergency(route.cardId.takeIf { EmergencyKind.of(it) != null })
+            logHelper(route.cardId)
+            return
+        }
+        val facts = helperFacts(s, t)
+        val sheet = { id: String -> care.sheet(id) }
+        val local = HelperAnswers.build(text, route, facts, sheet, drafts)
+        val session = server.session
+        val askServer = route is HelperRoute.Unknown && !route.risky
+        val explain = route is HelperRoute.Card && care.sheet(route.id)?.let { it.action != "VET" && (it.reviewed || drafts) } == true
+        if (session == null || !(askServer || explain)) {
+            pushHelper(local)
+            return
+        }
+        _app.update { it.copy(helperBusy = true, helperText = "") }
+        viewModelScope.launch {
+            val allowed = if (explain) listOf((route as HelperRoute.Card).id) else cards.map { it.id }
+            val res = withTimeoutOrNull(HELPER_SERVER_MS) { runCatching { session.call { helperAsk(HelperAskReq(text, allowed, explain = true)) } }.getOrNull() }
+            val rid = res?.id
+            val reply = when {
+                res == null || rid == null -> local
+                res.route == "emergency" -> HelperAnswers.card(text, care.sheet(rid), drafts, emergency = true)
+                else -> HelperAnswers.card(text, care.sheet(rid), drafts, explained = res.answer?.takeIf { res.grounded })
+            }
+            _app.update { it.copy(helperBusy = false) }
+            pushHelper(reply)
+        }
+    }
+
+    private fun pushHelper(r: HelperReply) {
+        _app.update { it.copy(helper = (listOf(r) + it.helper).take(HELPER_KEEP), helperText = "") }
+        logHelper(r.cardId ?: "app")
+    }
+
+    private fun logHelper(id: String) {
+        helperLog.addFirst(id to System.currentTimeMillis())
+        while (helperLog.size > 20) helperLog.removeLast()
+    }
+
+    /**
+     * 주행 중 질문 (음성만): 카드 voice 줄 또는 첫 문장 40자 이하를 말하고 결과 한 줄. 버튼을 늘리지 않는다.
+     * 응급 말이면 기존 흐름([reply] → 1줄 안내 + 병원 제안). 처리했으면 true(모르는 말 + 위험 낱말 없음은 기존 분류로 넘긴다).
+     */
+    private fun driveHelper(text: String): Boolean {
+        val s = snapshot.value
+        val a = _app.value
+        val route = HelperRouter.route(text, helperCards(s, a))
+        if (route is HelperRoute.Emergency) {
+            reply(text)
+            logHelper(route.cardId)
+            return true
+        }
+        if (route is HelperRoute.Unknown && !route.risky && understood(text)) return false
+        val r = HelperAnswers.build(text, route, helperFacts(s, trip.ui.value), { care.sheet(it) }, showDrafts(s, a))
+        trip.speakHelper(r.voice)
+        logHelper(r.cardId ?: "app")
+        return true
+    }
+
+    /** 디버그 adb `--es ask '...'`: 주행 중이면 음성 답, 정차 중이면 도우미 화면을 열고 묻는다 (발표 장면 재현). */
+    fun ask(text: String) {
+        viewModelScope.launch {
+            // 같은 명령의 장면 점프(seek)가 먼저 자리 잡도록 잠깐 기다린다 (주행/정차 판단이 점프 뒤 상태로)
+            delay(ASK_SETTLE_MS)
+            if (snapshot.value.driveState.forcesDrivingUi) {
+                if (!driveHelper(text)) reply(text)
+                return@launch
+            }
+            _app.update { it.copy(overlay = Overlay.HELPER) }
+            askHelper(text)
+        }
+    }
+
+    private fun helperVoice() {
+        if (_app.value.helperListening) return
+        _app.update { it.copy(helperListening = true) }
+        viewModelScope.launch {
+            val heard = trip.dictate()
+            _app.update { it.copy(helperListening = false) }
+            if (heard == null) trip.notify(TALK_FAILED) else askHelper(heard)
+        }
+    }
+
+    /** 답 카드의 행동 버튼 (기존 흐름 재사용): 병원 화면 · 장소 · 쉬할 곳 경유지 · 잠깐 대기 · 쉼표 화면. */
+    private fun helperAct(index: Int) {
+        val r = _app.value.helper.getOrNull(index) ?: return
+        when (r.ui.action) {
+            "VET" -> openVets()
+            "NEAREST_STOP" -> openPlaces()
+            "POTTY_SPOT" -> helperFacts(snapshot.value, trip.ui.value).pottySpot?.let { p ->
+                addWaypoint(p.lat, p.lng, p.name)
+                _app.update { it.copy(overlay = Overlay.NONE) }
+            } ?: trip.notify("앞길에 확인된 반려견 놀이터가 없어요.")
+            "WAIT_MODE" -> {
+                _app.update { it.copy(overlay = Overlay.NONE) }
+                trip.startWait()
+            }
+            "NEXT_REST" -> _app.update { it.copy(overlay = Overlay.NONE) }
+        }
+    }
+
+    /** Activity: 마이크 권한을 거절했다 (그 실행 동안 버튼 대신 힌트). */
+    fun setMicDenied(denied: Boolean) = _app.update { it.copy(micDenied = denied) }
 
     // ───────────── 공급원 ─────────────
     fun scenarioNames() = runtime.scenarioNames()
@@ -451,7 +696,14 @@ class MainViewModel @Inject constructor(
         if (spec == "reset") calibration.clear() else calibration.reset(pet)
         if (spec != "reset") spec.split(',').mapNotNull { a -> runCatching { MotionAnswer.valueOf(a.trim().uppercase()) }.getOrNull() }
             .forEach { calibration.add(pet, CalibrationSample(DEMO_PEAK, it)) }
-        applyCalibration(pet)
+        applyCalibration()
+    }
+
+    /** 디버그 adb `--es pets 콩이,보리` (v10-3 캡처용): 없는 이름만 프로필로 만든다(최대 3). 실제 사용은 프로필 화면 [아이 추가]. */
+    fun seedPets(spec: String) {
+        val have = trip.ui.value.pets.map { it.name }.toSet()
+        spec.split(',').map { it.trim() }.filter { it.isNotEmpty() && it !in have }.take(PetGroup.MAX - have.size)
+            .forEachIndexed { i, n -> trip.savePet(PetProfile(n, motionTendency = if (i == 0) MotionTendency.HIGH else MotionTendency.NORMAL, pottyIntervalMin = 90 + i * 30)) }
     }
 
     /** 발표 모드: 앞 구간 형상 시연 경로 ↔ 회전 안내 (UPGRADE 5). */
@@ -490,6 +742,7 @@ class MainViewModel @Inject constructor(
     fun startTrip() {
         val t = trip.ui.value
         if (snapshot.value.source != SourceMode.SIMULATION && !UiMapper.depart(snapshot.value, t, null, true).ready) return
+        trip.rememberDeparture()
         if (snapshot.value.source == SourceMode.SIMULATION) play() else runtime.setVehicleTrip(TripPhase.ACTIVE)
     }
 
@@ -622,7 +875,8 @@ class MainViewModel @Inject constructor(
             val shared = VetMemo.share(a.vetMemo, todayLine(a))
             val minutes = UiMapper.vetMinutes(v.distanceKm)
             // 사전 접수(병원 접수함)는 제휴 병원만. 그 밖의 병원은 도착 예정 링크만 만든다(접수 완료를 보이지 않는다)
-            val req = EtaShareReq(trip.ui.value.pet.name, v.name, minutes, shared.symptoms, shared.memo, shared.tripLine, intake = v.partner)
+            // 여러 마리면 탄 아이들 이름 "콩이·보리" (서버 32자)
+            val req = EtaShareReq(trip.ui.value.pet.name.take(32), v.name, minutes, shared.symptoms, shared.memo, shared.tripLine, intake = v.partner)
             val res = runCatching { session.call { etaShare(req) } }.getOrNull()
             if (res == null) {
                 trip.notify("사전 접수 링크를 만들지 못했어요. 병원에 전화해 주세요.")
@@ -721,8 +975,32 @@ class MainViewModel @Inject constructor(
             duration = UiMapper.duration(log.elapsedMin),
             stops = _app.value.saved?.record?.stops ?: log.visits.size,
             reports = t.distressEvents.size,
+            phoneUrl = _app.value.reportUrl,
+            phoneBusy = _app.value.reportBusy,
+            phoneAvailable = server.session != null,
         )
     }
+
+    /**
+     * [폰으로 기록 받기] (v10-3 5번): 차 안 리포트와 같은 값(타임라인·주행 자극 5분 값·표시·병원에 보여 줄 줄)을 서버 기록 페이지로.
+     * 위치는 보내지 않는다(계약에 칸이 없다). 24시간 뒤 사라진다. 서버가 없으면 버튼 대신 한 줄 안내라 여기까지 오지 않는다.
+     */
+    private fun sendReportToPhone() {
+        val session = server.session ?: return
+        if (_app.value.reportBusy || _app.value.reportUrl != null) return
+        _app.update { it.copy(reportBusy = true) }
+        viewModelScope.launch {
+            val s = snapshot.value
+            val t = trip.ui.value
+            val req = ShareMapper.report(tripLog(s, t, _app.value), riderNames(t))
+            val res = runCatching { session.call { reportShare(req) } }.getOrNull()
+            val base = trip.share.shareBase.trimEnd('/').takeIf { it.isNotBlank() }
+            _app.update { it.copy(reportBusy = false, reportUrl = res?.let { r -> base?.let { b -> b + r.pageUrl } ?: r.pageUrl }) }
+            if (res == null) trip.notify("기록 링크를 만들지 못했어요. 잠시 뒤 다시 눌러 주세요.")
+        }
+    }
+
+
 
     private fun confirmLeft() {
         trip.confirmLeft()
@@ -741,13 +1019,72 @@ class MainViewModel @Inject constructor(
 
     private var calibratedFor: String? = null
 
-    private fun applyCalibration(pet: String) {
-        calibratedFor = pet
-        val samples = runCatching { calibration.load(pet) }.getOrDefault(emptyList())
+    /** 개인 보정 (v10-3): 탄 아이마다 계수를 구해 **가장 큰 값**(가장 예민한 아이)을 엔진에 — 예보 단계·쉼표 시각에만 쓴다. */
+    private fun applyCalibration() {
+        val names = riderNames(trip.ui.value)
+        calibratedFor = names.joinToString(",")
+        val each = names.map { n -> n to runCatching { calibration.load(n) }.getOrDefault(emptyList()) }
+        val (who, samples) = each.maxByOrNull { MotionCalibration.scale(it.second) } ?: return
         val scale = MotionCalibration.scale(samples)
         trip.motionScale = scale
-        _app.update { it.copy(calibrationCount = samples.size, calibrationScale = scale) }
+        _app.update { it.copy(calibrationCount = samples.size, calibrationScale = scale, calibrationPet = who) }
     }
+
+    /** 프로필 화면 (v10-3): 탭(최대 3)·추가·지우기·사진 올리기. 맞춤 정도는 그 아이 기록으로. */
+    private fun petEditUi(d: PetProfile, t: TripUi, a: AppState): com.emop.pause.uistate.PetEditUi {
+        val samples = runCatching { calibration.load(d.name) }.getOrDefault(emptyList())
+        val line = if (d.name.isBlank() || samples.isEmpty()) null else calibrationLine(d.name, a.copy(calibrationCount = samples.size, calibrationScale = MotionCalibration.scale(samples)))
+        return UiMapper.petEdit(d, firstRun = false).copy(
+            calibration = line,
+            profiles = t.pets.map { RiderUi(it.id, it.name, it.id == d.id) } + listOfNotNull(RiderUi(0, "새 아이", true).takeIf { d.id == 0L && t.pets.isNotEmpty() }),
+            canAdd = t.pets.size < PetGroup.MAX && d.id != 0L,
+            canDelete = d.id != 0L && t.pets.size > 1,
+            photoAvailable = server.session != null && d.id != 0L,
+            photoUrl = a.photoUrl,
+            photoNote = when {
+                server.session == null -> "서버에 연결되면 폰으로 사진을 올릴 수 있어요"
+                d.id == 0L -> "저장한 뒤 폰으로 사진을 올릴 수 있어요"
+                else -> null
+            },
+        )
+    }
+
+    private var photoJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * [폰으로 사진 올리기] (v10-3 2번): 서버 업로드 주소(10분) QR → 보호자 폰이 올리면 3초 안에 받아 기기에 저장(긴 변 512px) →
+     * 서버는 받아 간 순간 지운다. 서버가 없으면 화면이 버튼 대신 한 줄 안내라 여기까지 오지 않는다.
+     */
+    private fun startPhotoUpload() {
+        val session = server.session ?: return
+        val target = _app.value.petDraft?.takeIf { it.id != 0L } ?: return
+        photoJob?.cancel()
+        photoJob = viewModelScope.launch {
+            val res = runCatching { session.call { photoStart() } }.getOrNull()
+            if (res == null) {
+                trip.notify("사진 올리기 주소를 만들지 못했어요.")
+                return@launch
+            }
+            val base = trip.share.shareBase.trimEnd('/').takeIf { it.isNotBlank() }
+            _app.update { it.copy(photoUrl = base?.let { b -> b + res.pageUrl } ?: res.pageUrl) }
+            val until = System.currentTimeMillis() + PHOTO_WAIT_MS
+            while (System.currentTimeMillis() < until) {
+                kotlinx.coroutines.delay(PHOTO_POLL_MS)
+                val r = runCatching { session.call { photoFetch(res.token) } }.getOrNull() ?: continue
+                if (r.code() == 200) {
+                    val bytes = runCatching { r.body()?.bytes() }.getOrNull()
+                    val ok = bytes != null && photoStore.save(target.id, bytes)
+                    trip.notify(if (ok) "${target.name} 사진을 받았어요." else "사진을 열지 못했어요. 다른 사진으로 다시 올려 주세요.")
+                    break
+                }
+                if (r.code() == 404 || r.code() == 410) break
+            }
+            _app.update { it.copy(photoUrl = null) }
+        }
+    }
+
+    /** 오늘 탄 아이들 이름 (v10-3) — 시뮬레이터는 시나리오 반려견. */
+    private fun riderNames(t: TripUi): List<String> = t.riders.map { it.name }.ifEmpty { listOf(t.pet.name) }
 
     private fun calibrationLine(pet: String, a: AppState): String? {
         if (a.calibrationCount == 0) return null
@@ -868,6 +1205,8 @@ class MainViewModel @Inject constructor(
     // ───────────── 설정 ─────────────
 
     private fun settingsUi(s: Snapshot): SettingsUi = SettingsUi(
+        guidance = settings.guidanceLevel,
+        quiet = trip.ui.value.quiet,
         timing = settings.timing,
         voiceSuggest = settings.voiceSuggest,
         reduceMotion = settings.reduceMotion,
@@ -902,6 +1241,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             server.session?.forget()
             runCatching { petStore.clear() }
+            runCatching { photoStore.clear() }
         }
         presets.clear()
         settings.clear()
@@ -914,13 +1254,30 @@ class MainViewModel @Inject constructor(
         _app.update { AppState() }
     }
 
-    private companion object {
+    internal companion object {
         const val DEMO_PEAK = 46
+        const val PHOTO_POLL_MS = 3_000L
+        const val HELPER_TEXT_MAX = 200
+        const val HELPER_KEEP = 5
+        const val ASK_SETTLE_MS = 1_500L
+        /** 서버 2단계를 기다리는 시간 (정차 중 설명). 넘으면 1단계 결과로 답한다. */
+        const val HELPER_SERVER_MS = 7_000L
+        val HELPER_CHIPS_REST = listOf("쉬할 데 있어?", "물은 얼마나 줘?", "휴게소에서 산책해도 돼?", "다음 휴게소 언제야?", "토하면 어떻게 해?", "가까운 동물병원 어디야?")
+        val HELPER_CHIPS_WAIT = listOf("차 안 몇 도야?", "대기 몇 분 됐어?", "에어컨 꺼 둬도 돼?", "창문 조금 열어두면 혼자 둬도 되지?", "물은 얼마나 줘?", "가까운 동물병원 어디야?")
+        val HELPER_CHIPS_CHARGING = listOf("충전 언제 끝나?", "충전하는 동안 산책해도 돼?", "쉬할 데 있어?", "물은 얼마나 줘?", "바닥이 뜨거우면 어떡해", "가까운 동물병원 어디야?")
+        val HELPER_CHIPS_DEPART = listOf("출발 전에 밥 언제 줘?", "하네스 어떻게 채워?", "노견이랑 장거리 가도 돼?", "퍼그는 더위에 약해?", "물은 얼마나 줘?", "다음 휴게소 언제야?")
+        const val PHOTO_WAIT_MS = 10 * 60_000L
         /** 정차 중 "콩이가 이상해요" 고르기 (주행 중에는 음성으로만). */
         val DISTRESS_CHIPS = listOf(
             "헐떡임" to DistressKind.PANTING, "구토" to DistressKind.VOMIT, "침 흘림·하품" to DistressKind.NAUSEA,
             "낑낑·떨림" to DistressKind.ANXIOUS, "축 처짐" to DistressKind.EMERGENCY,
         )
+        /** [눌러서 말하기] 결과 한 줄 (docs/wording.md v10-1). */
+        const val TALK_FAILED = "잘 못 들었어요. 다시 눌러 말해 주세요."
+        const val TALK_HINT = "“토했어”·“조용히 해 줘”처럼 말해 주세요."
 
+        /** 기존 분류가 알아듣는 말인지: 반려견 이상·응급, 잠깐 다녀올게·조용히·오늘은 안 타요, 응/나중에. */
+        fun understood(text: String): Boolean =
+            PetDistress.classify(text) != null || VoiceIntent.parse(text) != Utterance.Answer(Reply.UNKNOWN)
     }
 }

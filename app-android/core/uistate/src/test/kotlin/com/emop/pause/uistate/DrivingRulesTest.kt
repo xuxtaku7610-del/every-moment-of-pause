@@ -18,8 +18,11 @@ class DrivingRulesTest {
     fun `DS-02 버튼 수 - 쉼표 추천 2, 피로 위험 1, 예보·안내 0, 음성 실패 시트 2`() {
         assertEquals(2, DrivingRules.buttons(Fixtures.suggest))
         assertEquals(1, DrivingRules.buttons(Fixtures.urgent))
-        assertEquals(0, DrivingRules.buttons(Fixtures.drive))
-        assertEquals(0, DrivingRules.buttons(Fixtures.forecast))
+        // 평소·예보 = [눌러서 말하기] 하나 (v10-1), 듣는 중·RESTRICTED면 0
+        assertEquals(1, DrivingRules.buttons(Fixtures.drive))
+        assertEquals(1, DrivingRules.buttons(Fixtures.forecast))
+        assertEquals(0, DrivingRules.buttons(Fixtures.drive.copy(voice = VoiceSheetState.LISTENING)))
+        assertEquals(0, DrivingRules.buttons(Fixtures.drive.copy(restricted = true)))
         assertEquals(2, DrivingRules.buttons(Fixtures.voiceFail))
     }
 

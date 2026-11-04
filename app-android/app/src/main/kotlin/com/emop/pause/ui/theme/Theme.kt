@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalConfiguration
  */
 val LocalMotionAllowed = staticCompositionLocalOf { false }
 
-/** 화면에서 토큰을 꺼내 쓰는 곳: `Pause.colors.primary`, `Pause.type.h1`, `Pause.dimens.margin`. */
+/** 화면에서 토큰을 꺼내 쓰는 곳: `Pause.colors.primary`, `Pause.type.title`, `Pause.dimens.margin`. */
 object Pause {
     val colors: PauseColors @Composable @ReadOnlyComposable get() = LocalPauseColors.current
     val type: PauseType @Composable @ReadOnlyComposable get() = LocalPauseType.current

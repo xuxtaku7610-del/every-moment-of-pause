@@ -33,35 +33,23 @@ private fun style(size: Float, line: Float, weight: FontWeight) = TextStyle(
 )
 
 /**
- * 글자 토큰 v6 (docs/design/v6/STYLE_V6.md §3 — v5 대체). 기준값(sp) × [scale] (2560dp 화면에서 2).
- * 주요 수치 36 Bold · 화면 제목 24 SemiBold · 섹션 18 SemiBold · 본문 16 · 보조 14 · 캡션 12.
- * 수치는 크기만 키우지 않고 [metricLabel](레이블)·[unit](단위)과 함께 쓴다.
+ * 글자 토큰 v10 (docs/design/v10/STYLE_V10.md §1) — **4단계만**: 제목 · 수치 · 설명 · 보조. 기준값(sp) × [scale] (2560dp 화면에서 2).
+ * 강조는 크기를 키우지 않고 단계를 올린다. 주행 중 최소 크기 = 설명. [unit]·[button]은 수치·버튼 부품 안에서만 쓴다.
  */
 @Immutable
 data class PauseType(val scale: Float = 2f) {
-    /** 주요 수치 (멀미 지수·남은 시간). */
-    val metric = style(36 * scale, 44 * scale, FontWeight.Bold)
-    /** 보조 수치 (KPI 줄, 그래프 옆 값). */
-    val metricSmall = style(26 * scale, 32 * scale, FontWeight.Bold)
-    /** 단위·수치 옆 작은 글자 ("/100", "분"). */
-    val unit = style(16 * scale, 24 * scale, FontWeight.SemiBold)
+    /** 제목 24 SemiBold — 화면·카드 제목, 장소 이름, 경고 띠 첫 줄(이보다 크게 쓰지 않는다). */
     val title = style(24 * scale, 32 * scale, FontWeight.SemiBold)
-    val section = style(18 * scale, 26 * scale, FontWeight.SemiBold)
-    val body = style(16 * scale, 24 * scale, FontWeight.Normal)
-    val bodyStrong = style(16 * scale, 24 * scale, FontWeight.SemiBold)
+    /** 수치 36 Bold — 가장 중요한 숫자 한두 개. 단위는 [unit]. */
+    val metric = style(36 * scale, 44 * scale, FontWeight.Bold)
+    /** 설명 16 Medium — 본문·값 한 줄·목록. */
+    val body = style(16 * scale, 24 * scale, FontWeight.Medium)
+    /** 보조 14 Regular — 레이블·출처·힌트·축. 색은 sub. */
+    val caption = style(14 * scale, 20 * scale, FontWeight.Normal)
+    /** 수치 옆 단위 (설명 크기). */
+    val unit = style(16 * scale, 24 * scale, FontWeight.Medium)
+    /** 버튼 글자 (설명 크기, SemiBold). */
     val button = style(16 * scale, 24 * scale, FontWeight.SemiBold)
-    /** 보조 설명 14. */
-    val sub = style(14 * scale, 20 * scale, FontWeight.Normal)
-    /** 수치 레이블 ("주행 자극") 14 Medium. */
-    val metricLabel = style(14 * scale, 20 * scale, FontWeight.Medium)
-    val caption = style(12 * scale, 16 * scale, FontWeight.Medium)
-
-    // v5 이름 (발표 모드 패널·비교 화면이 쓰는 것) → v6 값
-    val display get() = title
-    val number get() = metric
-    val h1 get() = section.copy(fontSize = (20 * scale).sp, lineHeight = (28 * scale).sp)
-    val h2 get() = section
-    val label get() = metricLabel
 }
 
 val LocalPauseType = staticCompositionLocalOf { PauseType() }

@@ -43,9 +43,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.emop.pause.ui.components.ButtonKind
 import com.emop.pause.ui.components.Divider
 import com.emop.pause.ui.components.Metric
-import com.emop.pause.ui.components.Panel
+import com.emop.pause.ui.components.Block
 import com.emop.pause.ui.components.PauseButton
-import com.emop.pause.ui.components.SectionHeader
+import com.emop.pause.ui.components.Heading
 import com.emop.pause.ui.components.TrendChart
 import com.emop.pause.ui.components.TrendLegend
 import com.emop.pause.ui.components.VDivider
@@ -59,6 +59,12 @@ import com.emop.pause.uistate.TimelineUi
 import com.emop.pause.uistate.TrendMarkKind
 import com.emop.pause.uistate.TripLogUi
 import com.emop.pause.uistate.UiEvent
+import com.emop.pause.uistate.HelperUi
+import com.emop.pause.ui.components.Title
+import com.emop.pause.ui.components.Body
+import com.emop.pause.ui.components.Caption
+import androidx.compose.material.icons.rounded.Close
+import com.emop.pause.ui.components.Choice
 
 /*
  * 도착 후 기록 리포트 (2026-10-31 재정비 상태 8, 기존 이동 기록 대체). 정차 화면이라 전체 창 레이아웃이 기준이다.
@@ -73,7 +79,7 @@ private val phrase = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Ph
 @Composable
 fun TripLogScreen(ui: TripLogUi, on: On) {
     val d = Pause.dimens
-    var detail by rememberSaveable { mutableStateOf(false) }
+    var detail by rememberSaveable(ui.meta) { mutableStateOf(false) }
     // 긴급 도움 (11/03): 전체 창은 앱 바 맨 앞, 1/2·1/3 창은 앱 바가 좁아 기존 두 버튼이 밀려나므로 화면 맨 아래 (기존 버튼은 그대로)
     var wideBar by remember { mutableStateOf(true) }
     Page(ui.meta, on, scroll = false, trailing = {
@@ -81,19 +87,24 @@ fun TripLogScreen(ui: TripLogUi, on: On) {
         if (wideBar) {
             EmergencyButton(on, compact = true)
             Spacer(Modifier.width(d.gapS))
+            HelperButton(on)
+            Spacer(Modifier.width(d.gapS))
         }
-        PauseButton(if (detail) "타임라인 보기" else "주행 자극 자세히 보기", { detail = !detail }, kind = ButtonKind.SECONDARY, compact = true)
-        Spacer(Modifier.width(d.gapS))
-        PauseButton("기록 확인", { on(UiEvent.FinishTrip) }, compact = true)
+        // v10-3: 앱 바는 긴급 도움 + 닫기만 (마치기·폰으로 받기는 도착 요약 안, 타임라인/주행 자극 전환은 본문 위)
+        PauseButton("닫기", { on(UiEvent.CloseReport) }, kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Close, compact = true)
     }) { wc ->
         SideEffect { wideBar = wc == WidthClass.FULL }
+        Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
+            Choice("타임라인", !detail, { detail = false })
+            Choice(DETAIL_TAB, detail, { detail = true })
+        }
         if (wc == WidthClass.FULL) {
             Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(d.gapS)) {
                 SummaryBar(ui, wide = true)
                 if (detail) {
                     Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
-                        ChartPanel(ui, Modifier.weight(0.6f).fillMaxHeight())
-                        SharePanel(ui, on, Modifier.weight(0.4f))
+                        ChartPanel(ui, Modifier.weight(0.56f).fillMaxHeight())
+                        SharePanel(ui, on, Modifier.weight(0.44f))
                     }
                 } else {
                     TimelinePanel(ui, Modifier.fillMaxWidth().weight(1f), scroll = true)
@@ -103,12 +114,13 @@ fun TripLogScreen(ui: TripLogUi, on: On) {
             Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(d.gap)) {
                 SummaryBar(ui, wide = wc == WidthClass.HALF)
                 if (detail) {
-                    ChartPanel(ui, Modifier.fillMaxWidth().height(d.u(240f)))
+                    ChartPanel(ui, Modifier.fillMaxWidth())
                     SharePanel(ui, on, Modifier.fillMaxWidth())
                 } else {
                     TimelinePanel(ui, Modifier.fillMaxWidth(), scroll = false)
                 }
                 EmergencyButton(on, Modifier.fillMaxWidth(), compact = true)
+                PauseButton(HelperUi.TITLE, { on(UiEvent.OpenHelper) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, compact = true)
             }
         }
     }
@@ -125,7 +137,8 @@ private fun SummaryBar(ui: TripLogUi, wide: Boolean) {
         Triple("휴식", "${ui.stops}", "번"),
         Triple("관찰 신고", "${ui.reports}", "건"),
     )
-    Panel(Modifier.fillMaxWidth(), pad = d.u(16f)) {
+    // v10: 요약 줄은 박스 없이 바탕 위 수치 + 세로 구분선 (카드는 아래 두 장만)
+    Column(Modifier.fillMaxWidth().padding(horizontal = d.u(8f), vertical = d.u(4f)), verticalArrangement = Arrangement.spacedBy(d.unit)) {
         if (wide) Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
             items.forEachIndexed { i, (k, v, u) ->
                 if (i > 0) VDivider(Modifier.padding(vertical = d.u(4f)))
@@ -165,8 +178,8 @@ private fun look(k: TimelineKind): KindLook {
 private fun TimelinePanel(ui: TripLogUi, modifier: Modifier, scroll: Boolean) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(modifier, pad = d.u(20f), spacing = d.unit) {
-        SectionHeader("오늘의 길", trailing = "출발 뒤 시간")
+    Block(modifier, pad = d.u(20f), spacing = d.unit) {
+        Heading("오늘의 길", trailing = "출발 뒤 시간")
         Column(if (scroll) Modifier.weight(1f).verticalScroll(rememberScrollState()) else Modifier) {
             if (ui.timeline.isEmpty()) Text("기록이 아직 없어요", style = Pause.type.body, color = c.sub)
             ui.timeline.forEachIndexed { i, item -> TimelineRow(item, last = i == ui.timeline.lastIndex) }
@@ -193,10 +206,10 @@ private fun TimelineRow(item: TimelineUi, last: Boolean) {
             if (!last) Box(Modifier.width(d.u(2f)).weight(1f).background(c.border))
         }
         Spacer(Modifier.width(d.gapS))
-        Text(item.time, style = Pause.type.bodyStrong, color = c.sub, modifier = Modifier.width(d.u(52f)).padding(top = d.u(6f)))
+        Text(item.time, style = Pause.type.body, color = c.sub, modifier = Modifier.width(d.u(52f)).padding(top = d.u(6f)))
         Column(Modifier.weight(1f).padding(top = d.u(6f), bottom = d.gapS)) {
-            Text(item.title, style = Pause.type.bodyStrong.copy(lineBreak = phrase), color = c.text, maxLines = 2)
-            item.detail?.let { Text(it, style = Pause.type.sub.copy(lineBreak = phrase), color = c.sub, maxLines = 2) }
+            Text(item.title, style = Pause.type.body.copy(lineBreak = phrase), color = c.text, maxLines = 2)
+            item.detail?.let { Text(it, style = Pause.type.caption.copy(lineBreak = phrase), color = c.sub, maxLines = 2) }
         }
     }
 }
@@ -206,11 +219,19 @@ private fun TimelineRow(item: TimelineUi, last: Boolean) {
 private fun ChartPanel(ui: TripLogUi, modifier: Modifier) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(modifier, pad = d.u(16f), spacing = d.u(4f)) {
-        SectionHeader("주행 자극")
+    Block(modifier, pad = d.u(16f), spacing = d.u(4f)) {
+        Heading("주행 자극")
         // 고정 문구는 제목 아래 한 줄 (좁은 창에서 제목 옆에 두면 잘린다, 11/03 문구를 늘림)
         Text(STIMULUS_NOTE, style = Pause.type.caption, color = c.sub)
-        TrendChart(ui.stimulusSeries, Modifier.fillMaxWidth().weight(1f), marks = ui.marks)
+        // v10 §5: 그래프 위 수치 3개 — 최고 · 흔들림 많은 구간 · 관찰 신고 (기록에서 센 값만)
+        val peak = ui.stimulusSeries.maxOrNull()
+        Row(Modifier.fillMaxWidth().padding(vertical = d.unit), horizontalArrangement = Arrangement.spacedBy(d.u(32f))) {
+            peak?.let { Metric("최고", "$it", Modifier.weight(1f), unit = "/ 100", color = if (it >= 40) c.warningInk else c.text) }
+            Metric("흔들림 많은 구간", "${ui.marks.count { it.kind == TrendMarkKind.HIGH }}", Modifier.weight(1f), unit = "곳")
+            Metric("관찰 신고", "${ui.marks.count { it.kind == TrendMarkKind.SYMPTOM }}", Modifier.weight(1f), unit = "건")
+        }
+        // 그래프 높이는 화면의 40% 이하 (앱 영역 1210dp 기준 약 36%) — 남는 자리는 위 수치·아래 설명
+        TrendChart(ui.stimulusSeries, Modifier.fillMaxWidth().height(d.u(220f)), marks = ui.marks)
         if (ui.stimulusSeries.size >= 2) {
             TrendLegend(
                 symptoms = ui.marks.any { it.kind == TrendMarkKind.SYMPTOM },
@@ -228,11 +249,11 @@ private fun ChartPanel(ui: TripLogUi, modifier: Modifier) {
 private fun SharePanel(ui: TripLogUi, on: On, modifier: Modifier) {
     val c = Pause.colors
     val d = Pause.dimens
-    val keyStyle = Pause.type.sub
-    val valueStyle = Pause.type.sub.copy(fontWeight = FontWeight.SemiBold, lineBreak = phrase)
-    Panel(modifier, pad = d.u(16f), spacing = d.u(6f)) {
+    val keyStyle = Pause.type.caption
+    val valueStyle = Pause.type.body.copy(lineBreak = phrase)
+    Block(modifier, pad = d.u(16f), spacing = d.u(6f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("병원에 보여 줄 내용", style = Pause.type.section, color = c.text, modifier = Modifier.weight(1f))
+            Text("병원에 보여 줄 내용", style = Pause.type.title, color = c.text, modifier = Modifier.weight(1f))
             PauseButton("병원에 공유", { on(UiEvent.ShareReport) }, kind = ButtonKind.SECONDARY, compact = true)
         }
         ui.share.forEach { r ->
@@ -250,3 +271,6 @@ private fun SharePanel(ui: TripLogUi, on: On, modifier: Modifier) {
 @Preview(widthDp = 1680, heightDp = 1210) @Composable private fun PReport() = PauseTheme(false, 2f) { TripLogScreen(Fixtures.tripLog) {} }
 @Preview(widthDp = 1264, heightDp = 1210) @Composable private fun PReportHalf() = PauseTheme(false, 2f) { TripLogScreen(Fixtures.tripLog) {} }
 @Preview(widthDp = 853, heightDp = 1210) @Composable private fun PReportThird() = PauseTheme(false, 2f) { TripLogScreen(Fixtures.tripLog.copy(timeline = emptyList(), stimulusSeries = emptyList())) {} }
+
+/** 리포트 본문 위 전환 (v10-3, 전 앱 바 "주행 자극 자세히 보기"). */
+internal const val DETAIL_TAB = "주행 자극 자세히 보기"

@@ -19,6 +19,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    LargeBinary,
     func,
     text,
 )
@@ -222,6 +223,8 @@ class WaitSession(Base):
     cabin_temp_start_c: Mapped[float | None] = mapped_column(Float)
     # 0004: 보호자가 폰 페이지에서 "돌아가는 중"을 눌렀다 (차 화면 문구가 바뀐다).
     guardian_returning: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # 0007 (v10-3): 누가 "돌아가는 중"을 눌렀는지 — 이름 대신 보호자 1·2 (같은 링크를 두 사람이 연다)
+    returning_by: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(Tz)
@@ -254,3 +257,33 @@ class EtaShare(Base):
     clinic_reply: Mapped[str | None] = mapped_column(String(16))
     clinic_reply_at: Mapped[datetime | None] = mapped_column(Tz)
     clinic_seen_at: Mapped[datetime | None] = mapped_column(Tz)
+
+
+class ReportShare(Base):
+    """폰으로 받는 이동 기록 (v10-3, 마이그레이션 0007). 앱이 만든 요약(타임라인·흔들림 값·병원 요약)만 — **위치 없음**. 24시간 만료."""
+    __tablename__ = "report_shares"
+    __table_args__ = (Index("idx_report_shares_device", "device_id"),)
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(32), ForeignKey("devices.id", ondelete="CASCADE"))
+    payload: Mapped[dict] = mapped_column(JsonType)
+    created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(Tz)
+
+
+class PhotoUpload(Base):
+    """반려견 사진 QR 업로드 (v10-3, 마이그레이션 0007). 10분 만료, 이미지 1장(5MB 이하). 차가 받아 가면 이미지 바이트를 지운다."""
+    __tablename__ = "photo_uploads"
+    __table_args__ = (
+        CheckConstraint("content_type IS NULL OR content_type IN ('image/jpeg', 'image/png', 'image/webp')", name="ck_photo_uploads_type"),
+        Index("idx_photo_uploads_device", "device_id"),
+    )
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(32), ForeignKey("devices.id", ondelete="CASCADE"))
+    image: Mapped[bytes | None] = mapped_column(LargeBinary)
+    content_type: Mapped[str | None] = mapped_column(String(16))
+    uploaded_at: Mapped[datetime | None] = mapped_column(Tz)
+    fetched_at: Mapped[datetime | None] = mapped_column(Tz)
+    created_at: Mapped[datetime] = mapped_column(Tz, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(Tz)

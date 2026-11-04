@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from sqlalchemy import Engine
 
 from app import errors, logmask
-from app.api import devices, eta, health, llm, places, reststops, trips, vets, wait
+from app.api import devices, eta, health, helper, llm, photos, places, reports, reststops, trips, vets, wait
 from app.middleware import RequestContextMiddleware
 from app.api.health import LlmHealth
 from app.config import VERSION, get_settings
@@ -44,11 +44,14 @@ def create_app(
     # 쿼리스트링의 serviceKey 등은 어떤 로그에도 남기지 않는다 (app/logmask.py)
     logmask.install()
     app.add_middleware(RequestContextMiddleware, limit=rate_limit or settings.rate_limit_per_minute)
-    for module in (health, devices, reststops, places, vets, wait, eta, llm, trips):
+    for module in (health, devices, reststops, places, vets, wait, eta, llm, trips, reports, photos, helper):
         app.include_router(module.router, prefix=API_PREFIX)
     # 보호자 폰 대기 페이지는 짧은 주소로 (API 접두사 밖, 인증 없음 — 토큰이 곧 권한).
     app.include_router(wait.page_router)
     app.include_router(eta.page_router)
+    # v10-3: 폰으로 받는 이동 기록 /report/<토큰>(24시간), 반려견 사진 QR 업로드 /upload/<토큰>(10분)
+    app.include_router(reports.page_router)
+    app.include_router(photos.page_router)
     return app
 
 

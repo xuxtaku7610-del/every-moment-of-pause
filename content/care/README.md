@@ -13,3 +13,51 @@
 - **릴리스 빌드는 `reviewed: false`인 응급 카드(`action: VET`) 본문을 보여 주지 않는다** — "바로 동물병원에 연락해요" + 병원 버튼만. 디버그·발표 모드·시뮬레이터는 "검수 전" 알약과 함께 본문을 보인다(`EmergencyCardTest` F10-06). 기존 8개 체크리스트 표시는 바뀌지 않았다.
 - 출처는 11/03 페이지를 직접 열어 확인한 Merck Veterinary Manual(보호자용 "What to Do in a Dog or Cat Emergency"·"Evaluation and Initial Treatment of Dog and Cat Emergencies")과 RSPCA("First Aid For Your Dog"·"Dog Poisoning")만. AVMA는 자동으로 본문을 읽지 못해 쓰지 않았다. 11/03 검수에서 열어 본 페이지에 없던 경련 카드 "입에 손을 넣지 않아요"는 뺐다. 위험 물질 카드의 트리거(초콜릿·포도·양파 등)는 음성 분류용 말이고 카드 본문에는 없다.
 - 검수: sources 페이지 본문과 3줄을 대조하고, 고친 뒤 `reviewed: true` → 릴리스에도 본문이 나온다. 11/03 4장 모두 `reviewed: true`.
+
+## 콩이 도우미 카드 (2026-11-04, `_private/HELPER_PROMPT.md`)
+
+### 형식 (모든 카드 공통)
+```
+---
+id: water                         # 파일 이름 care_<id>.md와 같게
+title: 이동 중 물 주기
+category: care | emergency        # emergency = 도우미가 맨 먼저 보고, 응급 흐름(긴급 도움)으로 보낸다
+triggers: [물 얼마나, 물은 언제]  # 규칙 분류 말(띄어쓰기 무시). 본문에 없는 말이어도 된다
+voice: 쉬는 곳에서 물을 조금씩 줘요.   # 주행 중 음성 한 줄, 40자 이하, 본문 내용만
+action: VET | NEAREST_STOP | POTTY_SPOT | WAIT_MODE | NEXT_REST | NONE
+reviewed: false
+sources: 기관 · 문서명 · 직접 연 주소 (날짜, 확인 상태)
+---
+- 본문 2~4줄 (약 이름·용량·사람 약 없음, 진단 표현 없음)
+```
+- 폴더: 검수 끝난 카드 = `content/care/`(릴리스·디버그), **초안 = `content/care/_drafts/`(디버그 assets에만)**. 자동 수집 후보 = `_drafts/_candidates/`(앱에 안 들어감).
+- 릴리스 빌드는 `reviewed: false` 카드를 **도우미 목록에서 아예 뺀다**(`HelperAnswers.catalog`) — 분류도 서버 허용 목록도 못 고른다. 설정 실수로 초안이 들어가도 마찬가지(`HelperAnswersTest` F9-30·31·37).
+- 디버그·발표 모드·시뮬레이터는 초안 답에 "검수 전" 칩을 붙인다.
+
+### 초안 14장 (`_drafts/`, 모두 `reviewed: false`)
+| id | 제목 성격 | 출처(11/04 페이지 열어 확인, 사용자 대조 전) | 빈틈(대조할 때 볼 것) |
+| --- | --- | --- | --- |
+| heatstroke | 응급 · VET | RSPCA heatstroke · dogs in hot cars | "시원한 물, 담그지 않음"으로 씀 — 원문은 얼음을 금지하지 않음 |
+| foreign_object | 응급 · VET | Merck emergency · RSPCA first aid | 양말·뼈 같은 예시는 원문에 없음 |
+| sting | 돌봄 | Merck minor injuries | |
+| wait_heat | 대기 · WAIT_MODE | RSPCA dogs in hot cars | 에어컨 켠 경우는 원문에 없음 |
+| water | 돌봄 | RSPCA holiday · Merck travel kit | |
+| potty_signal | 쉬할 곳 · POTTY_SPOT | RSPCA toilet training | |
+| departure_prep | 출발 전 | RSPCA holiday · Merck motion sickness | |
+| harness | 출발 전 | RSPCA holiday | |
+| reststop_walk | 휴게소 산책 | RSPCA walking · hot walks | |
+| charging_walk | 충전 중 산책 | RSPCA hot walks | |
+| senior | 노견 | RSPCA senior dogs | |
+| brachy | 단두종 | RSPCA genetics/caring | |
+| barking | 짖음 | RSPCA barking | 차 안 짖음 자료는 없음(일반 짖음만) |
+| arrival_rest | 도착 뒤 | RSPCA environment | |
+
+### 검수 방법 (사용자)
+1. 카드의 `sources` 주소를 직접 열고 본문 줄마다 근거 문장을 찾는다(없으면 그 줄을 지운다). 빈틈 열을 먼저 본다.
+2. 약 이름·용량·사람 약·진단 표현이 없는지, `voice`가 본문 내용만인지(40자 이하) 본다.
+3. 고친 뒤 `sources` 끝의 "(사용자 대조 전)"을 "(YYYY-MM-DD 사용자 대조)"로, `reviewed: true`로 바꾸고 파일을 `_drafts/`에서 `content/care/`로 옮긴다.
+4. `./gradlew test`(CareSheetTest·HelperRouterTest·HelperAnswersTest)와 `pytest tests/test_helper.py`를 돌리고, `tools/eval_helper.py`로 점수표를 다시 만든다.
+
+### 자료 후보 모으기 (`server/tools/collect_care_sources.py`)
+- 개발 PC에서만(앱 실행 중·차 안에서는 크롤링하지 않는다). 목록에 적은 Merck·RSPCA 주소만, robots.txt 확인, 요청 사이 5초 이상.
+- 결과 = `_drafts/_candidates/<slug>.md`: 요약 후보 2~4줄(`--summarize`면 로컬 Ollama가 인용만 근거로, 아니면 빈 칸) + 원문 인용 1~2개 + 주소 + 날짜. **원문 전체는 저장·업로드하지 않는다.** 후보는 카드가 아니다 — 위 검수 방법으로 사람이 옮긴다.

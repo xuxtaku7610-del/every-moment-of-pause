@@ -124,8 +124,8 @@ def triplog() -> bool:
     xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
     if xy:
         r.tap(xy)
-    # UI v9: 내렸어요 → 도착 요약 → [이동 기록 보기]
-    xy = r.wait_for("이동 기록 보기", 15)
+    # UI v9: 내렸어요 → 도착 요약 → [자세히 보기]
+    xy = r.wait_for("자세히 보기", 15)
     if xy:
         r.tap(xy)
     # 첫 화면 = 요약 + 타임라인 (11/02 간소화)
@@ -141,7 +141,7 @@ def summary() -> bool:
     xy = next((xy for t, xy in r.nodes() if t == "내렸어요"), None)
     if xy:
         r.tap(xy)
-    ok = r.wait_for("이동 기록 보기", 15) is not None
+    ok = r.wait_for("자세히 보기", 15) is not None
     time.sleep(2)
     return ok
 

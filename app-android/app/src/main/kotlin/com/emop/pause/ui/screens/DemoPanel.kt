@@ -39,6 +39,10 @@ import com.emop.pause.ui.components.PauseButton
 import com.emop.pause.ui.theme.Pause
 import com.emop.pause.engine.motion.CompareResult
 import java.util.Locale
+import com.emop.pause.ui.components.Title
+import com.emop.pause.ui.components.Body
+import com.emop.pause.ui.components.Caption
+import androidx.compose.foundation.layout.IntrinsicSize
 
 class DemoActions(
     val scenario: (String) -> Unit = {},
@@ -56,6 +60,8 @@ class DemoActions(
     val guidance: (Boolean) -> Unit = {},
     /** 장면용 실내 온도 (시뮬레이터만, null = 시나리오 값). */
     val cabin: (Float?) -> Unit = {},
+    /** 콩이 도우미 질문 (HELPER_JUMPS). */
+    val ask: (String) -> Unit = {},
 )
 
 /**
@@ -79,7 +85,7 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("발표 모드", style = Pause.type.h2, color = c.text)
+                Text("발표 모드", style = Pause.type.title, color = c.text)
                 Spacer(Modifier.weight(1f))
                 PauseButton("닫기", a.close, kind = ButtonKind.SECONDARY, compact = true)
             }
@@ -96,6 +102,7 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                 Section("장면으로 이동")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     DemoScenes.JUMPS.forEach { j -> Choice(j.label, false) { a.cabin(j.cabinTempC); a.jump(j.tSec); j.say?.let(a.say) } }
+                    DemoScenes.HELPER_JUMPS.forEach { j -> Choice(j.label, false) { a.jump(j.tSec); j.ask?.let(a.ask) } }
                 }
             }
             Section("운전자 응답 넣기")
@@ -114,7 +121,7 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
                 Text(
                     "주행 자극 ${compare.unguidedFinal} → ${compare.guidedFinal}  ·  " +
                         "${compare.unguidedSec / 60}분 → ${compare.guidedSec / 60}분 (굽이 최저 ${compare.guidedMinKph}km/h)",
-                    style = Pause.type.label, color = c.text,
+                    style = Pause.type.caption, color = c.text,
                 )
                 Text("차량 흔들림(가속·제동·회전) 기준 · 반려견 측정 아님, 대관령 옛길(© OpenStreetMap, ODbL), 같은 모델 안의 상대 비교", style = Pause.type.caption, color = c.sub)
             }
@@ -142,7 +149,7 @@ fun DemoPanel(s: Snapshot, trip: TripUi, scenarios: List<String>, current: Scene
 
 @Composable
 private fun Section(t: String) {
-    Text(t, Modifier.padding(top = 12.dp), style = Pause.type.label, color = Pause.colors.sub)
+    Text(t, Modifier.padding(top = 12.dp), style = Pause.type.caption, color = Pause.colors.sub)
 }
 
 @Composable
@@ -157,7 +164,7 @@ private fun Choice(label: String, on: Boolean, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 28.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(label, style = Pause.type.label, color = if (on) c.primary else c.text, maxLines = 1) }
+    ) { Text(label, style = Pause.type.caption, color = if (on) c.primary else c.text, maxLines = 1) }
 }
 
 private fun signalRows(s: Snapshot, trip: TripUi): List<Pair<String, String>> = buildList {

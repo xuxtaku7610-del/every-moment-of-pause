@@ -14,7 +14,7 @@ class DemoScenesTest {
     @Test
     fun `DM-01 점프 장면마다 AppMode와 정차 원인이 맞다`() {
         val sc = Scenario.parse(File("../../scenarios/${DemoScenes.SCENARIO}.json").readText())
-        for (j in DemoScenes.JUMPS) {
+        for (j in DemoScenes.JUMPS + DemoScenes.HELPER_JUMPS) {
             // SignalRuntime.seek과 같이 처음부터 1초씩 다시 계산한다
             var m = ModeState()
             for (t in 0..j.tSec) {

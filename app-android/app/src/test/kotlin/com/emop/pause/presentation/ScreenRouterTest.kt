@@ -50,6 +50,17 @@ class ScreenRouterTest {
     }
 
     @Test
+    fun `F9-36 콩이 도우미는 정차 화면(대기 포함) 위에만, 주행이면 주행 화면(음성만), 긴급 도움이 먼저`() {
+        for (m in AppMode.entries) assertEquals(Route.HELPER, route(Input(p, m, false, overlay = Overlay.HELPER)))
+        assertEquals(Route.HELPER, route(Input(p, AppMode.PAUSE, false, overlay = Overlay.HELPER, waiting = true)))
+        for (d in listOf(DriveState.DRIVING, DriveState.RESTRICTED)) {
+            assertEquals(Route.DRIVE, route(Input(d, AppMode.DRIVING, false, overlay = Overlay.HELPER)))
+            assertEquals(Route.DRIVE, route(Input(d, AppMode.PAUSE, false, overlay = Overlay.HELPER, waiting = true)))
+        }
+        assertEquals(com.emop.pause.uistate.ServiceState.STOPPED, ScreenRouter.serviceState(Route.HELPER, null, false))
+    }
+
+    @Test
     fun `정차 중 AppMode별 화면`() {
         assertEquals(Route.DEPART, route(Input(p, AppMode.PREPARE, false)))
         assertEquals(Route.DRIVE, route(Input(p, AppMode.DRIVING, false)))

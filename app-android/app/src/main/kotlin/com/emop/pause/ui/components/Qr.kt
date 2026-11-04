@@ -61,8 +61,8 @@ fun LinkQr(label: String, url: String, hint: String, modifier: Modifier = Modifi
             Spacer(Modifier.width(d.gap))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(d.u(4f))) {
-            Text(label, style = Pause.type.bodyStrong, color = c.text)
-            Text(if (scannable(url)) hint else "서버 주소가 없어 QR을 만들 수 없어요", style = Pause.type.sub, color = c.sub)
+            Text(label, style = Pause.type.body, color = c.text)
+            Text(if (scannable(url)) hint else "서버 주소가 없어 QR을 만들 수 없어요", style = Pause.type.caption, color = c.sub)
             Text(url, style = Pause.type.caption, color = c.sub, modifier = Modifier.padding(top = d.u(2f)))
         }
     }

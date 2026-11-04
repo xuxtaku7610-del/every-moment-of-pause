@@ -19,6 +19,7 @@ object Fixtures {
         guide = GuideUi(GuideIconUi.KEEP_RIGHT, "1.2km", "강릉·속초 방면"),
         remain = "143km · 2시간 10분",
         arrive = "오전 11:40",
+        barLine = "143km · 도착 오전 11:40",
         voiceHint = "“콩이 토했어”처럼 말하면 기록해요",
     )
 
@@ -28,6 +29,7 @@ object Fixtures {
         guide = GuideUi(GuideIconUi.LEFT, "3km", "대관령 방면", demo = true),
         remain = "18km · 25분",
         arrive = "오후 12:05",
+        barLine = "18km · 도착 오후 12:05",
         observation = observed,
     )
 
@@ -42,6 +44,7 @@ object Fixtures {
         guide = GuideUi(GuideIconUi.RIGHT, "600m", "강릉 시내 방면", demo = true),
         remain = "10km · 15분",
         arrive = "오후 12:00",
+        barLine = "10km · 도착 오후 12:00",
         nextStop = null, nextStopName = null, nextStopMin = null, nextStopFacilities = emptyList(),
         observation = observed,
     )
@@ -120,8 +123,14 @@ object Fixtures {
         now = MotionUi(22, MotionTone.CALM, "주행 자극 낮음 22"),
         recent = List(31) { k -> 30 - k / 2 },
         peak = 46,
-        forecast = "18km 뒤 굽은 길 · 12분 — 천천히 가면 덜 흔들려요",
+        forecast = "4.2km 뒤 굽은 길 · 12분 — 천천히 가면 덜 흔들려요",
         basis = "경로 형상: 시연 경로 (OSM GPX) · 지금 속도 기준",
+        // 미리보기·발표 장면용 엔진 예측 모양(21점) — 실제 화면은 엔진 MotionForecast.trajectory를 그대로 쓴다
+        ahead = listOf(22, 22, 23, 23, 24, 26, 31, 37, 43, 48, 52, 55, 57, 58, 58, 57, 55, 53, 51, 49, 47),
+        curveStartMin = 5,
+        curveLenMin = 12,
+        curveKm = "4.2km 앞",
+        clockMinute = 11 * 60 + 53,
     )
 
     val wait = WaitUi(

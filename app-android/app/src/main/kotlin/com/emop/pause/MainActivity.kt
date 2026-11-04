@@ -31,6 +31,7 @@ import com.emop.pause.ui.screens.DemoPanel
 import com.emop.pause.ui.screens.DepartScreen
 import com.emop.pause.ui.screens.DriveScreen
 import com.emop.pause.ui.screens.EmergencyScreen
+import com.emop.pause.ui.screens.HelperScreen
 import com.emop.pause.ui.screens.PetProfileScreen
 import com.emop.pause.ui.screens.PlacesScreen
 import com.emop.pause.ui.screens.RestScreen
@@ -44,6 +45,11 @@ import com.emop.pause.ui.screens.TripLogScreen
 import com.emop.pause.ui.screens.VetsScreen
 import com.emop.pause.ui.screens.WaitScreen
 import com.emop.pause.ui.theme.LocalMotionAllowed
+import com.emop.pause.ui.components.LocalPetPhotos
+import com.emop.pause.ui.components.LocalPrimaryPetId
+import com.emop.pause.ui.components.LocalDemoPhoto
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asImageBitmap
 import com.emop.pause.ui.theme.PauseTheme
 import com.emop.pause.ui.theme.designScale
 import dagger.hilt.android.AndroidEntryPoint
@@ -72,7 +78,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             PauseTheme(scale = designScale(screenWidthDp())) {
                 val ui by viewModel.ui.collectAsStateWithLifecycle()
-                CompositionLocalProvider(LocalMotionAllowed provides ui.motionAllowed, LocalDemoData provides ui.demoData) {
+                val photos by viewModel.photos.collectAsStateWithLifecycle()
+                val images = remember(photos) { photos.mapValues { it.value.asImageBitmap() } }
+                CompositionLocalProvider(
+                    LocalMotionAllowed provides ui.motionAllowed, LocalDemoData provides ui.demoData,
+                    LocalPetPhotos provides images, LocalPrimaryPetId provides ui.primaryPetId, LocalDemoPhoto provides ui.demoPhoto,
+                ) {
                     val w = forceWidth
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
                         Box(if (w > 0) Modifier.width(w.dp).fillMaxHeight() else Modifier.fillMaxSize()) {
@@ -99,6 +110,11 @@ class MainActivity : ComponentActivity() {
     /** 마이크 권한이 필요한 이벤트는 권한 창을 먼저 띄운다 (정차 중 화면에서만 나온다). */
     private fun onEvent(e: UiEvent) {
         if (e == UiEvent.StartTrip) requestMicIfNeeded()
+        // [눌러서 말하기] (v10-1): 마이크 권한이 없으면 한 번 묻고, 허용하면 그때 듣는다. 거절하면 버튼 대신 글자 힌트.
+        if (e == UiEvent.PushToTalk && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_TALK)
+            return
+        }
         viewModel.onEvent(e)
     }
 
@@ -119,6 +135,8 @@ class MainActivity : ComponentActivity() {
      * - door: 시뮬레이터 문 상태 rear | driver | both | closed | none(시나리오 값) — 문 이벤트 수동 재현
      * - captureClean: true면 "시연 데이터" 표시를 숨김 (스토어 스크린샷 캡처 전용, false로 되돌림)
      * - emergency: 긴급 도움 toxin | breathing | seizure | bleeding (그 카드) | menu (상황 고르기) | none (닫기) — 정차 중만
+     * - pets: 여러 마리 캡처용 프로필 이름 "콩이,보리" (없는 이름만 만든다, 최대 3)
+     * - ask: 콩이 도우미 질문 (`--es ask '쉬할 데 있어?'`) — 주행 중이면 음성 답, 정차 중이면 도우미 화면 (HELPER_PROMPT 5번)
      */
     private fun applyDebugExtras(intent: Intent?) {
         if (!BuildConfig.DEBUG || intent == null) return
@@ -143,6 +161,8 @@ class MainActivity : ComponentActivity() {
         intent.getStringExtra("calib")?.let(viewModel::seedCalibration)
         intent.getStringExtra("door")?.let(viewModel::setDemoDoors)
         intent.getStringExtra("emergency")?.let(viewModel::adbEmergency)
+        intent.getStringExtra("pets")?.let(viewModel::seedPets)
+        intent.getStringExtra("ask")?.let(viewModel::ask)
         when (intent.getStringExtra("onboard")) {
             "done" -> viewModel.skipProfile()
             "reset" -> viewModel.deleteData()
@@ -151,9 +171,10 @@ class MainActivity : ComponentActivity() {
 
     /** 음성 응답용 마이크 권한. 정차 중(출발 버튼)에서만 묻는다. 거절해도 버튼으로 응답할 수 있다. */
     private fun requestMicIfNeeded() {
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
-        }
+        // 상주 알림(v10-1, API 33+)도 같이 묻는다 — 거절해도 서비스·음성은 돈다(알림만 작업 관리자에)
+        val missing = listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+            .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), REQ_MIC)
     }
 
     /**
@@ -168,6 +189,11 @@ class MainActivity : ComponentActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_SPEED && grantResults.any { it == PackageManager.PERMISSION_GRANTED }) viewModel.onVehiclePermissionGranted()
+        if (requestCode == REQ_TALK) {
+            val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+            viewModel.setMicDenied(!granted)
+            if (granted) viewModel.onEvent(UiEvent.PushToTalk)
+        }
     }
 
     private companion object {
@@ -175,6 +201,7 @@ class MainActivity : ComponentActivity() {
         const val REQ_SPEED = 2
         const val DEFAULT_SCENARIO = "pet-trip"
         const val REQ_MIC = 1
+        const val REQ_TALK = 3
     }
 }
 
@@ -192,6 +219,7 @@ fun PauseRoot(ui: AppUiState, licenses: String, on: (UiEvent) -> Unit) {
         is Screen.Places -> PlacesScreen(sc.ui, on)
         is Screen.Vets -> VetsScreen(sc.ui, on)
         is Screen.Emergency -> EmergencyScreen(sc.ui, on)
+        is Screen.Helper -> HelperScreen(sc.ui, on)
         is Screen.Arrival -> ArrivalScreen(sc.ui, on)
         is Screen.Summary -> SummaryScreen(sc.ui, on)
         is Screen.TripLog -> TripLogScreen(sc.ui, on)
@@ -219,6 +247,10 @@ private fun DemoOverlay(vm: MainViewModel, ui: AppUiState) {
             },
             guidance = vm::setGuidanceMode,
             cabin = vm::setDemoCabin,
+            ask = {
+                vm.setDemoOpen(false)
+                vm.ask(it)
+            },
         ),
         compare,
     )

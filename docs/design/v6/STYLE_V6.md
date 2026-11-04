@@ -1,4 +1,4 @@
-# 스타일 v6 — 같이가개 (현재 기준)
+# 스타일 v6 — 같이가개 (색·간격 토큰 기준, 글자·부품·화면은 [v10](../v10/STYLE_V10.md)으로 대체 — 2026-11-04)
 
 2026-10-30 "전체 UI 전면 재설계" 지시를 반영한 기준. [v5](../v5/STYLE_V5.md)는 대체됨(이력만). 색·글자 크기는 재설계 지시 값이 v5보다 우선한다.
 코드: `ui/theme/{Color,Type,Dimens}.kt`, 부품 `ui/components/Kit.kt`, 화면 `ui/screens/{ScreenFrame,DriveScreens,PetScreens}.kt`, 보호자·병원 페이지 `server/app/pages.py`.

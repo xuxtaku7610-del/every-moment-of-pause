@@ -33,6 +33,11 @@ import com.emop.pause.ui.components.PauseButton
 import com.emop.pause.ui.theme.Pause
 import com.emop.pause.ui.theme.WidthClass
 import com.emop.pause.uistate.UiEvent
+import com.emop.pause.ui.components.Title
+import com.emop.pause.ui.components.Body
+import com.emop.pause.ui.components.Caption
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 
 /*
  * 같이가개 화면 v6 공통 틀 (docs/design/v6/STYLE_V6.md §5).
@@ -91,7 +96,7 @@ internal fun VoiceHint(text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Mic, null, Modifier.size(d.u(18f)), tint = Pause.colors.sub)
         Spacer(Modifier.width(d.u(6f)))
-        Text(text, style = Pause.type.sub, color = Pause.colors.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, style = Pause.type.caption, color = Pause.colors.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

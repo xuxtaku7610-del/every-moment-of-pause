@@ -196,7 +196,8 @@ object UiMapper {
     fun drive(s: Snapshot, t: TripUi): DriveUi {
         val name = t.pet.name
         val asking = t.asking
-        val forecast = t.forecast?.takeIf { it.startInM <= FORECAST_SHOW_M }
+        // 안내 빈도(적게 = 높음만)·조용히 모드·오늘은 안 타요면 예보 카드도 띄우지 않는다 (v10-1)
+        val forecast = t.forecast?.takeIf { it.startInM <= FORECAST_SHOW_M && !t.forecastMuted && !t.dayOff }
         val d = t.distress
         val content: DriveContent = when {
             // "콩이가 이상해요"가 가장 먼저 (UPGRADE 7): 2줄 + 버튼 2개
@@ -239,7 +240,7 @@ object UiMapper {
             meta = meta(s),
             content = content,
             voice = when (t.voice) {
-                VoicePhase.IDLE -> null
+                VoicePhase.IDLE -> if (t.talking) VoiceSheetState.LISTENING else null
                 VoicePhase.LISTENING -> VoiceSheetState.LISTENING
                 VoicePhase.FAILED -> VoiceSheetState.FAILED
             },
@@ -258,7 +259,17 @@ object UiMapper {
             destination = s.route?.destinationName?.takeIf { it.isNotBlank() },
             observation = observation(t.distressEvents),
             voiceHint = "“${name.ifEmpty { "반려견" }} 토했어”처럼 말하면 기록해요",
+            barLine = barLine(s.clockMinute, s.eta),
+            // 버튼 2개 카드(쉼표·주변 추천·이상해요)가 떠 있거나 듣는 중이면 숨긴다 (버튼 2개 규칙)
+            talk = content !is DriveContent.Suggest && content !is DriveContent.Nearby && content !is DriveContent.Distress &&
+                t.voice == VoicePhase.IDLE && !t.talking && s.driveState != DriveState.RESTRICTED,
+            quiet = t.quiet,
         )
+    }
+
+    /** 앱 바 오른쪽 작은 한 줄 "27km · 도착 오전 11:45" (v10-1). 남은 시간은 옆 기본 내비가 크게 보여 준다. */
+    fun barLine(clockMinute: Int, eta: EtaInfo?): String? = eta?.takeIf { it.remainDistanceM > 0 }?.let {
+        "${km(it.remainDistanceM / 1000.0)} · 도착 ${arrive(clockMinute, it)}"
     }
 
     /** 휴게소 데이터에 **있는** 반려견 시설만 (확인 안 된 시설은 쓰지 않는다). */
@@ -269,14 +280,21 @@ object UiMapper {
 
     // ───────────── 주행 자극 보기 (정차 중, 원칙 2) ─────────────
 
-    fun stimulus(t: TripUi, peak: Int?): StimulusUi {
+    fun stimulus(t: TripUi, peak: Int?, clockMinute: Int? = null): StimulusUi {
         val f = t.forecast
+        // 굽은 길 시작 분 = 시작까지 거리 / 지금 속도(엔진 예보와 같은 가정), 길이 = 엔진 지속 시간
+        val startMin = f?.takeIf { t.kmPerMin > 0 }?.let { (it.startInM / 1000.0 / t.kmPerMin).roundToInt() }
         return StimulusUi(
             now = motion(t.motion).takeIf { t.motion.drivingSec > 0 || t.motion.index > 0 },
             recent = t.motionRecent,
             peak = peak,
             forecast = f?.let { "${MotionPhrases.title(it)} — ${MotionPhrases.coach(it)}" },
             basis = f?.let { forecastBasis(t) },
+            ahead = f?.trajectory.orEmpty(),
+            curveStartMin = startMin,
+            curveLenMin = f?.takeIf { startMin != null }?.let { max(1, (it.durationSec / 60.0).roundToInt()) },
+            curveKm = f?.let { "${km(it.startInM / 1000.0)} 앞" },
+            clockMinute = clockMinute,
         )
     }
 
@@ -322,7 +340,9 @@ object UiMapper {
         return DepartUi(
             meta = meta(s)?.replace("까지 ", "까지 예상 "),
             pet = PetSummaryUi(t.pet.name, petLine(t.pet), sample = !savedProfile),
-            checks = CheckItem.entries.map { CheckUi(checkKind(it), checkLabels.getValue(it), it in t.checks) },
+            checks = CheckItem.entries.map { CheckUi(checkKind(it), checkLabels.getValue(it), it in t.checks, missedBefore = it in t.missedChecks && it !in t.checks) },
+            // [지난번과 같아요]: 지난번 기록이 있고 지금 체크가 그것과 다를 때만
+            sameAsLast = t.lastChecks?.takeIf { it.isNotEmpty() && it != t.checks } != null,
             ready = t.checks.containsAll(CheckItem.entries),
             plan = plan,
             rationale = if (t.plan == null) "경로를 받으면 쉴 곳을 잡아 드려요." else "${t.pet.name} 배변 간격(${t.pet.pottyIntervalMin}분)에 맞춰 쉬어 가요.",
@@ -363,6 +383,7 @@ object UiMapper {
             battery = soc?.let { "배터리 $it%" },
             observation = observation(t.distressEvents),
             stimulusAvailable = t.motion.drivingSec > 0,
+            notices = t.stopNotices,
         )
     }
 
@@ -390,6 +411,7 @@ object UiMapper {
         acOn = acOn == true,
         english = if (t.share.returning) WAIT_ENGLISH_RETURNING else WAIT_ENGLISH,
         overdueLine = if (w.overdue) "설정한 ${w.limitSec / 60}분이 지났어요" else null,
+        returningBy = t.share.returningBy?.let { if (it == 2) "보호자 2가 돌아가는 중이에요" else "보호자 1이 돌아가는 중이에요" }?.takeIf { t.share.returning },
     )
 
     /** 대기 모드를 켤 때 한 번 (처음 [NOTICE_SEC]초). */

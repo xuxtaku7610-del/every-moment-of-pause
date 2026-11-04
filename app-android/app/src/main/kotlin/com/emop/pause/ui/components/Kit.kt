@@ -71,6 +71,8 @@ import kotlin.math.abs
 import com.emop.pause.uistate.MotionTone
 import com.emop.pause.uistate.TrendMarkKind
 import com.emop.pause.uistate.TrendMarkUi
+import androidx.compose.material.icons.rounded.Pets
+import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
  * v6 부품 (docs/design/v6/STYLE_V6.md §6). 화면은 UiState만 보고 이 부품으로 그린다.
@@ -144,7 +146,7 @@ fun AppBar(meta: String?, onLogoTap: () -> Unit, modifier: Modifier = Modifier, 
         ) {
             AppMark(Modifier.size(d.u(24f)))
             Spacer(Modifier.width(d.unit))
-            Text(title ?: "같이가개", style = Pause.type.section, color = c.text, maxLines = 1)
+            Text(title ?: "같이가개", style = Pause.type.body, color = c.text, maxLines = 1)
         }
         if (demo) {
             Spacer(Modifier.width(d.gapS))
@@ -153,43 +155,47 @@ fun AppBar(meta: String?, onLogoTap: () -> Unit, modifier: Modifier = Modifier, 
         // 오른쪽 정보는 남는 자리만 쓰고(2줄까지) 버튼을 밀어내지 않는다 — 좁은 창에서 "기록 확인"이 눌리지 않게
         Spacer(Modifier.width(d.gapS))
         Text(
-            meta.orEmpty(), style = Pause.type.bodyStrong.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph.copy(wordBreak = androidx.compose.ui.text.style.LineBreak.WordBreak.Phrase)),
+            meta.orEmpty(), style = Pause.type.body.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph.copy(wordBreak = androidx.compose.ui.text.style.LineBreak.WordBreak.Phrase)),
             color = c.sub, maxLines = 2, textAlign = TextAlign.End, modifier = Modifier.weight(1f),
         )
         trailing()
     }
 }
 
-/** 패널: 흰 면 + 얇은 테두리 + 모서리 14. 화면마다 큰 영역 1~3개만. [tint]는 상태 면(앰버·초록·파랑 연한 색, 테두리 없음). */
+/**
+ * 면 (v10 §2, 카드도 이것): 배경 명도로만 나눈다 — **테두리·그림자 없음**, 모서리 14. 기본 = surface(바탕 bg 위), [tint] = 상태 면
+ * (primarySoft·warningSoft) 또는 면 안의 한 칸(surfaceAlt). 화면당 카드 최대 2장, 카드 안에 카드를 넣지 않는다.
+ */
 @Composable
-fun Panel(
+fun Block(
     modifier: Modifier = Modifier,
     tint: Color? = null,
-    borderColor: Color? = null,
     pad: Dp? = null,
     spacing: Dp? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = Pause.colors
     val d = Pause.dimens
-    val shape = RoundedCornerShape(d.cardRadius)
     Column(
-        modifier.clip(shape).background(tint ?: c.surface).border(d.border, borderColor ?: if (tint == null) c.border else Color.Transparent, shape).padding(pad ?: d.pad),
+        modifier.clip(RoundedCornerShape(d.cardRadius)).background(tint ?: c.surface).padding(pad ?: d.pad),
         verticalArrangement = Arrangement.spacedBy(spacing ?: d.gapS),
         content = content,
     )
 }
 
-/** v5 이름 (비교 화면이 쓴다) → [Panel]. */
+// ───────────── 글자 4단계 (v10 §1): 제목 · 수치 · 설명 · 보조 ─────────────
+
 @Composable
-fun V5Card(
-    modifier: Modifier = Modifier,
-    tint: Color? = null,
-    borderColor: Color? = null,
-    pad: Dp? = null,
-    spacing: Dp? = null,
-    content: @Composable ColumnScope.() -> Unit,
-) = Panel(modifier, tint, borderColor, pad, spacing, content)
+fun Title(text: String, modifier: Modifier = Modifier, color: Color = Pause.colors.text, maxLines: Int = 2) =
+    Text(text, modifier, style = Pause.type.title, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+
+@Composable
+fun Body(text: String, modifier: Modifier = Modifier, color: Color = Pause.colors.text, maxLines: Int = Int.MAX_VALUE) =
+    Text(text, modifier, style = Pause.type.body, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+
+@Composable
+fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Pause.colors.sub, maxLines: Int = Int.MAX_VALUE) =
+    Text(text, modifier, style = Pause.type.caption, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 
 /** 가로 구분선 (패널 안 영역 나누기). */
 @Composable
@@ -199,14 +205,14 @@ fun Divider(modifier: Modifier = Modifier) = Box(modifier.fillMaxWidth().height(
 @Composable
 fun VDivider(modifier: Modifier = Modifier) = Box(modifier.width(Pause.dimens.border).fillMaxHeight().background(Pause.colors.border))
 
-/** 섹션 머리: 제목 18 + (선택) 오른쪽 보조 글. */
+/** 영역 머리: 제목(24) + (선택) 오른쪽 보조 글 (v10 — 전 SectionHeader). */
 @Composable
-fun SectionHeader(title: String, modifier: Modifier = Modifier, trailing: String? = null, trailingContent: @Composable RowScope.() -> Unit = {}) {
+fun Heading(title: String, modifier: Modifier = Modifier, trailing: String? = null, trailingContent: @Composable RowScope.() -> Unit = {}) {
     val c = Pause.colors
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = Pause.type.section, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, style = Pause.type.title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.weight(1f).width(Pause.dimens.gap))
-        trailing?.let { Text(it, style = Pause.type.sub, color = c.sub, maxLines = 1) }
+        trailing?.let { Text(it, style = Pause.type.caption, color = c.sub, maxLines = 1) }
         trailingContent()
     }
 }
@@ -230,15 +236,16 @@ fun Metric(
     val c = Pause.colors
     val t = Pause.type
     Column(modifier, horizontalAlignment = align) {
-        Text(label, style = t.metricLabel, color = c.sub, maxLines = 1)
+        Text(label, style = t.caption, color = c.sub, maxLines = 1)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, style = if (small) t.metricSmall else t.metric, color = color, maxLines = 1)
+            // v10: 수치는 한 크기(36). [small]은 예전 호출과 맞추려고 남긴 이름 — 단위 정렬만 다르다
+            Text(value, style = t.metric, color = color, maxLines = 1)
             unit?.let {
                 Spacer(Modifier.width(Pause.dimens.u(4f)))
                 Text(it, style = t.unit, color = c.sub, maxLines = 1, modifier = Modifier.padding(bottom = Pause.dimens.u(if (small) 2f else 5f)))
             }
         }
-        note?.let { Text(it, style = t.bodyStrong, color = noteColor, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        note?.let { Text(it, style = t.body, color = noteColor, maxLines = 2, overflow = TextOverflow.Ellipsis) }
     }
 }
 
@@ -252,15 +259,15 @@ fun KeyValue(key: String, value: String, modifier: Modifier = Modifier, valueCol
     // 값은 줄이지 않는다: 짧으면 오른쪽 정렬 한 줄, 길면(요약 문장·링크) 이름 아래 전체 폭으로 줄바꿈 (11/01 줄임표 없앰)
     if (value.length > KEY_VALUE_INLINE) {
         Column(modifier.fillMaxWidth()) {
-            Text(key, style = Pause.type.sub, color = c.sub, maxLines = 1)
-            Text(value, style = Pause.type.bodyStrong.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph.copy(wordBreak = androidx.compose.ui.text.style.LineBreak.WordBreak.Phrase)), color = valueColor)
+            Text(key, style = Pause.type.caption, color = c.sub, maxLines = 1)
+            Text(value, style = Pause.type.body.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph.copy(wordBreak = androidx.compose.ui.text.style.LineBreak.WordBreak.Phrase)), color = valueColor)
         }
         return
     }
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        Text(key, style = Pause.type.sub, color = c.sub, maxLines = 1)
+        Text(key, style = Pause.type.caption, color = c.sub, maxLines = 1)
         Spacer(Modifier.width(Pause.dimens.gap))
-        Text(value, style = Pause.type.bodyStrong, color = valueColor, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+        Text(value, style = Pause.type.body, color = valueColor, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
     }
 }
 
@@ -283,15 +290,8 @@ fun StatusChip(text: String, tone: MotionTone? = null, modifier: Modifier = Modi
             Box(Modifier.size(d.u(8f)).clip(CircleShape).background(fg))
             Spacer(Modifier.width(d.u(6f)))
         }
-        Text(text, style = Pause.type.metricLabel, color = fg, maxLines = 1)
+        Text(text, style = Pause.type.caption, color = fg, maxLines = 1)
     }
-}
-
-/** 멀미 단계 색 (편안 = 초록, 주의·높음 = 앰버). 글자는 [toneInk]. */
-@Composable
-fun toneColor(t: MotionTone): Color = when (t) {
-    MotionTone.CALM -> Pause.colors.comfort
-    MotionTone.CAUTION, MotionTone.HIGH -> Pause.colors.warning
 }
 
 @Composable
@@ -307,38 +307,9 @@ fun toneWord(t: MotionTone): String = when (t) {
     MotionTone.HIGH -> "주행 자극 높음"
 }
 
-/** 0~100 막대: 지금 값 + 주의 기준(40)·높음 기준(70) 눈금. 정지된 그림. */
-@Composable
-fun IndexGauge(value: Int, tone: MotionTone, modifier: Modifier = Modifier) {
-    val c = Pause.colors
-    val fill = toneColor(tone)
-    Canvas(modifier) {
-        val h = size.height
-        val r = h / 2
-        drawRoundRect(c.surfaceAlt, cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r))
-        val w = size.width * value.coerceIn(0, 100) / 100f
-        if (w > 0) drawRoundRect(fill, size = Size(maxOf(w, h), h), cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r))
-        listOf(40, 70).forEach { g ->
-            val x = size.width * g / 100f
-            drawLine(c.surface, Offset(x, 0f), Offset(x, h), strokeWidth = 3f)
-        }
-    }
-}
-
-/** [IndexGauge] 아래 눈금 글자: 편안 · 주의 40 · 높음 70. */
-@Composable
-fun GaugeScale(modifier: Modifier = Modifier) {
-    val c = Pause.colors
-    Row(modifier.fillMaxWidth()) {
-        Text("편안", style = Pause.type.caption, color = c.sub, modifier = Modifier.weight(0.4f))
-        Text("주의 40", style = Pause.type.caption, color = c.sub, modifier = Modifier.weight(0.3f))
-        Text("높음 70", style = Pause.type.caption, color = c.sub, modifier = Modifier.weight(0.3f))
-    }
-}
-
 /** 체크리스트 줄: 원 체크(파랑) + 글. 눌림 시 배경 강조. */
 @Composable
-fun ChecklistRow(label: String, checked: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun ChecklistRow(label: String, checked: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, note: String? = null) {
     val c = Pause.colors
     val d = Pause.dimens
     val src = remember { MutableInteractionSource() }
@@ -353,6 +324,11 @@ fun ChecklistRow(label: String, checked: Boolean, onClick: () -> Unit, modifier:
         CheckCircle(checked)
         Spacer(Modifier.width(d.gapS))
         Text(label, style = Pause.type.body, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // v10-3: 최근에 빠뜨린 항목 다시 강조 (앰버 보조 글, 색만으로 알리지 않는다)
+        note?.let {
+            Spacer(Modifier.width(d.gapS))
+            Text(it, style = Pause.type.caption, color = c.warningInk, maxLines = 1)
+        }
     }
 }
 
@@ -366,15 +342,7 @@ fun CheckCircle(checked: Boolean, size: Dp = Pause.dimens.u(24f)) {
     ) { if (checked) Icon(Icons.Rounded.Check, "확인함", Modifier.size(size * 0.7f), tint = c.onPrimary) }
 }
 
-/**
- * 경고 띠 (v6): 앰버 연한 면 + 왼쪽 앰버 굵은 선 + 아이콘. 화면을 덮지 않게 내용 높이만 차지한다.
- * 글자 크기는 섹션(18)·본문(16) — 띠가 화면 전체를 압도하지 않게.
- */
-@Composable
-fun WarningBanner(modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, iconAsset: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    AlertStrip(modifier, icon, iconAsset, content = content)
-}
-
+/** 경고 띠: 상태 연한 면 + 왼쪽 굵은 선 + 아이콘, 내용 높이만. 글자는 제목 이하(v10 §1) — 띠가 화면을 압도하지 않게. 화면당 1개. */
 @Composable
 fun AlertStrip(modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, iconAsset: String? = null, accent: Color? = null, soft: Color? = null, content: @Composable ColumnScope.() -> Unit) {
     val c = Pause.colors
@@ -402,7 +370,7 @@ fun ToggleRow(label: String, checked: Boolean, onClick: () -> Unit, sub: String?
     ) {
         Column(Modifier.weight(1f)) {
             Text(label, style = Pause.type.body, color = c.text)
-            sub?.let { Text(it, style = Pause.type.sub, color = c.sub) }
+            sub?.let { Text(it, style = Pause.type.caption, color = c.sub) }
         }
         Switch(
             checked, { onClick() },
@@ -435,19 +403,8 @@ fun NumberBadge(n: Int, active: Boolean = true) {
     val c = Pause.colors
     val d = Pause.dimens
     Box(Modifier.size(d.u(28f)).clip(CircleShape).background(if (active) c.primary else c.surfaceAlt), contentAlignment = Alignment.Center) {
-        Text("$n", style = Pause.type.metricLabel, color = if (active) c.onPrimary else c.sub)
+        Text("$n", style = Pause.type.caption, color = if (active) c.onPrimary else c.sub)
     }
-}
-
-/** Fluent UI Emoji Flat 벡터 (MIT, licenses/ASSETS.md). 화면당 1~2개. */
-@Composable
-fun Fluent(@DrawableRes id: Int, size: Dp, modifier: Modifier = Modifier) {
-    Image(painterResource(id), null, modifier.size(size))
-}
-
-@Composable
-fun SectionTitle(text: String, modifier: Modifier = Modifier, style: TextStyle = Pause.type.section) {
-    Text(text, modifier, style = style, color = Pause.colors.text)
 }
 
 // ───────────── 그림 자리: 사용자가 넣은 그림 → 일러스트 ─────────────
@@ -476,98 +433,39 @@ fun ArtSlot(vararg names: String, modifier: Modifier = Modifier, shape: Shape = 
 
 /** 반려견 사진 (기본 원형): debug `demo_pet.jpg` → 디자이너 그림(`pet_kongi_avatar`/`pet_kongi`) → 일러스트. 출처 licenses/ASSETS.md. */
 @Composable
-fun PetPhoto(modifier: Modifier = Modifier, shape: Shape = CircleShape, vararg extra: String) {
-    val names = if (shape == CircleShape) arrayOf(*extra, "demo_pet", "pet_kongi_avatar", "pet_kongi") else arrayOf(*extra, "demo_pet", "pet_kongi")
-    ArtSlot(*names, modifier = modifier, shape = shape) { DogIllustration(Modifier.fillMaxSize()) }
+fun PetPhoto(modifier: Modifier = Modifier, shape: Shape = CircleShape, vararg extra: String, petId: Long? = null) {
+    // v10-3: 보호자가 폰으로 올린 사진(기기 저장) → 시연 데이터면 콩이 사진·그림 → 그 밖은 기본 실루엣 (지어낸 사진을 쓰지 않는다)
+    val photo = (petId ?: LocalPrimaryPetId.current)?.let { LocalPetPhotos.current[it] }
+    val c = Pause.colors
+    when {
+        photo != null -> Image(photo, null, modifier.clip(shape), contentScale = ContentScale.Crop)
+        LocalDemoPhoto.current -> {
+            val names = if (shape == CircleShape) arrayOf(*extra, "demo_pet", "pet_kongi_avatar", "pet_kongi") else arrayOf(*extra, "demo_pet", "pet_kongi")
+            ArtSlot(*names, modifier = modifier, shape = shape) { DogIllustration(Modifier.fillMaxSize()) }
+        }
+        else -> Box(modifier.clip(shape).background(c.surfaceAlt), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Pets, "반려견 사진 없음", Modifier.fillMaxSize(0.45f), tint = c.sub)
+        }
+    }
 }
+
+/** 프로필 id → 사진 (MainActivity가 PhotoStore에서 넣는다). */
+val LocalPetPhotos = staticCompositionLocalOf<Map<Long, ImageBitmap>> { emptyMap() }
+
+/** id를 주지 않은 [PetPhoto]가 쓸 아이 (오늘 타는 첫 아이). */
+val LocalPrimaryPetId = staticCompositionLocalOf<Long?> { null }
+
+/** 시연 데이터(시뮬레이터·장면 고정)면 콩이 사진을, 아니면 실루엣을 (v10-3). 미리보기는 true. */
+val LocalDemoPhoto = staticCompositionLocalOf { true }
 
 /** 컬러 상태 아이콘: 디자이너 아이콘(assets `ic_*`) → 없으면 Fluent 벡터. 화면당 1~2개. */
 @Composable
 fun StatusIcon(asset: String, @DrawableRes fallback: Int, size: Dp, modifier: Modifier = Modifier) {
     val img = rememberAssetImage(asset)
-    if (img != null) Image(img, null, modifier.size(size), contentScale = ContentScale.Fit) else Fluent(fallback, size, modifier)
+    if (img != null) Image(img, null, modifier.size(size), contentScale = ContentScale.Fit) else Image(painterResource(fallback), null, modifier.size(size))
 }
 
 // ───────────── 그래프 (정지된 그림, 실제 값만) ─────────────
-
-/**
- * 멀미 예보 그래프 (v6): 가로 = 앞으로 20분, 세로 = 지수 0~100.
- * 선 = 엔진 예측 점([series], 1분 간격, 0번 = 지금)을 그대로 이은 것 — 화면에서 모양을 만들지 않는다. 점이 2개 미만이면 지금 점만.
- * 주의 이상(40~100) 띠, 굽은 길 시간대([startMin]부터 [durationMin]분), 지금 점(네이비)·예상 최고 점(앰버).
- */
-@Composable
-fun ForecastChart(series: List<Int>, now: Int, startMin: Int?, durationMin: Int?, modifier: Modifier = Modifier, windowMin: Int = 20) {
-    val c = Pause.colors
-    val t = Pause.type
-    val measurer = rememberTextMeasurer()
-    val axisStyle = t.caption.copy(color = c.sub)
-    Canvas(modifier) {
-        val left = 44.dp.toPx()
-        val bottom = 30.dp.toPx()
-        val plotW = size.width - left
-        val plotH = size.height - bottom
-        fun x(m: Float) = left + plotW * (m / windowMin).coerceIn(0f, 1f)
-        fun y(v: Int) = plotH * (1f - v.coerceIn(0, 100) / 100f)
-        drawRect(c.warningSoft, Offset(left, 0f), Size(plotW, y(40)))
-        if (startMin != null && durationMin != null && startMin < windowMin) {
-            val s0 = startMin.toFloat()
-            val s1 = s0 + durationMin
-            drawRect(c.warning.copy(alpha = 0.16f), Offset(x(s0), 0f), Size(x(s1) - x(s0), plotH))
-            drawLine(c.warning, Offset(x(s0), 0f), Offset(x(s0), plotH), strokeWidth = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
-        }
-        listOf(0, 40, 70, 100).forEach { g ->
-            drawLine(if (g == 0) c.sub.copy(alpha = 0.5f) else c.border, Offset(left, y(g)), Offset(size.width, y(g)), strokeWidth = if (g == 0) 2f else 1.5f)
-            if (g > 0) label(measurer, "$g", axisStyle, Offset(left - 8.dp.toPx(), y(g)), alignRight = true)
-        }
-        listOf(0, 5, 10, 15, 20).forEach { m ->
-            label(measurer, if (m == 0) "지금" else "${m}분", axisStyle, Offset(x(m.toFloat()), plotH + 16.dp.toPx()), center = true)
-        }
-        val nowAt = Offset(x(0f), y(now))
-        if (series.size >= 2) {
-            val pts = series.take(windowMin + 1).mapIndexed { i, v -> Offset(x(i.toFloat()), y(v)) }
-            val p = Path().apply { pts.forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
-            drawPath(p, c.navy, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            val pk = forecastPeakMin(series)
-            drawCircle(c.surface, 9.dp.toPx(), pts[pk])
-            drawCircle(c.warning, 6.dp.toPx(), pts[pk])
-        }
-        drawCircle(c.surface, 9.dp.toPx(), nowAt)
-        drawCircle(c.navy, 6.dp.toPx(), nowAt)
-    }
-}
-
-/** 예측 곡선에서 가장 높은 점의 분 (같으면 먼저 닿는 분). */
-fun forecastPeakMin(series: List<Int>, windowMin: Int = 20): Int {
-    val w = series.take(windowMin + 1)
-    return w.indices.maxByOrNull { w[it] * 1000 - it } ?: 0
-}
-
-/**
- * 최근 30분 멀미 (v6 주행 상태 패널, 1분 간격 엔진 값). 가로 = 30분 전~지금, 세로 = 0~100, 주의(40) 선만. 점 2개 미만이면 축만.
- */
-@Composable
-fun RecentChart(series: List<Int>, modifier: Modifier = Modifier, windowMin: Int = 30) {
-    val c = Pause.colors
-    val measurer = rememberTextMeasurer()
-    val axisStyle = Pause.type.caption.copy(color = c.sub)
-    Canvas(modifier) {
-        val bottom = 24.dp.toPx()
-        val plotH = size.height - bottom
-        fun x(m: Float) = size.width * (m / windowMin).coerceIn(0f, 1f)
-        fun y(v: Int) = plotH * (1f - v.coerceIn(0, 100) / 100f)
-        drawRect(c.warningSoft, Offset(0f, 0f), Size(size.width, y(40)))
-        drawLine(c.sub.copy(alpha = 0.5f), Offset(0f, plotH), Offset(size.width, plotH), strokeWidth = 2f)
-        label(measurer, "30분 전", axisStyle, Offset(0f, plotH + 12.dp.toPx()))
-        label(measurer, "지금", axisStyle, Offset(size.width, plotH + 12.dp.toPx()), alignRight = true)
-        if (series.size < 2) return@Canvas
-        val tail = series.takeLast(windowMin + 1)
-        val off = windowMin - (tail.size - 1)
-        val pts = tail.mapIndexed { i, v -> Offset(x((off + i).toFloat()), y(v)) }
-        val p = Path().apply { pts.forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
-        drawPath(p, c.primary, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawCircle(c.primary, 5.dp.toPx(), pts.last())
-    }
-}
 
 /**
  * 이동 중 지수 흐름 (v6 → v7): 5분 간격 실제 기록. 가로 = 출발 뒤 시간(30분 눈금), 세로 = 0~100, 주의 이상 띠, 최고 지점 값.
@@ -587,9 +485,9 @@ fun TrendChart(
     val t = Pause.type
     val measurer = rememberTextMeasurer()
     val axisStyle = t.caption.copy(color = c.sub)
-    val peakStyle = t.metricLabel.copy(color = c.warningInk)
+    val peakStyle = t.caption.copy(color = c.warningInk)
     val markStyle = t.caption.copy(color = c.text)
-    val arrivalStyle = t.metricLabel.copy(color = c.navy)
+    val arrivalStyle = t.caption.copy(color = c.navy)
     val emptyStyle = t.body.copy(color = c.sub)
     Canvas(modifier) {
         val left = 44.dp.toPx()
@@ -602,7 +500,9 @@ fun TrendChart(
         val total = maxOf(1, (series.size - 1) * sampleMin)
         fun x(m: Float) = left + plotW * (m / total).coerceIn(0f, 1f)
         fun y(v: Int) = top + plotH * (1f - v.coerceIn(0, 100) / 100f)
-        drawRect(c.warningSoft, Offset(left, top), Size(plotW, y(40) - top))
+        // v10 §5: 같은 단계 띠(높음 warningSoft · 보통 surfaceAlt)와 40·70 눈금
+        drawRect(c.warningSoft, Offset(left, y(100)), Size(plotW, y(70) - y(100)))
+        drawRect(c.surfaceAlt, Offset(left, y(70)), Size(plotW, y(40) - y(70)))
         // 흔들림 많은 구간(주행 자극 보통 이상): 앰버 면 (리포트 타임라인과 같은 구간)
         if (series.size >= 2) marks.filter { it.kind == TrendMarkKind.HIGH && it.minute < total }.forEach { m ->
             val x0 = x(m.minute.toFloat())
@@ -616,7 +516,7 @@ fun TrendChart(
             drawRect(c.sub.copy(alpha = 0.14f), Offset(x0, top), Size(x1 - x0, plotH))
             label(measurer, m.label, axisStyle, Offset((x0 + x1) / 2, top + 12.dp.toPx()), center = true)
         }
-        listOf(0, 40, 70, 100).forEach { g ->
+        listOf(0, 40, 70).forEach { g ->
             drawLine(if (g == 0) c.sub.copy(alpha = 0.5f) else c.border, Offset(left, y(g)), Offset(left + plotW, y(g)), strokeWidth = if (g == 0) 2f else 1.5f)
             if (g > 0) label(measurer, "$g", axisStyle, Offset(left - 8.dp.toPx(), y(g)), alignRight = true)
         }
@@ -689,46 +589,6 @@ private fun LegendItem(text: String, mark: @Composable () -> Unit) {
 }
 
 /**
- * 통계 칸 (v7 이동 기록): 아이콘 · 이름 | 값 한 줄. [vertical]이면 좁은 창용으로 이름 위·값 아래.
- * 값은 (숫자, 단위) 묶음 — "2시간 39분"은 ("2","시간"),("39","분")으로 숫자만 크게 써서 좁은 칸에서도 잘리지 않게.
- */
-@Composable
-fun StatCard(icon: ImageVector, label: String, parts: List<Pair<String, String?>>, modifier: Modifier = Modifier, color: Color = Pause.colors.text, vertical: Boolean = false) {
-    val c = Pause.colors
-    val d = Pause.dimens
-    Panel(modifier, pad = d.u(12f), spacing = d.u(2f)) {
-        if (vertical) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, Modifier.size(d.u(18f)), tint = c.sub)
-                Spacer(Modifier.width(d.u(6f)))
-                Text(label, style = Pause.type.metricLabel, color = c.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            StatValue(parts, color)
-        } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, Modifier.size(d.u(22f)), tint = c.sub)
-            Spacer(Modifier.width(d.unit))
-            Text(label, style = Pause.type.metricLabel, color = c.sub, maxLines = 1, modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.width(d.gapS))
-            StatValue(parts, color)
-        }
-    }
-}
-
-@Composable
-private fun StatValue(parts: List<Pair<String, String?>>, color: Color) {
-    Row(verticalAlignment = Alignment.Bottom) {
-        parts.forEachIndexed { i, (value, unit) ->
-            if (i > 0) Spacer(Modifier.width(Pause.dimens.u(6f)))
-            Text(value, style = Pause.type.metricSmall, color = color, maxLines = 1)
-            unit?.let {
-                Spacer(Modifier.width(Pause.dimens.u(3f)))
-                Text(it, style = Pause.type.unit, color = Pause.colors.sub, maxLines = 1, modifier = Modifier.padding(bottom = Pause.dimens.u(2f)))
-            }
-        }
-    }
-}
-
-/**
  * 관찰 기록 칸 (v7): 아이콘 + 이름. 고르면 파랑으로 채운 면 + 흰 글자 + 체크 — 테두리만 바꾸는 [Choice]보다 멀리서도 구분된다.
  * 높이 76dp 이상.
  */
@@ -751,8 +611,130 @@ fun SymptomTile(label: String, icon: ImageVector, selected: Boolean, onClick: ()
         Icon(if (selected) Icons.Rounded.Check else icon, null, Modifier.size(d.u(18f)), tint = if (selected) c.onPrimary else c.sub)
         Spacer(Modifier.width(d.u(4f)))
         // 글자 15: 1/3 칸에 "괜찮았어요"까지 한 줄 (본문 16이면 잘림, v7 검수 1회차)
-        val style = Pause.type.body.copy(fontSize = Pause.type.sub.fontSize * 15 / 14)
-        Text(label, style = if (selected) style.copy(fontWeight = FontWeight.SemiBold) else style, color = if (selected) c.onPrimary else c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, style = Pause.type.body, color = if (selected) c.onPrimary else c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+// ───────────── 흔들림 그래프 v10 (STYLE_V10 §5) ─────────────
+
+/** 세로 0~100 단계 배경 띠: 높음(70~100) = warningSoft, 보통(40~70) = surfaceAlt, 낮음 = 바탕. 40·70 눈금 + 오른쪽 단계 이름(보조). */
+internal fun DrawScope.levelBands(
+    left: Float, top: Float, plotW: Float, plotH: Float,
+    measurer: androidx.compose.ui.text.TextMeasurer, axis: TextStyle, soft: Color, mid: Color, grid: Color, base: Color,
+    names: Boolean = true,
+) {
+    fun y(v: Int) = top + plotH * (1f - v / 100f)
+    drawRect(soft, Offset(left, y(100)), Size(plotW, y(70) - y(100)))
+    drawRect(mid, Offset(left, y(70)), Size(plotW, y(40) - y(70)))
+    listOf(40, 70).forEach { g ->
+        drawLine(grid, Offset(left, y(g)), Offset(left + plotW, y(g)), strokeWidth = 1.5f)
+        label(measurer, "$g", axis, Offset(left - 8.dp.toPx(), y(g)), alignRight = true)
+    }
+    drawLine(base, Offset(left, y(0)), Offset(left + plotW, y(0)), strokeWidth = 2f)
+    if (names) {
+        label(measurer, "높음", axis, Offset(left + plotW - 6.dp.toPx(), (y(100) + y(70)) / 2), alignRight = true)
+        label(measurer, "보통", axis, Offset(left + plotW - 6.dp.toPx(), (y(70) + y(40)) / 2), alignRight = true)
+        label(measurer, "낮음", axis, Offset(left + plotW - 6.dp.toPx(), (y(40) + y(0)) / 2), alignRight = true)
+    }
+}
+
+/** "오후 12:05" 대신 축·구간 레이블은 24시간 "12:05" (짧게). */
+fun clockHm(minuteOfDay: Int): String {
+    val m = ((minuteOfDay % 1440) + 1440) % 1440
+    return "${m / 60}:${"%02d".format(m % 60)}"
+}
+
+/**
+ * 주행 자극 그래프 v10: 가로 = 지나온 [pastMin]분 + 지금 → [aheadMin]분 뒤(5분 눈금, "−10분 · 지금 · 5분 …"), 세로 = 0~100 단계 띠.
+ * 지나온 값 = [past](엔진 1분 기록, 마지막이 지금) primary 실선, 예측 = [ahead](엔진 1분 21점, 0번 = 지금) navy 점선, 지금 = 세로선 + 점.
+ * 위험 구간 = [curveStartMin]부터 [curveLenMin]분 앰버 면 + 위쪽 "12:05~12:17 굽은 길"([clockMinute]이 있을 때 시각, 없으면 분).
+ * 엔진이 준 점만 잇는다 — 모양을 만들지 않는다. 점이 모두 2개 미만이면 축과 [emptyText].
+ */
+@Composable
+fun StimulusChart(
+    past: List<Int>,
+    ahead: List<Int>,
+    modifier: Modifier = Modifier,
+    curveStartMin: Int? = null,
+    curveLenMin: Int? = null,
+    clockMinute: Int? = null,
+    pastMin: Int = 10,
+    aheadMin: Int = 20,
+    emptyText: String = "기록이 아직 없어요",
+) {
+    val c = Pause.colors
+    val t = Pause.type
+    val measurer = rememberTextMeasurer()
+    val axis = t.caption.copy(color = c.sub)
+    val curveStyle = t.caption.copy(color = c.warningInk)
+    val emptyStyle = t.body.copy(color = c.sub)
+    Canvas(modifier) {
+        val left = 48.dp.toPx()
+        val top = 30.dp.toPx()
+        val bottom = 30.dp.toPx()
+        val plotW = size.width - left
+        val plotH = size.height - top - bottom
+        val span = (pastMin + aheadMin).toFloat()
+        fun x(m: Float) = left + plotW * ((m + pastMin) / span).coerceIn(0f, 1f)
+        fun y(v: Int) = top + plotH * (1f - v.coerceIn(0, 100) / 100f)
+        levelBands(left, top, plotW, plotH, measurer, axis, c.warningSoft, c.surfaceAlt, c.border, c.sub.copy(alpha = 0.5f))
+        // 시간 눈금 (5분)
+        var m = -pastMin
+        while (m <= aheadMin) {
+            val txt = when {
+                m == 0 -> "지금"
+                m < 0 -> "−${-m}분"
+                else -> "${m}분"
+            }
+            label(measurer, txt, axis, Offset(x(m.toFloat()), size.height - bottom + 16.dp.toPx()), center = true)
+            m += 5
+        }
+        // 위험 구간: 앰버 면 + 위쪽 레이블
+        if (curveStartMin != null && curveLenMin != null && curveStartMin < aheadMin) {
+            val x0 = x(curveStartMin.toFloat())
+            val x1 = maxOf(x((curveStartMin + curveLenMin).toFloat()), x0 + 4.dp.toPx())
+            drawRect(c.warning.copy(alpha = 0.22f), Offset(x0, top), Size(x1 - x0, plotH))
+            drawLine(c.warning, Offset(x0, top), Offset(x0, top + plotH), strokeWidth = 2.dp.toPx())
+            val txt = clockMinute?.let { "${clockHm(it + curveStartMin)}~${clockHm(it + curveStartMin + curveLenMin)} 굽은 길" } ?: "${curveStartMin}~${curveStartMin + curveLenMin}분 굽은 길"
+            label(measurer, txt, curveStyle, Offset(x0, top - 14.dp.toPx()))
+        }
+        // 지금 세로선
+        drawLine(c.navy.copy(alpha = 0.6f), Offset(x(0f), top), Offset(x(0f), top + plotH), strokeWidth = 2.dp.toPx())
+        val pastTail = past.takeLast(pastMin + 1)
+        val aheadPts = ahead.take(aheadMin + 1)
+        if (pastTail.size < 2 && aheadPts.size < 2) {
+            label(measurer, emptyText, emptyStyle, Offset(left + plotW / 2, top + plotH / 2), center = true)
+            return@Canvas
+        }
+        if (pastTail.size >= 2) {
+            val off = -(pastTail.size - 1)
+            val p = Path().apply { pastTail.forEachIndexed { i, v -> val o = Offset(x((off + i).toFloat()), y(v)); if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
+            drawPath(p, c.primary, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+        if (aheadPts.size >= 2) {
+            val p = Path().apply { aheadPts.forEachIndexed { i, v -> val o = Offset(x(i.toFloat()), y(v)); if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) } }
+            drawPath(p, c.navy, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f))))
+            val pk = aheadPts.indices.maxBy { aheadPts[it] * 1000 - it }
+            drawCircle(c.surface, 8.dp.toPx(), Offset(x(pk.toFloat()), y(aheadPts[pk])))
+            drawCircle(c.warning, 5.dp.toPx(), Offset(x(pk.toFloat()), y(aheadPts[pk])))
+        }
+        val nowV = pastTail.lastOrNull() ?: aheadPts.first()
+        drawCircle(c.surface, 9.dp.toPx(), Offset(x(0f), y(nowV)))
+        drawCircle(c.navy, 6.dp.toPx(), Offset(x(0f), y(nowV)))
+    }
+}
+
+/** [StimulusChart] 범례: 지나온 값(실선) · 예측(점선) · 굽은 길(앰버 면) — 있는 것만, 색과 글자를 함께. */
+@Composable
+fun StimulusLegend(modifier: Modifier = Modifier, past: Boolean = true, ahead: Boolean = true, curve: Boolean = true) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(d.gap), verticalAlignment = Alignment.CenterVertically) {
+        if (past) LegendItem("지나온 값") { Box(Modifier.width(d.u(18f)).height(d.u(3f)).background(c.primary)) }
+        if (ahead) LegendItem("예측(점선)") {
+            Row(horizontalArrangement = Arrangement.spacedBy(d.u(3f))) { repeat(3) { Box(Modifier.width(d.u(4f)).height(d.u(3f)).background(c.navy)) } }
+        }
+        if (curve) LegendItem("굽은 길") { Box(Modifier.size(d.u(14f)).clip(RoundedCornerShape(d.u(3f))).background(c.warning.copy(alpha = 0.35f))) }
     }
 }
 
@@ -771,12 +753,4 @@ private fun DrawScope.label(
         else -> at.x
     }
     drawText(r, topLeft = Offset(x, at.y - r.size.height / 2f))
-}
-
-/** 축 라벨 세로 줄 (v5 호환, 새 그래프는 축을 직접 그린다). */
-@Composable
-fun AxisLabels(modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.End) {
-        listOf("100", "50", "0").forEach { Text(it, style = Pause.type.caption, color = Pause.colors.sub) }
-    }
 }

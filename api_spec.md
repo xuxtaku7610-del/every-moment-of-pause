@@ -57,7 +57,15 @@
 | GET | `/eta/{token}` | 병원 응답·열람 여부 (기기 토큰, JSON) | F5 (UPGRADE 3) |
 | GET | `/clinic/{token}` (루트) | 병원 접수함 (HTML, 15초 새로 고침) | F5 (UPGRADE 3) |
 | POST | `/clinic/{token}/reply?r=` (루트) | 병원 응답 `received`·`ready`·`busy` → 303 | F5 (UPGRADE 3) |
+| POST | `/reports` | 폰으로 받는 이동 기록 만들기 (v10-3) | F7 |
+| GET | `/report/{token}` (루트) | 이동 기록 페이지 (HTML, 24시간) | F7 |
+| POST | `/photos` | 반려견 사진 업로드 주소 만들기 (v10-3) | 프로필 |
+| GET | `/photos/{token}` | 올라온 사진 받기 (204 = 아직, 200 = 이미지 후 서버 삭제) | 프로필 |
+| GET | `/upload/{token}` (루트) | 보호자 폰 사진 올리기 페이지 (HTML, 10분) | 프로필 |
+| POST | `/upload/{token}` (루트) | 사진 1장 본문 업로드 (5MB, JPEG·PNG·WebP) | 프로필 |
 | POST | `/llm/phrases` | 제안·기록 요약 문장 | F2·F7 |
+| POST | `/helper/ask` | 콩이 도우미 2단계(카드 고르기 + 카드 근거 설명) | F9 도우미 |
+| POST | `/llm/route` | 콩이 도우미 분류만 (`{id, confidence}`) | F9 도우미 |
 | POST | `/trips` | 여행 시작 | F7 |
 | POST | `/trips/{tripId}/events` | 여행 이벤트 일괄 업로드 | F7 |
 | PATCH | `/trips/{tripId}` | 여행 종료 | F7 |
@@ -254,6 +262,19 @@ PUT·GET 상태 응답에 `returning`(보호자가 폰에서 "돌아가는 중"�
 **GET `/clinic/{token}`** (인증 없음, HTML 390폭, 15초 새로 고침) → "사전 접수 · 병원 이름 / 콩이 보호자가 오는 중 / 6분 뒤 도착 / 11:50 도착 예정 · 방금 갱신", 증상·증상 메모·오늘 이동, 응답 버튼 3개. 처음 열면 `clinic_seen_at` 기록(앱에 "병원이 열어 봤어요"). 만료 `410`, 없는 토큰 `404`.
 **POST `/clinic/{token}/reply?r=received|ready|busy`** (폼, 인증 없음 — 접수함 토큰이 곧 권한) → `303` 접수함으로. 모르는 값 `400`. 마지막 응답이 이긴다. 문구: 접수 확인했어요 / 도착하면 바로 볼게요 / 지금은 어려워요 · 다른 병원을 찾아 주세요 (진단·처치 문구 없음).
 
+### 2.8-3 폰으로 받는 이동 기록 (v10-3, `app/api/reports.py`)
+- `POST /reports` (기기 토큰): `{petNames[1~3], date, destination?, totalMin, distance?, stops, reports, timeline[{kind,time,title,detail?}], series[0~100], sampleMin, marks[{kind STOP|SYMPTOM|HIGH, minute, lengthMin, label}], share[{key,value}], insight?}` → 201 `{token, pageUrl: "/report/{token}", expiresAt}`. **위치·경로 필드 없음** — 정의되지 않은 필드 422, 값이 100을 넘으면 422.
+- `GET /report/{token}` (루트, 인증 없음): 요약 칸 · 주행 자극 그래프(SVG, 앱 v10 축: 출발 뒤 시간, 0~100 띠, 흔들림 많은 구간 앰버·휴식 회색·신고 점선) · 타임라인 · 병원에 보여 줄 내용. 24시간 뒤 410, 없으면 404. `Cache-Control: no-store`, noindex.
+
+### 2.8-4 반려견 사진 QR 업로드 (v10-3, `app/api/photos.py`)
+- `POST /photos` (기기 토큰) → 201 `{token, pageUrl: "/upload/{token}", expiresAt}` (10분).
+- `GET /upload/{token}` (루트): 사진 1장 고르기 → 폰 브라우저가 긴 변 1024px JPEG(0.85)로 줄여 `POST /upload/{token}`(본문 = 이미지, `Content-Type` 선언). 서버는 5MB(413)·형식 앞 바이트(415)만 확인, 두 번째 사진 409, 만료 410.
+- `GET /photos/{token}` (기기 토큰, 만든 기기만): 올라오기 전 204, 올라오면 200 이미지 바이트 + 서버에서 바이트 삭제(받은 시각만), 받은 뒤·만료 410.
+
+### 2.8-5 대기 공유 보호자 2명 (v10-3)
+- 같은 링크 `/wait/{token}?g=1|2`(없으면 1). "돌아가는 중"은 `POST /wait/{token}/returning?g=2` → 먼저 누른 보호자 번호를 `returning_by`에 남기고 `PUT /wait` 응답 `returningBy`로 차에 알린다(이름 없음).
+- 실내 온도가 오르면(차 측정값이 있을 때만, 26℃ 또는 처음보다 +2℃) 페이지에 큰 경고(`data-hot=1`) + 진동·소리 — 브라우저 정책상 보호자가 [경고 소리·진동 켜기]를 한 번 눌러야 한다. 5초마다 `#wait`만 바꿔 소리 허용이 풀리지 않게.
+
 ### 2.9 POST `/llm/phrases`
 앱이 계산한 추천 결과를 자연스러운 한국어 2문장 이내로 바꾼다. 앱은 같은 내용의 템플릿 문장을 항상 함께 준비한다.
 
@@ -288,6 +309,22 @@ PUT·GET 상태 응답에 `returning`(보호자가 폰에서 "돌아가는 중"�
 {"model": "gemma4:12b", "messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}], "stream": false, "think": false, "keep_alive": "30m", "options": {"num_predict": 60, "temperature": 0.3}}
 ```
 모델명은 `.env`의 `OLLAMA_MODEL`, 상주 시간은 `OLLAMA_KEEP_ALIVE`, 최대 토큰은 `OLLAMA_NUM_PREDICT`에서 읽는다. `temperature`는 0.3 고정. 실측(2026-10-27, `gemma4:12b`, 모델 상주, 100% GPU) 2.58초였으므로 2.5초 목표에 맞추려고 `num_predict`로 출력 길이를 묶는다. OpenAI 호환 API는 `think` 지원이 불확실해 쓰지 않는다.
+
+### 2.9-1 콩이 도우미 (2026-11-04, `app/api/helper.py`, X-Device-Token 필수)
+앱 1단계 규칙 분류(`HelperRouter`, 오프라인)가 **못 고른 질문만** 온다. 응급·위험 낱말 질문은 앱이 보내지 않는다.
+
+`POST /helper/ask`
+```json
+{"text": "목마를 땐 어떻게 해?", "allowed": ["water", "toxin", "..."], "explain": true}
+```
+- `text` 1~200자, `allowed` 1~60개(앱이 정한 카드 id — **릴리스 앱은 reviewed: true 카드만**), 알 수 없는 필드는 422.
+- 처리: 응급 말(정규식)이면 LLM 없이 응급 카드 → 임베딩(`embeddinggemma`, 코사인 ≥ `VECTOR_MIN` 0.55) → 낮으면 LLM 분류(JSON, 허용 밖 id·확신 0.6 미만은 모름) → `explain`이면 카드 줄만 근거로 2~3문장(`ANSWER_RULE`) → 근거 검사(숫자·음식·약·처치 동사가 카드에 있는지, 약 용량·진단 표현은 늘 실패, 문장 근거 0.5 이상). 실패하면 카드 줄 그대로.
+```json
+{"route": "vector|llm|emergency|none", "id": "water", "confidence": 0.81, "answer": "…", "grounded": true, "source": "ollama|card|none", "latencyMs": 843}
+```
+`POST /llm/route` `{text, allowed}` → `{"id": "water" | null, "confidence": 0.0~1.0}` (분류만).
+
+질문 원문은 저장·로그하지 않는다. `llm_call_logs`에 `kind = helper | helper_route`·출처(`ollama | template`)·지연·대체 여부만. 타임아웃 `HELPER_TIMEOUT_SECONDS`(기본 6초), 앱은 7초 기다린 뒤 1단계 결과로 답한다. 평가 `tools/eval_helper.py` → `docs/plan/helper_eval.md`.
 
 ### 2.10 POST `/trips`
 요청

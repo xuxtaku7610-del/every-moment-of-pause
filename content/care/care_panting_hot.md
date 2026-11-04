@@ -1,5 +1,10 @@
 ---
+id: panting_hot
 title: 헐떡임 — 덥거나 여름
+category: driving
+triggers: [더워서 헐떡, 더워서 헥헥, 더위 먹, 더워해, 더운 것 같]
+voice: 그늘에 세우고 에어컨을 켠 채 창문을 조금 열어 주세요.
+action: NEAREST_STOP
 reviewed: true
 sources: RSPCA — "How to Recognise & Treat Heatstroke in Dogs" https://www.rspca.org.uk/adviceandwelfare/pets/dogs/health/heatstroke; Merck Veterinary Manual — "What to Do in a Dog or Cat Emergency" https://www.merckvetmanual.com/special-pet-topics/emergencies/what-to-do-in-a-dog-or-cat-emergency; RSPCA — "Dogs die in hot cars" https://www.rspca.org.uk/adviceandwelfare/pets/dogs/health/dogsinhotcars (보조) (11/03 사용자 검수, 출처 페이지 직접 열어 대조)
 ---

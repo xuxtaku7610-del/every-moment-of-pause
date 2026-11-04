@@ -5,7 +5,7 @@ artifacts/rehearsal/에 캡처, 장면별 걸린 시간을 artifacts/rehearsal/t
 병원 접수함은 노트북이 병원 역할: 접수함 페이지를 열고(Playwright가 있으면 캡처) "도착하면 바로 볼게요"를 누른다.
 
     python scripts/rehearsal.py [--phone]     # --phone: 접수함 페이지를 Playwright(설치된 Chrome)로 함께 캡처
-    python scripts/rehearsal.py --all         # 예비 장면(쉼표 추천·잠깐 대기·긴급 도움)까지
+    python scripts/rehearsal.py --all         # 예비 장면(쉼표 추천·잠깐 대기·긴급 도움·콩이 도우미 2장면)까지
     python scripts/rehearsal.py --jumps 20    # 장면 점프 20회 연속 뒤 쉼표 추천이 버튼까지 가는지 (BLOCKED 11/01)
 """
 import urllib.request
@@ -69,8 +69,8 @@ NEARBY_SEC = 10_040
 
 
 def open_report(name: str) -> bool:
-    """[내렸어요] 뒤 도착 요약(UI v9) → [이동 기록 보기]."""
-    xy = wait_for("이동 기록 보기", 15)
+    """[내렸어요] 뒤 도착 요약(UI v9) → [자세히 보기]."""
+    xy = wait_for("자세히 보기", 15)
     if not xy:
         return False
     time.sleep(1)
@@ -112,8 +112,9 @@ def main() -> int:
                 tap(xy)
         shot("01b-depart-ready")
         xy = wait_for("이대로 출발", 5)
-        if xy:
-            tap(xy)
+        if not xy:
+            return "막힘: 이대로 출발 버튼이 화면에 없음"
+        tap(xy)
         return None
 
     def highway():
@@ -214,7 +215,8 @@ def main() -> int:
         # → 기록 4회, 민감도 보통 → 높음. 도착 리포트(타임라인)에 신고와 맞춤 정도가 보인다.
         start(calib="yes,yes,little")
         start(seek=2400, action="play", speed=1, cabin=24)
-        if not wait_for("관찰 상태", 20):
+        # 주행 패널 v10-1: 콩이 한 줄 "콩이 · 관찰 기록 없음/신고 n건" (관찰 상태 이름표는 없앴다)
+        if not wait_for("콩이 ·", 20):
             return "막힘: 주행 화면이 안 뜸"
         start(say="콩이 토했어")
         if not wait_for("구토", 10):
@@ -227,7 +229,7 @@ def main() -> int:
         shot("09-arrival")
         tap(xy)
         if not open_report("09b-summary"):
-            return "막힘: 도착 요약에 이동 기록 보기가 안 뜸"
+            return "막힘: 도착 요약에 자세히 보기가 안 뜸"
         if not wait_for("맞춤 정도", 15):
             return "막힘: 리포트에 맞춤 정도 줄이 안 뜸"
         # 점프 전에 말한 실시간 신고(구토)가 리포트 타임라인에 이어서 남는다 (결정 11/01)
@@ -368,6 +370,39 @@ def main() -> int:
         shot("12d-emergency-route")
         return None
 
+    def helper_drive():
+        # 콩이 도우미 (HELPER_PROMPT 5번): 주행 중 [눌러서 말하기] 받아쓰기와 같은 길 — 응급 말은 도우미보다 기존 응급 흐름이 먼저
+        start(seek=2460, action="play", speed=1, cabin=24)
+        if not wait_for("다음 쉼표", 20):
+            return "막힘: 주행 화면이 안 뜸"
+        start(ask="콩이가 초콜릿 먹은 것 같아")
+        if not wait_for("동물병원", 15):
+            return "막힘: 응급 안내(동물병원)가 안 뜸"
+        time.sleep(1)
+        shot("13-helper-drive-emergency")
+        xy = next((xy for t, xy in nodes() if t == "괜찮아졌어요"), None)
+        if xy:
+            tap(xy)
+        return None
+
+    def helper_rest():
+        # 정차(휴게소) 도우미: "쉬할 데 있어?" → 앞길 놀이터 휴게소 답 → [경유지로 넣기]
+        start(seek=5300, action="play", speed=1, emergency="none")
+        if not wait_for("콩이 도우미", 25):
+            return "막힘: 쉼표 화면에 콩이 도우미 버튼 없음"
+        start(ask="쉬할 데 있어?")
+        if not wait_for("쉬할 곳", 15):
+            return "막힘: 도우미 답이 안 뜸"
+        shot("14-helper-rest")
+        xy = wait_for("경유지로 넣기", 5)
+        if not xy:
+            return "막힘: 쉬할 곳 행동 버튼 없음(앞길 놀이터 휴게소 없음)"
+        tap(xy)
+        if not wait_for("잠깐 다녀올게", 10):
+            return "막힘: 경유지 뒤 쉼표 화면으로 안 돌아옴"
+        shot("14b-helper-waypoint")
+        return None
+
     def arrival():
         start(seek=10843, action="play", speed=1)
         xy = wait_for("내렸어요", 100)
@@ -376,7 +411,7 @@ def main() -> int:
         shot("10-arrival")
         tap(xy)
         if not open_report("10b-summary"):
-            return "막힘: 도착 요약에 이동 기록 보기가 안 뜸"
+            return "막힘: 도착 요약에 자세히 보기가 안 뜸"
         if not wait_for("오늘의 길", 15):
             return "막힘: 이동 기록이 안 뜸"
         time.sleep(3)
@@ -399,7 +434,8 @@ def main() -> int:
     elif a.all:
         scenes += [("(예비) 콩이가 헥헥거려", distress), ("(예비) 쉼표 추천", suggest), ("(예비) 배변 임박 쉼표", potty),
                    ("(예비) 주변 추천(도착 전)", nearby), ("(예비) 휴게소·잠깐 대기", rest),
-                   ("(예비) 긴급 도움 → 위험 물질 → 병원", emergency)]
+                   ("(예비) 긴급 도움 → 위험 물질 → 병원", emergency),
+                   ("(예비) 도우미 · 주행 중 초콜릿 → 응급", helper_drive), ("(예비) 도우미 · 쉬할 데 있어? → 경유지", helper_rest)]
     for name, fn in scenes:
         step(name, fn)
     total = time.time() - t0

@@ -1,5 +1,10 @@
 ---
+id: unsure
 title: 어딘가 이상해 보일 때
+category: driving
+triggers: [이상해, 이상한, 아픈 것 같, 아파 보여, 기운이 없]
+voice: 안전한 곳에 세운 뒤 숨쉬기·잇몸 색·걸음걸이를 살펴요.
+action: NEAREST_STOP
 reviewed: true
 sources: RSPCA — "First Aid For Your Dog" https://www.rspca.org.uk/adviceandwelfare/pets/dogs/health/firstaid; Merck Veterinary Manual — "What to Do in a Dog or Cat Emergency" https://www.merckvetmanual.com/special-pet-topics/emergencies/what-to-do-in-a-dog-or-cat-emergency; Merck Veterinary Manual — "Evaluation and Initial Treatment of Dog and Cat Emergencies" https://www.merckvetmanual.com/special-pet-topics/emergencies/evaluation-and-initial-treatment-of-dog-and-cat-emergencies (11/03 사용자 검수, 출처 페이지 직접 열어 대조)
 ---

@@ -77,8 +77,11 @@ android {
     sourceSets.getByName("main").assets.srcDir("../../docs/design/v5/assets")
     // "콩이가 이상해요" 정차 후 체크리스트 (UPGRADE 7, 검수 전 reviewed=false)
     sourceSets.getByName("main").assets.srcDir("../../content/care")
+    // 콩이 도우미 초안 카드(reviewed: false)는 디버그 빌드에만 — 릴리스 APK에는 넣지 않는다.
+    // ignoreAssetsPatterns를 정하면 aapt 기본 규칙("<dir>_*")이 사라지므로 _drafts·_candidates 폴더를 직접 뺀다 (HelperAnswersTest F9-37)
+    sourceSets.getByName("debug").assets.srcDir("../../content/care/_drafts")
     androidResources {
-        ignoreAssetsPatterns += listOf("!_sheet.png", "!app_icon.png", "!app_icon_foreground.png", "!road_drive.png", "!README.md", "!pet_placeholder.png")
+        ignoreAssetsPatterns += listOf("!_sheet.png", "!app_icon.png", "!app_icon_foreground.png", "!road_drive.png", "!README.md", "!pet_placeholder.png", "!<dir>_drafts", "!<dir>_candidates")
     }
 }
 

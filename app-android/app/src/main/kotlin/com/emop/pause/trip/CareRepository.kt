@@ -1,6 +1,7 @@
 package com.emop.pause.trip
 
 import android.content.Context
+import com.emop.pause.engine.pet.HelperCard
 import com.emop.pause.uistate.CareSheet
 import com.emop.pause.uistate.CareUi
 import com.emop.pause.uistate.EmergencyCardUi
@@ -26,6 +27,17 @@ class CareRepository @Inject constructor(@param:ApplicationContext private val c
     fun ui(id: String, showDrafts: Boolean = true): CareUi? = sheet(id)?.let {
         if (it.action == "VET" && !it.reviewed && !showDrafts) CareUi(it.title, listOf(EmergencyCardUi.LEAD), reviewed = false)
         else CareUi(it.title, it.lines, it.reviewed)
+    }
+
+    /**
+     * 콩이 도우미 분류용 카드 (HELPER_PROMPT): assets의 care_*.md 전부(디버그 빌드는 content/care/_drafts 초안도 묶는다).
+     * 응급 카드가 앞(같은 점수면 앞 카드). [showDrafts]가 아니면(릴리스) 검수 끝난 카드만 — 미검수 카드는 분류·답에 쓰지 않는다.
+     */
+    fun helperCards(showDrafts: Boolean): List<HelperCard> = synchronized(cache) {
+        val ids = runCatching { context.assets.list("").orEmpty() }.getOrDefault(emptyArray())
+            .filter { it.startsWith("care_") && it.endsWith(".md") }.map { it.removePrefix("care_").removeSuffix(".md") }.sorted()
+        val texts = ids.mapNotNull { id -> runCatching { context.assets.open("care_$id.md").bufferedReader().use { id to it.readText() } }.getOrNull() }.toMap()
+        HelperAnswers.catalog(texts, showDrafts)
     }
 
     /** 긴급 도움 응급 카드 (릴리스 미검수 차단은 [EmergencyCardUi.from]). */

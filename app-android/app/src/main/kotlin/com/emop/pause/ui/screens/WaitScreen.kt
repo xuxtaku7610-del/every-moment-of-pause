@@ -37,15 +37,22 @@ import com.emop.pause.ui.components.Choice
 import com.emop.pause.ui.components.Divider
 import com.emop.pause.ui.components.KeyValue
 import com.emop.pause.ui.components.LinkQr
-import com.emop.pause.ui.components.Panel
+import com.emop.pause.ui.components.Block
 import com.emop.pause.ui.components.PauseButton
-import com.emop.pause.ui.components.SectionHeader
+import com.emop.pause.ui.components.Heading
 import com.emop.pause.ui.components.StatusIcon
 import com.emop.pause.ui.components.rememberAssetImage
 import com.emop.pause.ui.theme.Pause
 import com.emop.pause.ui.theme.WidthClass
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.WaitUi
+import com.emop.pause.ui.components.Title
+import com.emop.pause.ui.components.Body
+import com.emop.pause.ui.components.Caption
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import com.emop.pause.uistate.ShareUi
 
 /*
  * 잠깐 대기 (F3) — 차 밖에서 창문 너머 2m 거리에서 한눈에 읽는 화면 (11/03, `_private/WAIT_PROMPT.md`).
@@ -84,19 +91,17 @@ fun WaitScreen(ui: WaitUi, on: On) {
                     ui.temp?.let { t ->
                         Text(t, style = bigStyle, color = c.text, maxLines = 1, softWrap = false)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("실내 온도", style = Pause.type.section, color = c.sub)
+                            Text("실내 온도", style = Pause.type.body, color = c.sub)
                             if (ui.acOn) {
                                 Spacer(Modifier.width(d.gap))
                                 Icon(Icons.Rounded.AcUnit, null, Modifier.size(d.u(20f)), tint = c.sub)
                                 Spacer(Modifier.width(d.u(4f)))
-                                Text("에어컨 켜짐", style = Pause.type.section, color = c.sub)
+                                Text("에어컨 켜짐", style = Pause.type.body, color = c.sub)
                             }
                         }
-                        // 대기 중 온도가 오르면 한 줄 (측정값 기준, 앰버 글자만)
-                        ui.heat?.let { Text(it, style = Pause.type.bodyStrong, color = c.warningInk, textAlign = TextAlign.Center) }
                     }
                     Text(ui.elapsed, style = Pause.type.title, color = c.text)
-                    Text(ui.english, style = Pause.type.section.copy(fontWeight = FontWeight.Normal), color = c.sub, textAlign = TextAlign.Center)
+                    Text(ui.english, style = Pause.type.body, color = c.sub, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -111,12 +116,15 @@ private fun WaitBar(ui: WaitUi, on: On, sheetOpen: Boolean, narrow: Boolean, tog
     val c = Pause.colors
     val d = Pause.dimens
     Divider()
-    val line = ui.overdueLine ?: ui.notice ?: ui.seasonNote
-    line?.let { Text(it, style = Pause.type.bodyStrong, color = if (ui.overdueLine != null || ui.notice != null) c.warningInk else c.sub) }
+    // v10-3: 온도가 오르면(차 측정값이 있을 때만) 아래 줄 맨 앞에 앰버 한 줄 — 보호자 폰에는 큰 경고 + 소리·진동
+    val line = ui.heat ?: ui.overdueLine ?: ui.notice ?: ui.returningBy ?: ui.seasonNote
+    line?.let { Text(it, style = Pause.type.body, color = if (ui.heat != null || ui.overdueLine != null || ui.notice != null) c.warningInk else c.sub) }
     // 1/3 창은 아이콘을 빼서 글자가 낱자에서 꺾이지 않게
     Row(horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
         PauseButton("대기 종료하기", { on(UiEvent.StopWait) }, Modifier.weight(1f), icon = Icons.Rounded.Check.takeUnless { narrow }, compact = true)
         PauseButton("긴급 도움", { on(UiEvent.OpenEmergency) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.WarningAmber.takeUnless { narrow }, compact = true)
+        // 콩이 도우미 (HELPER_PROMPT 4번): 대기 칩 (차 안 온도·대기 시간·에어컨)
+        PauseButton(if (narrow) "도우미" else "콩이 도우미", { on(UiEvent.OpenHelper) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY, compact = true)
         PauseButton(if (sheetOpen) "설정 닫기" else "설정", toggle, Modifier.weight(1f), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.MoreHoriz.takeUnless { narrow }, compact = true)
     }
 }
@@ -126,11 +134,11 @@ private fun WaitBar(ui: WaitUi, on: On, sheetOpen: Boolean, narrow: Boolean, tog
 private fun WaitSheet(ui: WaitUi, on: On, wc: WidthClass, close: () -> Unit) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(Modifier.fillMaxWidth(), pad = d.u(20f), spacing = d.gapS) {
-        SectionHeader("보호자 설정")
+    Block(Modifier.fillMaxWidth(), pad = d.u(20f), spacing = d.gapS) {
+        Heading("보호자 설정")
         val chips: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(d.unit)) {
-                Text("제한 시간 (분)", style = Pause.type.metricLabel, color = c.sub)
+                Text("제한 시간 (분)", style = Pause.type.caption, color = c.sub)
                 Row(horizontalArrangement = Arrangement.spacedBy(d.unit)) {
                     listOf(5, 10, 15, 20).forEach { m -> Choice("$m", ui.limitMin == m, { on(UiEvent.SetWaitLimit(m)); close() }, Modifier.weight(1f)) }
                 }
@@ -146,8 +154,12 @@ private fun WaitSheet(ui: WaitUi, on: On, wc: WidthClass, close: () -> Unit) {
         }
         val share: @Composable () -> Unit = {
             ui.share.url?.let { url ->
-                LinkQr("보호자 폰" + if (ui.share.connected) "" else " (연결 확인 중)", url, "폰 카메라로 찍으면 대기 화면이 열려요", Modifier.fillMaxWidth(), size = d.u(112f))
-            } ?: Text("폰 공유 연결 안 됨 — 차 화면 안내는 계속돼요", style = Pause.type.sub, color = c.sub)
+                // 보호자 2명까지 같은 대기 화면 (v10-3): 두 번째 QR은 같은 주소 + ?g=2 — "돌아가는 중"을 누른 사람만 보호자 1·2로 구분
+                Column(verticalArrangement = Arrangement.spacedBy(d.gapS)) {
+                    LinkQr("보호자 1 폰" + if (ui.share.connected) "" else " (연결 확인 중)", url, "폰 카메라로 찍으면 대기 화면이 열려요", Modifier.fillMaxWidth(), size = d.u(112f))
+                    LinkQr("보호자 2 폰", ShareUi.second(url), "두 번째 보호자도 같은 화면을 봐요", Modifier.fillMaxWidth(), size = d.u(112f))
+                }
+            } ?: Text("폰 공유 연결 안 됨 — 차 화면 안내는 계속돼요", style = Pause.type.caption, color = c.sub)
         }
         if (wc == WidthClass.FULL) {
             Row(horizontalArrangement = Arrangement.spacedBy(d.gap)) {

@@ -49,7 +49,7 @@ import com.emop.pause.ui.components.AlertStrip
 import com.emop.pause.ui.components.ButtonKind
 import com.emop.pause.ui.components.Divider
 import com.emop.pause.ui.components.Metric
-import com.emop.pause.ui.components.Panel
+import com.emop.pause.ui.components.Block
 import com.emop.pause.ui.components.PauseButton
 import com.emop.pause.ui.components.PetPhoto
 import com.emop.pause.ui.components.StatusChip
@@ -60,12 +60,18 @@ import com.emop.pause.ui.theme.WidthClass
 import com.emop.pause.uistate.CareSheet
 import com.emop.pause.uistate.DriveContent
 import com.emop.pause.uistate.DriveUi
+import com.emop.pause.uistate.DrivingRules
 import com.emop.pause.uistate.Fixtures
 import com.emop.pause.uistate.GuideIconUi
 import com.emop.pause.uistate.GuideUi
 import com.emop.pause.uistate.NearbyKindUi
 import com.emop.pause.uistate.UiEvent
 import com.emop.pause.uistate.VoiceSheetState
+import com.emop.pause.ui.components.Title
+import com.emop.pause.ui.components.Body
+import com.emop.pause.ui.components.Caption
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 
 /*
  * 주행 화면 v8 (2026-10-31 재정비, docs/states.md 상태 2~5·7): 분할 창(기본 내비 옆 1/3·1/2)이 기본이다.
@@ -77,36 +83,18 @@ import com.emop.pause.uistate.VoiceSheetState
 @Composable
 fun DriveScreen(ui: DriveUi, on: On) {
     val d = Pause.dimens
-    Page(ui.meta, on, scroll = false) { wc ->
+    // 앱 바 오른쪽 = 작은 한 줄 "27km · 도착 오전 11:45" (v10-1). 남은 시간·회전은 옆 기본 내비가 크게 보여 준다.
+    Page(ui.barLine ?: ui.meta, on, scroll = false) { wc ->
+        val compact = wc == WidthClass.THIRD
         Box(Modifier.fillMaxWidth().weight(1f)) {
-            when {
-                ui.restricted -> RestrictedDrive(ui)
-                // 1/3 창(내비 옆 기본, UI v9): 예보 띠 → 다음 회전 → 주변 추천 또는 다음 쉼표 → 관찰 상태 한 줄 → 음성 힌트.
-                // 카드 높이는 내용에 맞추고 위로 붙인다 — 아래 빈 큰 카드를 두지 않는다
-                wc == WidthClass.THIRD -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(d.gapS)) {
-                    (ui.content as? DriveContent.Forecast)?.let { ForecastStrip(it, Modifier.fillMaxWidth()) }
-                    // 버튼이 있는 카드(쉼표 추천·이상해요·주변 추천)는 버튼 2개가 다 보여야 하므로 길 안내를 도착 한 줄로 줄인다
-                    if (acting(ui) || ui.guide == null) ArriveLine(ui) else GuideCard(ui, Modifier.fillMaxWidth(), compact = true)
-                    ContextPanel(ui, on, Modifier.fillMaxWidth(), compact = true)
-                    ObservationCard(ui, Modifier.fillMaxWidth())
-                    Spacer(Modifier.weight(1f))
-                }
-                // 1/2 창·전체 창: 왼쪽 길 안내·관찰 상태, 오른쪽 지금 할 일 (같은 자리에 같은 종류 — 2초 안에 찾는다). 둘 다 위로 붙임
-                else -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(d.gap)) {
-                    (ui.content as? DriveContent.Forecast)?.let { ForecastStrip(it, Modifier.fillMaxWidth()) }
-                    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(d.gap)) {
-                        Column(Modifier.weight(0.46f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(d.gap)) {
-                            if (ui.guide != null) GuideCard(ui, Modifier.fillMaxWidth(), compact = false)
-                            else ArriveLine(ui)
-                            ObservationCard(ui, Modifier.fillMaxWidth())
-                            Spacer(Modifier.weight(1f))
-                        }
-                        Column(Modifier.weight(0.54f).fillMaxHeight()) {
-                            ContextPanel(ui, on, Modifier.fillMaxWidth(), compact = false)
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
-                }
+            if (ui.restricted) RestrictedDrive(ui)
+            // v10-1 (사용자 결정 11/04): 주인공은 기본 내비 — 평소에는 한 면(다음 쉼표 ─ 콩이 한 줄)만,
+            // 필요할 때만 맨 위에 한 장(예보·쉼표 추천·주변 추천·이상해요·병원 가는 길). 1/3·1/2 창 같은 한 열, 글자 크기는 그대로.
+            else Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(d.gap)) {
+                TopCard(ui, on, compact)
+                // 버튼 카드가 뜨면 다음 쉼표 덩어리는 숨긴다 (쉼표 추천과 같은 내용 · 버튼 2개가 다 보이게). 콩이 한 줄은 남긴다
+                CalmPanel(ui, showNextRest = !acting(ui), compact = compact)
+                Spacer(Modifier.weight(1f))
             }
         }
         DriveFooter(ui, on)
@@ -116,20 +104,18 @@ fun DriveScreen(ui: DriveUi, on: On) {
 /** 버튼이 있는 카드가 떠 있는지 (쉼표 추천·이상해요·주변 추천). */
 private fun acting(ui: DriveUi) = ui.content is DriveContent.Suggest || ui.content is DriveContent.Distress || ui.content is DriveContent.Nearby
 
-// ───────────── 다음 회전 (NaviHelper 실제 값) ─────────────
-
-private fun guideIcon(i: GuideIconUi): ImageVector = when (i) {
-    GuideIconUi.LEFT -> Icons.Rounded.TurnLeft
-    GuideIconUi.RIGHT -> Icons.Rounded.TurnRight
-    GuideIconUi.KEEP_LEFT -> Icons.Rounded.TurnSlightLeft
-    GuideIconUi.KEEP_RIGHT -> Icons.Rounded.TurnSlightRight
-    GuideIconUi.UTURN -> Icons.Rounded.UTurnLeft
-    GuideIconUi.STRAIGHT -> Icons.Rounded.Straight
-    GuideIconUi.ROUNDABOUT -> Icons.Rounded.RoundaboutRight
-    GuideIconUi.TOLL -> Icons.Rounded.Toll
-    GuideIconUi.REST_AREA -> Icons.Rounded.LocalCafe
-    GuideIconUi.ARRIVE -> Icons.Rounded.Flag
-    GuideIconUi.OTHER -> Icons.Rounded.Navigation
+/** 필요할 때만 맨 위 한 장. 평소(Calm·가는 중)는 아무것도 그리지 않는다 — 끝나면 사라진다. */
+@Composable
+private fun TopCard(ui: DriveUi, on: On, compact: Boolean) {
+    val m = Modifier.fillMaxWidth()
+    when (val ct = ui.content) {
+        is DriveContent.Forecast -> ForecastStrip(ct, m)
+        is DriveContent.Suggest -> SuggestPanel(ui, ct, on, m, buttons = ui.voice != VoiceSheetState.LISTENING, compact = compact)
+        is DriveContent.Nearby -> NearbyPanel(ui, ct, on, m, compact)
+        is DriveContent.Distress -> DistressPanel(ct, on, m, compact)
+        is DriveContent.Vet -> VetPanel(ct, m)
+        is DriveContent.Calm, is DriveContent.Heading -> Unit
+    }
 }
 
 private fun guideWord(i: GuideIconUi): String = when (i) {
@@ -146,101 +132,66 @@ private fun guideWord(i: GuideIconUi): String = when (i) {
     GuideIconUi.OTHER -> "안내"
 }
 
+// ───────────── 평소: 다음 쉼표 ─ 콩이 한 줄 (한 면, 구분선으로만 나눈다) ─────────────
+
 /**
- * 다음 회전 카드: 방향 아이콘 + 거리(큰 수치) + 방면, 아래 줄 도착 예정·남은 거리.
- * 안내가 없으면(내비 안내 전·고속도로 직진) 도착 줄만, 그것도 없으면 "내비에서 목적지를 정하면 보여요".
+ * 조용한 상태의 두 덩어리 (v10-1 1번): ① 다음 쉼표(장소 · 남은 시간/거리 · 놀이터 알약, 가는 중이면 파랑)
+ * ② 콩이 한 줄(작은 사진 + "관찰 기록 없음"/"신고 n건 · 마지막"). 박스 하나에 구분선 — 카드를 겹겹이 두르지 않는다.
  */
 @Composable
-private fun GuideCard(ui: DriveUi, modifier: Modifier, compact: Boolean) {
+private fun CalmPanel(ui: DriveUi, showNextRest: Boolean, compact: Boolean) {
     val c = Pause.colors
     val d = Pause.dimens
-    val g = ui.guide
-    Panel(modifier, pad = d.u(if (compact) 16f else 20f), spacing = d.gapS) {
-        if (g != null) GuideRow(g, compact)
-        if (ui.arrive != null || ui.remain != null) {
+    Block(Modifier.fillMaxWidth(), pad = d.u(20f), spacing = d.gapS) {
+        if (showNextRest) {
+            NextRest(ui, compact)
             Divider()
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                ui.arrive?.let {
-                    Text("도착", style = Pause.type.metricLabel, color = c.sub)
-                    Spacer(Modifier.width(d.unit))
-                    Text(it, style = Pause.type.section, color = c.text, maxLines = 1)
-                }
-                Spacer(Modifier.weight(1f).width(d.unit))
-                ui.remain?.let { Text(it, style = Pause.type.bodyStrong, color = c.sub, maxLines = 1) }
-            }
         }
-    }
-}
-
-/**
- * 회전 안내가 없을 때(고속도로 직진·안내 전)와 1/3 창에서 버튼이 있는 상태일 때: 목적지 · 남은 거리 · 도착 한 줄.
- * 빈 카드("안내를 기다리는 중")를 두지 않는다. 목적지도 없으면 "기본 내비에서 목적지를 정하면 보여요".
- */
-@Composable
-private fun ArriveLine(ui: DriveUi) {
-    val c = Pause.colors
-    val d = Pause.dimens
-    Panel(Modifier.fillMaxWidth(), pad = d.u(16f)) {
-        if (ui.arrive == null && ui.remain == null) {
-            Text("기본 내비에서 목적지를 정하면 보여요", style = Pause.type.body, color = c.sub, maxLines = 2)
-            return@Panel
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Flag, null, Modifier.size(d.u(24f)), tint = c.navy)
-            Spacer(Modifier.width(d.unit))
-            Text(
-                listOfNotNull(ui.destination, ui.remain).joinToString(" · "),
-                Modifier.weight(1f), style = Pause.type.bodyStrong.copy(lineBreak = LineBreak.Heading), color = c.text, maxLines = 2,
-            )
-            ui.arrive?.let {
-                Spacer(Modifier.width(d.gapS))
-                Text("도착 $it", style = Pause.type.bodyStrong, color = c.primary, maxLines = 1, softWrap = false)
-            }
-        }
-    }
-}
-
-@Composable
-private fun GuideRow(g: GuideUi, compact: Boolean) {
-    val c = Pause.colors
-    val d = Pause.dimens
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(d.u(if (compact) 64f else 80f)).clip(RoundedCornerShape(d.cardRadius)).background(c.navy), contentAlignment = Alignment.Center) {
-            Icon(guideIcon(g.icon), guideWord(g.icon), Modifier.size(d.u(if (compact) 44f else 56f)), tint = c.surface)
-        }
-        Spacer(Modifier.width(d.gap))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(guideWord(g.icon), style = Pause.type.metricLabel, color = c.sub, maxLines = 1)
-                if (g.demo) {
-                    Spacer(Modifier.width(d.unit))
-                    StatusChip("시연", neutral = true)
-                }
-            }
-            Text(g.distance, style = Pause.type.metric, color = c.text, maxLines = 1)
-            g.towards?.let { Text(it, style = Pause.type.bodyStrong, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-        }
-    }
-}
-
-// ───────────── 콩이 관찰 상태 (보호자 음성 신고만) ─────────────
-
-/** 관찰 상태 한 줄: 원형 사진 + "콩이 관찰 상태" + "관찰 기록 없음"/"신고 1건 · 헐떡임(출발 39분 뒤)". 주행 자극과 섞지 않는다. */
-@Composable
-private fun ObservationCard(ui: DriveUi, modifier: Modifier) {
-    val c = Pause.colors
-    val d = Pause.dimens
-    Panel(modifier, pad = d.u(16f), spacing = d.u(4f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PetPhoto(Modifier.size(d.u(48f)))
+            PetPhoto(Modifier.size(d.u(40f)))
             Spacer(Modifier.width(d.gapS))
-            Column(Modifier.weight(1f)) {
-                Text("${ui.pet.ifEmpty { "반려견" }} 관찰 상태", style = Pause.type.metricLabel, color = c.sub, maxLines = 1)
-                Text(
-                    ui.observation.line, style = Pause.type.bodyStrong, color = if (ui.observation.count > 0) c.warningInk else c.text,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Text(
+                "${ui.pet.ifEmpty { "반려견" }} · ${ui.observation.line}", Modifier.weight(1f),
+                style = Pause.type.body, color = if (ui.observation.count > 0) c.warningInk else c.text,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (ui.quiet) Text("조용히 모드 · 응급 안내와 쉼표 추천만 말해요", style = Pause.type.body, color = c.sub, maxLines = 2)
+    }
+}
+
+/** 다음 쉼표: "다음 쉼표" 이름표 → 장소(큰 글, 1/3은 1줄·1/2는 2줄까지) → "1시간 2분 뒤 · 94km" + 놀이터 알약. 계획이 없으면 한 줄. */
+@Composable
+private fun NextRest(ui: DriveUi, compact: Boolean) {
+    val c = Pause.colors
+    val d = Pause.dimens
+    val heading = ui.content as? DriveContent.Heading
+    val minutes = heading?.minutes ?: ui.nextStopMin
+    val place = heading?.place ?: ui.nextStopName
+    if (minutes == null || place == null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("다음 쉼표", style = Pause.type.caption, color = c.sub, maxLines = 1)
+            Spacer(Modifier.width(d.gapS))
+            Text("남은 길에 잡힌 쉼표가 없어요", Modifier.weight(1f), style = Pause.type.body, color = c.text, maxLines = 2)
+        }
+        return
+    }
+    // v10: 가장 중요한 한 가지 = 남은 시간(수치). 레이블·거리는 보조, 장소는 제목, 시설은 알약
+    val tint = if (heading != null) c.primary else c.text
+    Text(
+        listOfNotNull(if (heading != null) "가는 중인 쉼표" else "다음 쉼표", ui.nextStop?.removePrefix("약 ")?.takeIf { heading == null }).joinToString(" · "),
+        style = Pause.type.caption, color = if (heading != null) c.primary else c.sub, maxLines = 1,
+    )
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(hm(minutes), style = Pause.type.metric, color = tint, maxLines = 1)
+        Spacer(Modifier.width(d.unit))
+        Text("뒤", style = Pause.type.unit, color = c.sub, maxLines = 1, modifier = Modifier.padding(bottom = d.u(5f)))
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(place, Modifier.weight(1f, fill = false), style = Pause.type.title, color = c.text, maxLines = if (compact) 1 else 2, overflow = TextOverflow.Ellipsis)
+        if (heading == null) ui.nextStopFacilities.firstOrNull()?.let {
+            Spacer(Modifier.width(d.gapS))
+            StatusChip(it)
         }
     }
 }
@@ -252,106 +203,33 @@ private fun ObservationCard(ui: DriveUi, modifier: Modifier) {
 private fun ForecastStrip(f: DriveContent.Forecast, modifier: Modifier) {
     val c = Pause.colors
     AlertStrip(modifier, icon = R.drawable.fe_warning, iconAsset = "ic_warning") {
-        Text(f.title, style = Pause.type.h1, color = c.text, maxLines = 2)
-        if (f.coach.isNotBlank()) Text(f.coach, style = Pause.type.bodyStrong, color = c.warningInk, maxLines = 2)
+        Text(f.title, style = Pause.type.title, color = c.text, maxLines = 2)
+        if (f.coach.isNotBlank()) Text(f.coach, style = Pause.type.body, color = c.warningInk, maxLines = 2)
     }
 }
 
-// ───────────── 지금 할 일 패널 ─────────────
-
-@Composable
-private fun ContextPanel(ui: DriveUi, on: On, modifier: Modifier, compact: Boolean) {
-    when (val ct = ui.content) {
-        is DriveContent.Distress -> DistressPanel(ct, on, modifier, compact)
-        is DriveContent.Suggest -> SuggestPanel(ui, ct, on, modifier, buttons = ui.voice != VoiceSheetState.LISTENING, compact = compact)
-        is DriveContent.Nearby -> NearbyPanel(ui, ct, on, modifier, compact)
-        is DriveContent.Vet -> VetPanel(ct, modifier)
-        else -> NextRestPanel(ui, modifier, compact)
-    }
-}
-
-/** 다음 쉼표: 남은 시간(수치) · 장소(2줄까지) · 확인된 반려견 시설 · 마지막 휴식 후. 계획이 없으면 한 줄 안내. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun NextRestPanel(ui: DriveUi, modifier: Modifier, compact: Boolean) {
-    val c = Pause.colors
-    val d = Pause.dimens
-    val heading = ui.content as? DriveContent.Heading
-    val minutes = heading?.minutes ?: ui.nextStopMin
-    val place = heading?.place ?: ui.nextStopName
-    // 쉼표 계획이 없으면 큰 빈 카드 대신 한 줄 (UI v9) — 그 자리는 주변 추천 카드가 쓴다
-    if (minutes == null || place == null) {
-        Panel(modifier, pad = d.u(16f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("다음 쉼표", style = Pause.type.metricLabel, color = c.sub, maxLines = 1)
-                Spacer(Modifier.width(d.gapS))
-                Text("남은 길에 잡힌 쉼표가 없어요", Modifier.weight(1f), style = Pause.type.bodyStrong, color = c.text, maxLines = 2)
-            }
-        }
-        return
-    }
-    // 1/3 창 (UI v9): 내용 높이 카드라 관찰 상태가 아래로 밀리지 않게 한 줄씩 — "1시간 2분 뒤 · 94km" / 장소·시설 / 마지막 휴식 후
-    if (compact) {
-        Panel(modifier, pad = d.u(16f), spacing = d.u(4f)) {
-            Text(if (heading != null) "가는 중인 쉼표" else "다음 쉼표", style = Pause.type.metricLabel, color = if (heading != null) c.primary else c.sub)
-            Text(
-                listOfNotNull("${hm(minutes)} 뒤", ui.nextStop?.removePrefix("약 ")?.takeIf { heading == null }).joinToString(" · "),
-                style = Pause.type.section, color = if (heading != null) c.primary else c.text, maxLines = 1,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(place, Modifier.weight(1f, fill = false), style = Pause.type.title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (heading == null) ui.nextStopFacilities.firstOrNull()?.let {
-                    Spacer(Modifier.width(d.unit))
-                    StatusChip(it)
-                }
-            }
-            ui.sinceRest?.let { Text(it, style = Pause.type.sub, color = c.sub, maxLines = 1) }
-        }
-        return
-    }
-    Panel(modifier, pad = d.u(20f), spacing = d.gapS) {
-        Text(if (heading != null) "가는 중인 쉼표" else "다음 쉼표", style = Pause.type.metricLabel, color = if (heading != null) c.primary else c.sub)
-        run {
-            // 남은 시간(큰 수치) + 남은 거리 한 줄 → 장소(2줄까지)
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(hm(minutes), style = Pause.type.metric, color = if (heading != null) c.primary else c.text, maxLines = 1)
-                if (heading == null) ui.nextStop?.let {
-                    Spacer(Modifier.width(d.gapS))
-                    Text(it.removePrefix("약 "), style = Pause.type.section, color = c.sub, maxLines = 1, modifier = Modifier.padding(bottom = d.u(6f)))
-                }
-            }
-            Text(place, style = Pause.type.title, color = c.text, maxLines = 2)
-            if (ui.nextStopFacilities.isNotEmpty() && heading == null) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(d.unit), verticalArrangement = Arrangement.spacedBy(d.unit)) {
-                    ui.nextStopFacilities.forEach { StatusChip(it) }
-                }
-            }
-        }
-        ui.sinceRest?.let {
-            Divider()
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("마지막 휴식 후", style = Pause.type.metricLabel, color = c.sub)
-                Spacer(Modifier.weight(1f))
-                Text(it.removePrefix("마지막 휴식 후 "), style = Pause.type.section, color = c.text, maxLines = 1)
-            }
-        }
-    }
-}
+// ───────────── 맨 위 한 장 ─────────────
 
 /** 쉼표 추천 (상태 4): 장소(2줄까지) → 남은 분·거리 → 이유 2개(확인된 시설만) → 버튼 2개 + 음성 힌트. */
 @Composable
 private fun SuggestPanel(ui: DriveUi, s: DriveContent.Suggest, on: On, modifier: Modifier, buttons: Boolean, compact: Boolean) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(modifier, pad = d.u(20f), spacing = d.gapS) {
-        Text(if (s.urgent) "운전자 쉬어 갈 때" else "쉼표 추천", style = Pause.type.metricLabel, color = if (s.urgent) c.warningInk else c.primary)
+    // 맨 위 한 장은 연한 파랑 면(테두리 없음)으로 평소 면과 명도로만 나눈다 (v10-1, 피로 위험은 앰버)
+    Block(modifier, tint = if (s.urgent) c.warningSoft else c.primarySoft, pad = d.u(20f), spacing = d.gapS) {
+        Text(if (s.urgent) "운전자 쉬어 갈 때" else "쉼표 추천", style = Pause.type.caption, color = if (s.urgent) c.warningInk else c.primary)
         Column {
             Text(s.place, style = Pause.type.title, color = c.text, maxLines = 2)
-            if (!compact) s.direction?.let { Text(it, style = Pause.type.sub, color = c.sub, maxLines = 1) }
+            if (!compact) s.direction?.let { Text(it, style = Pause.type.caption, color = c.sub, maxLines = 1) }
         }
         // 1/3 창은 큰 수치 두 칸이 높이를 넘어 잘린다 → "18분 뒤 · 8km" 한 줄 (11/01)
         if (compact) {
-            Text(listOfNotNull("${s.minutes}분 뒤", s.distance).joinToString(" · "), style = Pause.type.section, color = c.text, maxLines = 1)
+            // v10: 남은 분 = 수치, 거리는 단위 크기 보조
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("${s.minutes}분", style = Pause.type.metric, color = c.text, maxLines = 1)
+                Spacer(Modifier.width(d.unit))
+                Text(listOfNotNull("뒤", s.distance).joinToString(" · "), style = Pause.type.unit, color = c.sub, maxLines = 1, modifier = Modifier.padding(bottom = d.u(5f)))
+            }
         } else Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f))) {
             Metric("도착까지", "${s.minutes}", unit = "분", small = true)
             s.distance?.let { dist ->
@@ -363,12 +241,12 @@ private fun SuggestPanel(ui: DriveUi, s: DriveContent.Suggest, on: On, modifier:
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.CheckCircle, null, Modifier.size(d.u(20f)), tint = c.primary)
                 Spacer(Modifier.width(d.unit))
-                Text(r, style = Pause.type.bodyStrong, color = c.text, maxLines = 2)
+                Text(r, style = Pause.type.body, color = c.text, maxLines = 2)
             }
         }
         if (buttons) {
             // 음성 실패 안내는 버튼 바로 위 작은 글자 (UI v9 4번)
-            if (ui.voice == VoiceSheetState.FAILED) Text(VOICE_FAILED, style = Pause.type.sub, color = c.sub, maxLines = 1)
+            if (ui.voice == VoiceSheetState.FAILED) Text(VOICE_FAILED, style = Pause.type.body, color = c.sub, maxLines = 2)
             // 좁은 창은 위아래로 (버튼 글자를 줄이지 않는다)
             if (compact) {
                 PauseButton("여기서 쉴게요", { on(UiEvent.AcceptSuggestion) }, Modifier.fillMaxWidth())
@@ -404,24 +282,24 @@ private fun nearbyWord(k: NearbyKindUi): String = when (k) {
 private fun NearbyPanel(ui: DriveUi, n: DriveContent.Nearby, on: On, modifier: Modifier, compact: Boolean) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(modifier, pad = d.u(20f), spacing = d.gapS) {
+    Block(modifier, tint = c.primarySoft, pad = d.u(20f), spacing = d.gapS) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(d.u(36f)).clip(CircleShape).background(c.primarySoft), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(d.u(36f)).clip(CircleShape).background(c.surface), contentAlignment = Alignment.Center) {
                 Icon(nearbyIcon(n.kind), null, Modifier.size(d.u(22f)), tint = c.primary)
             }
             Spacer(Modifier.width(d.unit))
-            Text("주변 추천", style = Pause.type.metricLabel, color = c.primary, maxLines = 1)
+            Text("주변 추천", style = Pause.type.caption, color = c.primary, maxLines = 1)
         }
         // 제목 = 장소 이름(2줄까지), 아래 "9.7km 앞 · 반려견 동반 쇼핑" — 거리와 이름을 한 줄에 붙여 "9.7km 앞 ·"에서 끊기지 않게 (11/03)
         Text(n.title, style = Pause.type.title.copy(lineBreak = LineBreak.Heading), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text(n.line.ifBlank { nearbyWord(n.kind) }, style = Pause.type.section, color = c.text, maxLines = 1)
+        Text(n.line.ifBlank { nearbyWord(n.kind) }, style = Pause.type.body, color = c.text, maxLines = 1)
         if (n.reason.isNotBlank() && !ui.restricted) Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.CheckCircle, null, Modifier.size(d.u(20f)), tint = c.primary)
             Spacer(Modifier.width(d.unit))
-            Text(n.reason, style = Pause.type.bodyStrong, color = c.text, maxLines = 2)
+            Text(n.reason, style = Pause.type.body, color = c.text, maxLines = 2)
         }
         if (ui.voice != VoiceSheetState.LISTENING) {
-            if (ui.voice == VoiceSheetState.FAILED) Text(VOICE_FAILED, style = Pause.type.sub, color = c.sub, maxLines = 1)
+            if (ui.voice == VoiceSheetState.FAILED) Text(VOICE_FAILED, style = Pause.type.body, color = c.sub, maxLines = 2)
             if (compact) {
                 PauseButton("들를게요", { on(UiEvent.AcceptNearby) }, Modifier.fillMaxWidth())
                 PauseButton("괜찮아요", { on(UiEvent.DeclineNearby) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY)
@@ -439,16 +317,16 @@ private fun NearbyPanel(ui: DriveUi, n: DriveContent.Nearby, on: On, modifier: M
 private fun DistressPanel(dc: DriveContent.Distress, on: On, modifier: Modifier, compact: Boolean) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(modifier, pad = d.u(20f), spacing = d.gapS) {
+    Block(modifier, pad = d.u(20f), spacing = d.gapS) {
         AlertStrip(Modifier.fillMaxWidth(), icon = if (dc.vet) R.drawable.fe_hospital else R.drawable.fe_warning, iconAsset = if (dc.vet) "ic_hospital" else "ic_warning") {
-            Text("신고를 기록했어요", style = Pause.type.metricLabel, color = c.warningInk)
-            Text(dc.line, style = Pause.type.h1, color = c.text, maxLines = 2)
+            Text("신고를 기록했어요", style = Pause.type.caption, color = c.warningInk)
+            Text(dc.line, style = Pause.type.title, color = c.text, maxLines = 2)
         }
         dc.target?.let { t ->
             Column {
-                Text(if (dc.vet) "가까운 동물병원" else "가장 가까운 정차 장소", style = Pause.type.metricLabel, color = c.sub)
+                Text(if (dc.vet) "가까운 동물병원" else "가장 가까운 정차 장소", style = Pause.type.caption, color = c.sub)
                 Text(t, style = Pause.type.title, color = c.text, maxLines = 2)
-                dc.minutes?.let { Text("약 ${it}분", style = Pause.type.section, color = c.text) }
+                dc.minutes?.let { Text("약 ${it}분", style = Pause.type.body, color = c.text) }
             }
         }
         val primary = when {
@@ -472,11 +350,11 @@ private fun DistressPanel(dc: DriveContent.Distress, on: On, modifier: Modifier,
 private fun VetPanel(v: DriveContent.Vet, modifier: Modifier) {
     val c = Pause.colors
     val d = Pause.dimens
-    Panel(modifier, pad = d.u(20f), spacing = d.gapS) {
+    Block(modifier, pad = d.u(20f), spacing = d.gapS) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             StatusIcon("ic_hospital", R.drawable.fe_hospital, d.u(28f))
             Spacer(Modifier.width(d.unit))
-            Text("동물병원 가는 길", style = Pause.type.metricLabel, color = c.primary)
+            Text("동물병원 가는 길", style = Pause.type.caption, color = c.primary)
         }
         Text(v.name, style = Pause.type.title, color = c.text, maxLines = 2)
         Row(horizontalArrangement = Arrangement.spacedBy(d.u(32f))) {
@@ -484,7 +362,7 @@ private fun VetPanel(v: DriveContent.Vet, modifier: Modifier) {
             val num = v.distance.takeWhile { it.isDigit() || it == '.' }
             Metric("거리", num.ifEmpty { v.distance }, unit = v.distance.removePrefix(num).ifEmpty { null }, small = true)
         }
-        v.clinic?.let { Text(it, style = Pause.type.bodyStrong, color = c.primary, maxLines = 2) }
+        v.clinic?.let { Text(it, style = Pause.type.body, color = c.primary, maxLines = 2) }
         Text("흔들림을 줄여 천천히 가요", style = Pause.type.body, color = c.sub, maxLines = 1)
     }
 }
@@ -515,7 +393,7 @@ private fun DriveFooter(ui: DriveUi, on: On) {
     if (!ui.restricted) ui.toast?.let { t ->
         Text(
             t, Modifier.fillMaxWidth().clip(RoundedCornerShape(d.buttonRadius)).background(c.navy).padding(horizontal = d.u(20f), vertical = d.gapS),
-            style = Pause.type.bodyStrong, color = c.surface, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            style = Pause.type.body, color = c.surface, maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }
     when (ui.voice) {
@@ -527,11 +405,11 @@ private fun DriveFooter(ui: DriveUi, on: On) {
                 Icon(Icons.Rounded.Mic, null, Modifier.size(d.u(22f)), tint = c.onPrimary)
             }
             Spacer(Modifier.width(d.gapS))
-            Text("듣고 있어요…", style = Pause.type.section, color = c.primary)
+            Text("듣고 있어요…", style = Pause.type.body, color = c.primary)
         }
         // 쉼표 추천·주변 추천은 카드 안에 실패 안내 + 버튼을 그린다 (UI v9 4번)
-        VoiceSheetState.FAILED -> if (ui.content !is DriveContent.Suggest && ui.content !is DriveContent.Nearby) Panel(Modifier.fillMaxWidth(), pad = d.u(16f)) {
-            Text("잘 못 들었어요. 버튼으로 골라 주세요.", style = Pause.type.section, color = c.text)
+        VoiceSheetState.FAILED -> if (ui.content !is DriveContent.Suggest && ui.content !is DriveContent.Nearby) Block(Modifier.fillMaxWidth(), pad = d.u(16f)) {
+            Text("잘 못 들었어요. 버튼으로 골라 주세요.", style = Pause.type.body, color = c.text)
             Row(horizontalArrangement = Arrangement.spacedBy(d.gapS)) {
                 PauseButton("여기서 쉴게요", { on(UiEvent.AcceptSuggestion) }, Modifier.weight(1f))
                 PauseButton("다음 휴게소로", { on(UiEvent.DeclineSuggestion) }, Modifier.weight(1f), kind = ButtonKind.SECONDARY)
@@ -539,11 +417,16 @@ private fun DriveFooter(ui: DriveUi, on: On) {
         }
         null -> when {
             ui.restricted -> Unit
-            !acting(ui) -> ui.voiceHint?.let { VoiceHint(it) }
-            ui.offline -> Text("인터넷 없이 내장 데이터로 안내 중", style = Pause.type.sub, color = c.sub)
+            // [눌러서 말하기] (v10-1 2번): 맨 아래 폭 전체 · 높이 76dp 이상. 버튼 2개 카드가 떠 있으면 숨기고 그 카드의 음성 응답이 대신한다
+            DrivingRules.talkShown(ui) -> PauseButton(TALK_LABEL, { on(UiEvent.PushToTalk) }, Modifier.fillMaxWidth(), kind = ButtonKind.SECONDARY, icon = Icons.Rounded.Mic)
+            ui.talk && ui.micDenied && !acting(ui) -> VoiceHint(MIC_DENIED)
+            ui.offline -> Text("인터넷 없이 내장 데이터로 안내 중", style = Pause.type.body, color = c.sub)
         }
     }
 }
+
+private const val TALK_LABEL = "눌러서 말하기"
+private const val MIC_DENIED = "마이크 권한이 없어요 · 설정에서 허용하면 말로 기록해요"
 
 // ───────────── 미리보기 (2560×1440dp, 배율 2) — 1/3 창이 기본 ─────────────
 

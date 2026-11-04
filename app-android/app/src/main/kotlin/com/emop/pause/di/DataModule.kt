@@ -89,6 +89,7 @@ object DataModule {
             object : WaitShareApi {
                 override suspend fun start(limitMin: Int) = s.call { waitStart(WaitStartReq(limitMin)) }.let { it.token to it.pageUrl }
                 override suspend fun update(token: String, body: WaitUpdateReq) = s.call { waitUpdate(token, body) }.returning
+                override suspend fun updateWho(token: String, body: WaitUpdateReq) = s.call { waitUpdate(token, body) }.let { it.returning to it.returningBy }
                 override suspend fun end(token: String) = s.call { waitEnd(token) }
             }
         }
@@ -133,4 +134,8 @@ private class AuthedApi(private val s: ServerSession) : PauseApi {
     override suspend fun etaShare(body: EtaShareReq) = s.call { etaShare(body) }
     override suspend fun etaUpdate(token: String, body: EtaUpdateReq) = s.call { etaUpdate(token, body) }
     override suspend fun etaStatus(token: String) = s.call { etaStatus(token) }
+    override suspend fun reportShare(body: com.emop.pause.data.net.ReportShareReq) = s.call { reportShare(body) }
+    override suspend fun photoStart() = s.call { photoStart() }
+    override suspend fun photoFetch(token: String) = s.call { photoFetch(token) }
+    override suspend fun helperAsk(body: com.emop.pause.data.net.HelperAskReq) = s.call { helperAsk(body) }
 }

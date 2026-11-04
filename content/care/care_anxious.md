@@ -1,5 +1,10 @@
 ---
+id: anxious
 title: 낑낑·떨림·서성임
+category: driving
+triggers: [낑낑, 끙끙, 떨어, 떨려, 서성, 불안해, 안절부절]
+voice: 익숙한 담요나 장난감을 가까이 놓아 주세요.
+action: NEXT_REST
 reviewed: true
 sources: Merck Veterinary Manual (Merck & Co.) — "Motion Sickness in Dogs" https://www.merckvetmanual.com/dog-owners/brain-spinal-cord-and-nerve-disorders-of-dogs/motion-sickness-in-dogs; RSPCA — "Taking Your Pet on Holiday" https://www.rspca.org.uk/adviceandwelfare/pets/general/holiday; RSPCA — "Advice for nervous dogs" (PDF) https://www.rspca.org.uk/documents/1494939/7712578/Advice%20for%20nervous%20dogs%20(164%20KB)/b7f16b0a-01a6-fe6b-3ee8-32582d79d725?version=2.0 (11/03 사용자 검수, 출처 페이지 직접 열어 대조)
 ---

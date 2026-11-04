@@ -29,6 +29,9 @@ font:inherit;font-size:16px;font-weight:600;margin-top:16px;cursor:pointer}
 .btn[disabled]{background:var(--disabled);color:var(--surface)}
 .banner{background:var(--warning-soft);color:var(--text);border-radius:14px;border-left:6px solid var(--warning);padding:14px 18px;margin-top:12px}
 .banner b{color:var(--warning-ink);display:block;font-size:18px;margin-bottom:2px}
+.banner.hot{border-left-width:10px;padding:18px 20px}
+.banner.hot b{font-size:22px}
+.banner.hot .big{color:var(--warning-ink)}
 .ok{background:var(--comfort-soft);color:var(--comfort);border-radius:12px;padding:12px 16px;margin-top:16px;font-weight:600;text-align:center}
 .note{font-size:14px;color:var(--sub);margin-top:20px}
 .row{display:flex;justify-content:space-between;gap:16px;font-size:16px;padding:8px 0;border-top:1px solid var(--border)}

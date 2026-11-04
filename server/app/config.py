@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     ollama_keep_alive: str = "30m"
     ollama_num_predict: int = 60
     llm_timeout_seconds: float = 2.5
+    # 콩이 도우미 (HELPER_PROMPT): 정차 중 설명이라 문장 다듬기보다 조금 더 기다린다. 임베딩은 공알과 같은 embeddinggemma
+    helper_timeout_seconds: float = 6.0
+    embed_model: str = "embeddinggemma"
     llm_max_sentences: int = 2
     # 기기당 분당 요청 수 (J P0). 앱은 출발 시·제안 때만 부르므로 넉넉하다.
     rate_limit_per_minute: int = 120

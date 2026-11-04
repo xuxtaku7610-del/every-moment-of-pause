@@ -114,3 +114,41 @@ flowchart TD
 | `AppUiState.state: ServiceState`(8개), `demoData` | 발표 모드 상태 번호, 앱 바 "시연 데이터" |
 | `UiEvent` | 지움: `ToggleSymptom`, `AnswerMotion`(+ `MotionAnswerUi`). 새로: `OpenStimulus`, `ShareReport` |
 | `MotionTone` 글자 | 낮음 / 보통 / 높음 (40·70) |
+
+## 2026-11-04 v10-1 주행 경험 (`_private/V10_1_DRIVE.md`) — 기본값 있음
+| 상태·이벤트 | 값 | 뜻 |
+| --- | --- | --- |
+| `DriveUi` | `barLine`("27km · 도착 오전 11:45"), `talk`, `micDenied`, `quiet` | 앱 바 작은 한 줄(회전·도착 카드 삭제), [눌러서 말하기] 보일지(버튼 2개 카드면 기본값 false — 실제 표시는 `DrivingRules.talkShown`), 마이크 거절 힌트, 조용히 모드 |
+| `DepartUi` | `dayOff` | "오늘은 안 타요" 띠 + [다시 켜기] |
+| `SettingsUi` | `guidance`(0 많이·1 보통·2 적게), `quiet` | 안내 빈도·조용히 모드 |
+| `RestUi` | `notices` | 정차 때 한 줄씩(자동 시작 뒤 출발 체크, 앱이 뒤에 있을 때 답이 없던 추천) |
+| `UiEvent` | `PushToTalk`, `DayOff`, `DayOn`, `SetGuidance(level)`, `ToggleQuiet` | 말하기는 받아쓰기 8초 → 기존 분류(+ "조용히 해 줘"·"오늘은 안 타요") |
+
+주행 중 버튼 수: 버튼 2개 카드(쉼표 추천·주변 추천·이상해요)는 2개, 그 밖에는 [눌러서 말하기] 1개(듣는 중·RESTRICTED·마이크 거절이면 0) — `DrivingRules.buttons`.
+
+## 2026-11-04 v10-2 UI 기준 (`docs/design/v10/STYLE_V10.md`) — 배치·글자·구분만, 기본값 있음
+| 상태 | 값 | 뜻 |
+| --- | --- | --- |
+| `StimulusUi` | `ahead`(엔진 예측 1분 21점), `curveStartMin`·`curveLenMin`(굽은 길 시작·길이 분), `curveKm`("3.4km 앞"), `clockMinute`(신호 시계) | "주행 자극 보기" 그래프·수치 3개(현재 · 예측 최고(시각) · 위험 구간). 정차 중에는 예보가 없어 `ahead`가 비고 지나온 값만 그린다 |
+| `CompareChart` | `peak(points)`·`mean(points)`(거리 가중 평균) | 고갯길 비교 수치(최고값·평균 차이) |
+
+## 2026-11-04 v10-3 편의 기능 (`_private/V10_3_FEATURES.md`) — 기본값 있음
+| 상태·이벤트 | 값 | 뜻 |
+| --- | --- | --- |
+| `DepartUi` | `riders: List<RiderUi>`(프로필 2개 이상일 때만), `sameAsLast`, `CheckUi.missedBefore` | 오늘 타는 아이 칩, [지난번과 같아요], "지난번에 빠뜨렸어요" |
+| `PetEditUi` | `profiles`(탭), `canAdd`, `canDelete`, `photoAvailable`, `photoUrl`, `photoNote` | 여러 마리(최대 3)·사진 QR 업로드 |
+| `RestUi` | `whoAsk` | 여러 마리 신고 이름 고르기 |
+| `WaitUi` | `returningBy` | "보호자 2가 돌아가는 중이에요" |
+| `ShareUi.second(url)` | `url?g=2` | 두 번째 보호자 QR |
+| `SummaryUi` | `phoneUrl`, `phoneBusy`, `phoneAvailable`, 상수 `FINISH`·`PHONE`·`OPEN_REPORT`("자세히 보기") | 도착 요약에서 끝 |
+| `AppUiState` | `demoPhoto`, `primaryPetId` | 사진 자리: 올린 사진 → 시연이면 콩이 사진 → 실루엣 |
+| `UiEvent` | `SendReportToPhone`, `CloseReport`, `SameAsLast`, `ToggleRider(id)`, `EditPet(id)`, `AddPet`, `DeletePet`, `PickWho(name)`, `StartPhotoUpload` | |
+
+## 콩이 도우미 (2026-11-04, `_private/HELPER_PROMPT.md`)
+| 상태·이벤트 | 값 | 뜻 |
+| --- | --- | --- |
+| `Screen.Helper(HelperUi)` | `Route.HELPER` · `Overlay.HELPER` (긴급 도움 다음, 대기보다 먼저 — 주행이면 주행 화면) | 정차 중 겹침 화면 `ui/screens/HelperScreen.kt` |
+| `HelperUi` | `chips`(상황별 6개), `answers: List<HelperAnswerUi>`(최근이 앞, 최대 5), `text`, `listening`, `busy`, `typing`(정차 + `UxPolicy.setupAllowed`) | 상수 `TITLE`·`NOTE`·`UNKNOWN`·`UNKNOWN_VET`·`UNKNOWN_REST`·`DRAFT` |
+| `HelperAnswerUi` | `question`, `title`, `lines`(≤4), `action`(VET·NEAREST_STOP·POTTY_SPOT·WAIT_MODE·NEXT_REST), `actionLabel`, `source`, `reviewed`, `explained`, `emergency` | 답 카드 한 장 |
+| `UiEvent` | `OpenHelper`, `AskHelper(text)`, `SetHelperText(text)`, `HelperVoice`, `HelperAct(index)` | 행동은 기존 흐름 재사용(병원 화면·장소·경유지·잠깐 대기) |
+| 주행 중 | 화면 없음 — `PushToTalk` 받아쓰기가 `HelperRouter.isQuestion`이면 음성 한 줄 + 결과 한 줄(`TripCoordinator.speakHelper`) | 버튼·입력 칸 추가 없음 |

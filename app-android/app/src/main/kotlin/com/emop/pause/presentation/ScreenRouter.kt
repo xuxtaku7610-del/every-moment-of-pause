@@ -6,10 +6,10 @@ import com.emop.pause.uistate.DriveContent
 import com.emop.pause.uistate.ServiceState
 
 /** 어떤 화면을 그릴지 (상태 값은 ViewModel이 채운다). */
-enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, SUMMARY, TRIPLOG, STIMULUS, PET, SETTINGS, ONBOARDING, EMERGENCY }
+enum class Route { SCENE, DRIVE, DEPART, REST, WAIT, PLACES, VETS, ARRIVAL, SUMMARY, TRIPLOG, STIMULUS, PET, SETTINGS, ONBOARDING, EMERGENCY, HELPER }
 
 /** 정차 중에 위로 여는 화면. */
-enum class Overlay { NONE, PET, SETTINGS, PLACES, VETS, STIMULUS, EMERGENCY }
+enum class Overlay { NONE, PET, SETTINGS, PLACES, VETS, STIMULUS, EMERGENCY, HELPER }
 
 /**
  * 화면 선택 규칙 — 순수 함수라 단위 테스트로 고정한다 (docs/ui_contract.md "화면 선택").
@@ -39,6 +39,8 @@ object ScreenRouter {
         i.driveState.forcesDrivingUi -> Route.DRIVE
         // 긴급 도움: 정차 화면(대기 포함) 위 겹침. 주행이면 위에서 DRIVE — 주행 중에는 열리지 않는다.
         i.overlay == Overlay.EMERGENCY -> Route.EMERGENCY
+        // 콩이 도우미: 긴급 도움처럼 정차 화면(대기 포함) 위 겹침, 주행 중에는 음성만(위에서 DRIVE)
+        i.overlay == Overlay.HELPER -> Route.HELPER
         // 긴급 도움에서 "바로 동물병원 찾기"는 대기 중에도 열린다 (전에는 대기 중 병원을 여는 버튼이 없었다)
         i.overlay == Overlay.VETS && i.waiting -> Route.VETS
         i.waiting && i.mode == AppMode.PAUSE -> Route.WAIT
@@ -83,7 +85,7 @@ object ScreenRouter {
         Route.WAIT -> ServiceState.WAIT
         Route.VETS -> if (goingVet) ServiceState.VET else ServiceState.STOPPED
         Route.ARRIVAL, Route.SUMMARY, Route.TRIPLOG -> ServiceState.REPORT
-        Route.REST, Route.STIMULUS, Route.PLACES, Route.PET, Route.SETTINGS, Route.SCENE, Route.EMERGENCY -> ServiceState.STOPPED
+        Route.REST, Route.STIMULUS, Route.PLACES, Route.PET, Route.SETTINGS, Route.SCENE, Route.EMERGENCY, Route.HELPER -> ServiceState.STOPPED
     }
 
     /** 발표 모드 패널: 실차 주행 중에는 열지 않는다. */

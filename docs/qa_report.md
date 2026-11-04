@@ -1,5 +1,18 @@
 # QA 점검표 — 같이가개 test_plan P0 (2026-10-29, 저녁 갱신)
 
+## 내비 전체 화면에서 계속 동작 (v10-1, 2026-11-04 05:36~05:41, 에뮬레이터 Pleos_Connect_API34, 디버그 빌드, pet-trip)
+| 확인 | 결과 | 근거 |
+| --- | --- | --- |
+| 여행 중 포그라운드 서비스 | **동작** — 출발(시뮬레이터 ACTIVE) 직후 `TripService` isForeground=true, types=0x40000080(specialUse \| microphone, 앱이 보일 때 시작) | `dumpsys activity services com.emop.pause`, logcat `PauseService: foreground type=1073741952 mic=true` |
+| 내비 전체 화면(맨 위 활동 = `ai.umos.maps…navigation.app`)에서 예보 음성 | **나옴** — 05:40:13 `requestAudioFocus … callingPack=com.emop.pause USAGE_ASSISTANT` (TTS 시작) | logcat MediaFocusControl |
+| 상주 알림 | 제목 "같이가개가 콩이와의 이동을 챙기고 있어요", 본문이 뒤에서 말한 예보로 바뀜 "5km 뒤 굽은 길 15분, 천천히 가면 덜 흔들려요." | `dumpsys notification --noredact` |
+| heads-up(위쪽 잠깐 뜨는 알림) | **쓰지 않음** — AAOS는 일반 앱 heads-up을 통화·메시지·내비 범주에만 허용(developer.android.com/training/cars/notifications). 음성 + 알림 센터 한 줄 | 공식 문서 (docs/BLOCKED.md 11/04) |
+| 돌아오면 상태 이어짐 | 예보 카드·남은 거리·관찰 신고 그대로 | 캡처 `artifacts/ui/v10/bgcheck.png` |
+| 도착(여행 끝) | 서비스 끝남(ServiceRecord 0) | `dumpsys activity services` |
+| 주의 | 앱의 사용자(user 10)에 알림 권한이 없으면 알림은 안 보이고 서비스·음성만 돈다(`pm grant` 기본 user 0이라 처음엔 importance=NONE). 출발 버튼에서 마이크와 함께 묻는다 | `dumpsys notification` AppSettings |
+| 뒤에서 8초 듣기 | 확인 못 함 — 에뮬레이터 마이크 입력 없음(BLOCKED 10/30). 마이크 유형 서비스는 앱이 보일 때만 시작되므로 자동 시작(앱이 뒤)이면 앱이 다시 보일 때 붙인다 | 실차 확인 예정(F11-09) |
+| 운전대 음성 키 | `input keyevent KEYCODE_VOICE_ASSIST` → 시스템 어시스턴트 `ai.umos.ambientai`가 받음, 앱 안 옴 → BLOCKED | logcat `[GAA] reason=assist` |
+
 ## PT 리허설 연속 3회 — 문 이벤트 빌드 (2026-11-02 09:10~09:14, 재시작 없이)
 - 빌드: 디버그 1.0.0 + 문 신호(pet-trip 문 키프레임 6개). AVD RAM은 4096MB 그대로(3072MB는 에뮬레이터가 최소 4096MB로 올려 적용 불가 — BLOCKED 11/02). `demo_check.ps1` 점검 8줄 OK.
 
@@ -26,7 +39,7 @@
 - 같은 날 이전 빌드(감시 9초)에서도 3회 연속 통과: 71·68·67초 (docs/PROGRESS.md).
 
 
-- **고유 테스트 수 (2026-11-03 UI v9, 기획서에 넣을 값): 앱 353개 · 서버 82개, 모두 통과.** (UI v9 마무리: 내장 실제 데이터 app +3. UI v9: 주변 추천 app +10 − 도착 전 산책 3(주변 추천으로 합침), 배변 임박 engine/planner +4, 쇼핑 분류 서버 +1. 그 전 11/03: 긴급 도움 작은 수정 core/uistate +1, 시연 주행 안내 띠 app +7) 앱은 모듈별로 한 빌드 변형만 센다(안드로이드 모듈은 `testDebugUnitTest`, JVM 모듈은 `test`) — `./gradlew test`는 안드로이드 모듈을 디버그·릴리스로 두 번 돌려 결과 파일 합이 513이 되지만 같은 테스트다. 내역: app 131 · engine/pet 40 · engine/planner 41 · voice 30 · engine/motion 23 · core/uistate 20 · data 18 · core/model 11 · engine/fatigue 11 · engine/needs 10 · sim 7 · core/vehicle 4 · engine/pause 4 · core/restriction 3 (소스의 `@Test` 326개 + 매개변수 테스트 1개 14경우). 서버 `pytest --collect-only` 82.
+- **고유 테스트 수 (2026-11-04 v10-3, 기획서에 넣을 값): 앱 369개 · 서버 88개, 모두 통과.** (v10-3: 여러 마리 core/model +2, 체크 기억·폰 기록 app +2 → app 144, 서버 기록·사진·보호자 2명·정리 +6. v10-2: 흔들림 그래프 값·비교 수치 app +3 → app 142. v10-1: 안내 빈도·자동 시작·말하기 app +8, 조용히·안 타요 말 voice +1 → app 139 · voice 31. 11/03 UI v9 353 — UI v9 마무리: 내장 실제 데이터 app +3. UI v9: 주변 추천 app +10 − 도착 전 산책 3(주변 추천으로 합침), 배변 임박 engine/planner +4, 쇼핑 분류 서버 +1. 그 전 11/03: 긴급 도움 작은 수정 core/uistate +1, 시연 주행 안내 띠 app +7) 앱은 모듈별로 한 빌드 변형만 센다(안드로이드 모듈은 `testDebugUnitTest`, JVM 모듈은 `test`) — `./gradlew test`는 안드로이드 모듈을 디버그·릴리스로 두 번 돌려 결과 파일 합이 513이 되지만 같은 테스트다. 내역: app 131 · engine/pet 40 · engine/planner 41 · voice 30 · engine/motion 23 · core/uistate 20 · data 18 · core/model 11 · engine/fatigue 11 · engine/needs 10 · sim 7 · core/vehicle 4 · engine/pause 4 · core/restriction 3 (소스의 `@Test` 326개 + 매개변수 테스트 1개 14경우). 서버 `pytest --collect-only` 82.
 - (이전 기록) 앱 단위 테스트: `./gradlew test` **243 통과, 실패 0** (debug, 10/29). 서버: `pytest` **61 통과**(PostgreSQL 3개 포함, Docker Desktop 켬).
 - 근거: **자동** = 단위·시나리오 테스트(이름에 ID), **에뮬레이터** = `Pleos_Connect_API34`에서 시뮬레이터 `pet-trip`으로 확인(캡처는 로컬 `artifacts/pet/`, 저장소에 없음), **미검증** = 사람 확인이 필요.
 - 화면은 최소 레이아웃(디자인 v5 대기). 모양 항목은 다시 본다.

@@ -40,9 +40,9 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
-    implementation(libs.retrofit)
+    api(libs.retrofit) // v10-3: 사진 받기(Response<ResponseBody>)를 앱 모듈에서 감싼다
     implementation(libs.retrofit.kotlinx.serialization)
-    implementation(libs.okhttp)
+    api(libs.okhttp)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

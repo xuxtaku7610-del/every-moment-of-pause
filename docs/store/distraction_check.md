@@ -42,6 +42,7 @@ Pleos 문서를 2026-11-02에 직접 읽었다. 아래는 읽은 페이지의 �
 | 아이콘은 글자 라벨과 함께 (UI) | 경고·병원·마이크 아이콘 옆에 늘 글자가 있다 | `DriveScreens.kt` | 지킴 |
 | 낮·밤 모드 (UI) | 시스템 다크 모드를 따라 라이트·다크 색을 바꾼다 | `ui/theme/Theme.kt` `isSystemInDarkTheme()`, `scripts/ui_capture.py --dark` | 지킴 |
 | 긴급 도움 (11/03) — 주행 중 새 버튼 없음 (DS) | 긴급 도움은 정차 화면 위 겹침이다. 화면 선택이 주행·RESTRICTED면 주행 화면을 먼저 고르고, 주행이 시작되면 겹침을 닫는다. 주행 중 응급 말은 기존 한 줄 + 버튼 2개 그대로. 자동 전화·자동 경로 변경 없음(경로는 [경로 안내]를 누를 때만, 전화는 번호·QR만) | `presentation/ScreenRouter.kt`, `ui/screens/EmergencyScreen.kt` · ScreenRouterTest `F10-05` | 지킴 |
+| 콩이 도우미 (11/04) — 주행 중 새 버튼·입력 칸 없음 (DS) | 도우미 화면은 정차 화면 위 겹침(주행·RESTRICTED면 주행 화면 먼저). 입력 칸은 정차 + 키보드 허용(`UxPolicy.setupAllowed`)일 때만. 주행 중에는 기존 [눌러서 말하기] 받아쓰기가 질문이면 음성 한 줄(40자 이하) + 결과 한 줄만, 응급 말은 기존 한 줄 + 버튼 2개. 자동 애니메이션 없음 | `ui/screens/HelperScreen.kt`, `MainViewModel.driveHelper` · ScreenRouterTest `F9-36`, HelperAnswersTest `F9-33` | 지킴 |
 | 잠깐 대기 화면 (11/03 한눈에 크게) | P단 대기 중에만 보이는 바깥 사람용 화면(주행이면 즉시 주행 화면, F3-04). 자동 애니메이션 없음(경과 시간 숫자만 갱신), 제한 시간을 넘겨도 빨강·깜박임 없이 아래 줄만 앰버. 다크 모드는 다크 토큰 | `ui/screens/WaitScreen.kt` · WaitGlanceTest F3-10~13 | 지킴 |
 | 알림: 운전에 필요한 것만, 광고 없음 (UI, RG-D) | 시스템 알림(Notification)을 쓰지 않는다. 안내는 앱 화면 한 줄과 TTS뿐. 광고 없음 | grep `NotificationManager` 0건 | 지킴 |
 | 입력 뒤 0.25초 안에 반응, 늦으면 진행 표시 (UI, RG-P) | 음성 듣는 중 "듣고 있어요…", 메모 받아쓰기 "듣는 중…"을 표시한다 | `DriveScreens.kt:441`, `PetScreens.kt` | 확인 필요 — 반응 시간을 재지 않음 |

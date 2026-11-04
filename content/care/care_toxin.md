@@ -2,7 +2,7 @@
 id: toxin
 title: 위험 물질 섭취
 category: emergency
-triggers: [초콜릿 먹었어, 포도, 양파, 자일리톨, 약을 먹었어, 쥐약]
+triggers: [초콜릿, 초콜렛, 포도를, 포도 먹, 양파, 자일리톨, 약을 먹었어, 쥐약, 토하게, 소금물]
 voice: 바로 동물병원에 연락해요. 먹은 것은 정차 후 확인해요.
 action: VET
 reviewed: true

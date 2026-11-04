@@ -1,5 +1,10 @@
 ---
+id: climbing
 title: 앞좌석으로 넘어오려 할 때
+category: driving
+triggers: [앞좌석, 앞자리, 운전석, 넘어와, 넘어오]
+voice: 안전한 곳에 세운 뒤에만 반려견을 살펴요.
+action: NEAREST_STOP
 reviewed: true
 sources: RSPCA — "Dogs and the law" (PDF) https://www.rspca.org.uk/documents/1494939/7712578/Dogs+and+the+law+(169+KB)/9cb53a40-b4ac-6895-aaf9-c1dc62963ec5?version=2.0&download=true; RSPCA — "Taking Your Pet on Holiday" https://www.rspca.org.uk/adviceandwelfare/pets/general/holiday (11/03 사용자 검수, 출처 페이지 직접 열어 대조)
 ---

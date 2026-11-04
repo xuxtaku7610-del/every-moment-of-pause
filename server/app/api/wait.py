@@ -74,6 +74,8 @@ def _status(row: WaitSession) -> dict:
         "updatedAt": updated.isoformat(timespec="seconds"),
         "stale": (_now() - updated).total_seconds() > STALE_SEC,
         "returning": bool(row.guardian_returning),
+        # v10-3: 누가 눌렀는지 — 이름 대신 보호자 1·2
+        "returningBy": row.returning_by,
     }
 
 
@@ -144,7 +146,38 @@ def _mins(sec: int) -> str:
     return f"{m}분째" if m >= 1 else f"{sec}초째"
 
 
-def render(row: WaitSession | None, token: str = "") -> tuple[int, str]:
+def guardian(g: str | int | None) -> int:
+    """같은 링크를 보호자 2명이 연다 (v10-3): `?g=2`면 보호자 2, 그 밖은 보호자 1."""
+    return 2 if str(g) == "2" else 1
+
+
+def _who(n: int) -> str:
+    return "보호자 1이" if n == 1 else "보호자 2가"
+
+
+# 실내 온도가 오르면(차 신호가 있을 때만) 큰 경고 + 진동·소리. 브라우저 정책상 소리·진동은 사용자가 한 번 눌러 켠다(localStorage에 기억).
+# 5초마다 같은 주소를 받아 #wait만 바꾼다 — 새로 고침으로 소리 허용이 풀리지 않게.
+WAIT_JS = """
+(function(){
+var KEY='pause-wait-alert',ctx=null,btn=document.getElementById('snd');
+function on(){return localStorage.getItem(KEY)==='on';}
+function label(){if(!btn)return;btn.setAttribute('aria-pressed',on());btn.textContent=on()?'소리·진동 켜짐':'경고 소리·진동 켜기';}
+function unlock(){try{ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();}catch(e){}}
+function alarm(){if(!on())return;try{if(navigator.vibrate)navigator.vibrate([400,200,400]);}catch(e){}
+if(!ctx||ctx.state!=='running')return;for(var i=0;i<3;i++){var o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=i%2?1046:880;
+g.gain.value=0.25;o.connect(g);g.connect(ctx.destination);var t=ctx.currentTime+i*0.3;o.start(t);o.stop(t+0.2);}}
+if(btn)btn.onclick=function(){if(on()){localStorage.setItem(KEY,'off');}else{unlock();localStorage.setItem(KEY,'on');setTimeout(alarm,60);}label();};
+if(on())unlock();label();
+var box=document.getElementById('wait');
+if(box&&box.dataset.hot==='1')setTimeout(alarm,300);
+setInterval(function(){fetch(location.href,{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){
+var nb=new DOMParser().parseFromString(t,'text/html').getElementById('wait');if(!nb){location.reload();return;}
+var heated=nb.dataset.hot==='1'&&(!box||box.dataset.hot!=='1');box.replaceWith(nb);box=nb;if(heated)alarm();}).catch(function(){});},""" + str(REFRESH_SEC * 1000) + """);
+})();
+"""
+
+
+def render(row: WaitSession | None, token: str = "", g: int = 1) -> tuple[int, str]:
     if row is None or not _live(row):
         body = (
             f"<section class='card hero'>{pages.DOG}<p class='title'>대기가 끝났어요</p>"
@@ -164,42 +197,59 @@ def render(row: WaitSession | None, token: str = "") -> tuple[int, str]:
     banner = "<div class='banner'><b>설정 시간이 지났어요</b>차로 돌아가 주세요.</div>" if overdue else ""
     stale = f"<div class='banner'><b>차와 연결 확인 중</b>마지막 갱신 {html.escape(s['updatedAt'][11:16])}</div>" if s["stale"] else ""
     heat = ""
-    if heat_rising(row.cabin_temp_start_c, s["cabinTempC"]):
+    hot = heat_rising(row.cabin_temp_start_c, s["cabinTempC"])
+    if hot:
+        # v10-3: 온도가 오르면 크게 (차가 보낸 측정값이 있을 때만 — 지어내지 않는다)
         start = f"{row.cabin_temp_start_c:.0f}℃ → " if row.cabin_temp_start_c is not None else ""
-        heat = f"<div class='banner'><b>실내 온도가 오르고 있어요</b>{start}{s['cabinTempC']:.0f}℃ · 차로 돌아가 주세요.</div>"
-    elif s["cabinTempC"] is None and _month() in SUMMER:
-        heat = "<p class='note'>여름에는 차 안이 빨리 더워져요.</p>"
+        heat = (
+            "<div class='banner hot'><b>실내 온도가 오르고 있어요</b>"
+            f"<span class='big'>{start}{s['cabinTempC']:.0f}℃</span><br>바로 차로 돌아가 주세요.</div>"
+        )
+    elif s["cabinTempC"] is None:
+        # 온도 신호가 없으면 경과 시간으로만 안내한다
+        summer = " 여름에는 차 안이 빨리 더워져요." if _month() in SUMMER else ""
+        heat = f"<p class='note'>이 차는 온도 정보를 보내지 않아 시간으로만 알려요 — {_mins(s['elapsedSec'])}예요.{summer}</p>"
     if row.guardian_returning:
-        action = "<div class='ok'>차 화면에 '돌아오는 중'이라고 알렸어요</div>"
+        by = row.returning_by
+        who = (f"{_who(by)} 돌아가는 중 · " if by in (1, 2) else "") + "차 화면에 '돌아오는 중'이라고 알렸어요"
+        action = f"<div class='ok'>{who}</div>"
     else:
         action = (
-            f"<form method='post' action='/wait/{html.escape(token)}/returning'>"
-            "<button class='btn' type='submit'>돌아가는 중</button></form>"
+            f"<form method='post' action='/wait/{html.escape(token)}/returning?g={g}'>"
+            f"<button class='btn' type='submit'>돌아가는 중 (보호자 {g})</button></form>"
         )
-    body = (
-        f"{banner}{heat}{stale}<section class='card hero'>{pages.DOG}"
+    inner = (
+        f"<div id='wait' data-hot='{1 if hot else 0}'>{banner}{heat}{stale}<section class='card hero'>{pages.DOG}"
         f"<p class='title'>{'시간이 지났어요' if overdue else '대기 중이에요'}</p><p class='big'>{_mins(s['elapsedSec'])}</p></section>"
-        f"<div class='tiles'>{tile_html}</div>{action}"
-        "<p class='note'>위치는 공유하지 않아요. 이 페이지는 보조 안내예요 — 반려견을 차에 오래 혼자 두지 마세요.</p>"
+        f"<div class='tiles'>{tile_html}</div>{action}</div>"
     )
-    return 200, pages.page("반려견 대기 중", body, refresh_sec=REFRESH_SEC)
+    body = (
+        f"<div class='bar'><p class='kicker'>보호자 {g} 화면</p>"
+        "<button id='snd' class='snd' type='button' aria-pressed='false'>경고 소리·진동 켜기</button></div>"
+        f"{inner}"
+        "<p class='note'>위치는 공유하지 않아요. 보호자 2명까지 같은 주소로 볼 수 있어요. 이 페이지는 보조 안내예요 — 반려견을 차에 오래 혼자 두지 마세요.</p>"
+    )
+    return 200, pages.page("반려견 대기 중", body, refresh_sec=REFRESH_SEC, script=WAIT_JS)
 
 
 @page_router.get("/wait/{token}", response_class=HTMLResponse)
-def page(token: str, request: Request) -> HTMLResponse:
+def page(token: str, request: Request, g: str | None = None) -> HTMLResponse:
     with Session(request.app.state.engine) as session:
         row = session.get(WaitSession, hash_token(token))
-        code, text = render(row, token)
+        code, text = render(row, token, guardian(g))
     return HTMLResponse(text, status_code=code, headers={"Cache-Control": "no-store"})
 
 
 @page_router.post("/wait/{token}/returning")
-def returning(token: str, request: Request) -> Response:
-    """보호자 폰 "돌아가는 중" (인증 없음 — 토큰이 곧 권한). 차는 다음 상태 업로드 응답에서 받는다."""
+def returning(token: str, request: Request, g: str | None = None) -> Response:
+    """보호자 폰 "돌아가는 중" (인증 없음 — 토큰이 곧 권한). 차는 다음 상태 업로드 응답에서 받는다. 먼저 누른 보호자(1·2)를 남긴다."""
+    who = guardian(g)
     with Session(request.app.state.engine) as session:
         row = session.get(WaitSession, hash_token(token))
         if row is None or not _live(row):
-            return HTMLResponse(render(row, token)[1], status_code=404 if row is None else 410)
-        row.guardian_returning = True
+            return HTMLResponse(render(row, token, who)[1], status_code=404 if row is None else 410)
+        if not row.guardian_returning:
+            row.guardian_returning, row.returning_by = True, who
         session.commit()
-    return RedirectResponse(f"/wait/{token}", status_code=303)
+    suffix = "?g=2" if who == 2 else ""
+    return RedirectResponse(f"/wait/{token}{suffix}", status_code=303)

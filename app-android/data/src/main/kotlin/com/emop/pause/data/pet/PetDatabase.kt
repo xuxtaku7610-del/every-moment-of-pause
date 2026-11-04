@@ -50,11 +50,18 @@ data class MotionSampleRow(val localTripId: String, val minute: Int, val motionI
 
 @Dao
 abstract class PetDao {
-    @Query("SELECT * FROM pet_profiles WHERE isDefault = 1 ORDER BY updatedAt DESC LIMIT 1")
+    @Query("SELECT * FROM pet_profiles ORDER BY id LIMIT 1") // v10-3: 첫 프로필(저장 순서) = 기록이 붙는 프로필
     abstract suspend fun defaultProfile(): PetProfileRow?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertProfile(row: PetProfileRow): Long
+
+    /** v10-3 여러 마리: 저장 순서(id)대로 최대 3. 기존 한 마리는 그대로 첫 프로필이다(스키마 변경 없음). */
+    @Query("SELECT * FROM pet_profiles ORDER BY id LIMIT 3")
+    abstract suspend fun allProfiles(): List<PetProfileRow>
+
+    @Query("DELETE FROM pet_profiles WHERE id = :id")
+    abstract suspend fun deleteProfile(id: Long)
 
     @Query("SELECT * FROM local_trips WHERE petId = :petId ORDER BY startedAt DESC LIMIT :limit")
     abstract suspend fun recentTrips(petId: Long, limit: Int): List<LocalTripRow>
@@ -118,6 +125,7 @@ object PetRows {
         motionTendency = MotionTendency.entries.firstOrNull { it.name == r.motionTendency } ?: MotionTendency.NORMAL,
         pottyIntervalMin = r.pottyIntervalMin,
         facilityPrefs = r.facilityPrefs.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
+        id = r.id,
     )
 
     fun toRecord(r: LocalTripRow) = PetTripRecord(r.startedAt, r.drivingMin, r.firstCautionMin, r.motionPeak, r.stops, r.symptomNote)

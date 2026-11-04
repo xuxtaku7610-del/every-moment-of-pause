@@ -17,7 +17,10 @@ object DrivingRules {
     const val MAX_BUTTONS = 2
     const val MAX_REASONS = 2
 
-    /** 지금 상태에서 화면에 보일 버튼 수. 음성 실패 시트가 뜨면 시트의 버튼(2개)이 카드 버튼을 대신한다. */
+    /**
+     * 지금 상태에서 화면에 보일 버튼 수. 음성 실패 시트가 뜨면 시트의 버튼(2개)이 카드 버튼을 대신한다.
+     * [눌러서 말하기](v10-1)는 카드 버튼이 없을 때만 1개 — 카드가 버튼 2개를 쓰면 숨긴다([DriveUi.talk]).
+     */
     fun buttons(ui: DriveUi): Int = when {
         ui.voice == VoiceSheetState.FAILED -> 2
         else -> when (val c = ui.content) {
@@ -25,8 +28,12 @@ object DrivingRules {
             is DriveContent.Distress -> 2
             is DriveContent.Nearby -> 2
             else -> 0
-        }
+        } + if (talkShown(ui)) 1 else 0
     }
+
+    /** [눌러서 말하기]가 실제로 보이는지 (듣는 중·RESTRICTED·마이크 거절이면 안 보임). */
+    fun talkShown(ui: DriveUi): Boolean = ui.talk && !ui.micDenied && ui.voice == null && !ui.restricted &&
+        ui.content !is DriveContent.Suggest && ui.content !is DriveContent.Nearby && ui.content !is DriveContent.Distress
 
     /** 규칙 위반 목록. 비어 있으면 통과. */
     fun violations(ui: DriveUi): List<String> = buildList {
