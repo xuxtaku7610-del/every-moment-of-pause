@@ -3,6 +3,14 @@
 세션이 끊기면 이 파일 + `todo.md` + `docs/BLOCKED.md` + `_private/PIVOT_PROMPT.md`만 보고 이어 간다. 최신이 위.
 규칙: git add·commit·push 하지 않는다. 작업 단위마다 아래 "커밋 대기열 (같이가개)"에 메시지와 파일만 남기고, 커밋은 사용자가 직접 한다.
 
+## 원형 반려견 사진 가장자리 (2026-11-04, 사용자 지시)
+- **원인**: `pet_kongi_avatar.png`(272×271)는 그림 안에 원이 그려져 있고 원 테두리 픽셀이 반투명(짧은 변 기준 원 안 2,091px). `PetPhoto`가 이 그림을 그대로 원형으로 잘라, 가장자리에 뒤 면 색이 비쳤다(다크면 검은 띠, 라이트면 들쭉날쭉한 흰 테). 같은 부품이라 출발·주행·도착·도착 요약·프로필·온보딩·탄 아이 칩 모두 같은 문제였고, 도착 요약(160dp)에서 가장 크게 보였다.
+- **고침** (`ui/components/Kit.kt` `PetPhoto`): 모든 경우 한 틀 = 자르기 → 배경(`surfaceAlt`) 채우기 → 그림. 원형 그림은 `PHOTO_EDGE_SCALE` 1.07배로 키워 반투명 테두리를 잘림선 밖으로(1.04는 39px 남음, 1.07은 0). 폰으로 올린 사진·실루엣도 같은 틀.
+- **검사**: `PetPhotoEdgeTest`(V10-04) = 그 배율로 보이는 원 안 alpha<250 픽셀 0. 캡처 라이트 7화면 + 다크 2화면 `artifacts/ui/v10/sheet-photofix.png`, 다크 확대 전/후 `13c-summary-photo-edge-dark-before-after.png`.
+- **캡처 교체**: `docs/readme/` summary·arrival·depart·drive(분할 창 847×1210), 스토어 `01-depart`·`07-arrival-door`(1700×1212, 같은 자르기 위치 844,89). **스토어 `02-drive-split`(README 대표 이미지)은 그대로** — 기본 내비 길 안내가 걸린 상태로 찍은 그림이라 지금 다시 찍으면 안내가 빠진다(사진 40dp라 차이도 작음). 길 안내를 건 뒤 `ui_capture.py --out hero --nav --clean hero3 01-drive`로 바꾸면 된다.
+- **검증**: `./gradlew test` 종료 0, 고유 **앱 382**(+1), pytest 102 passed, 기본 리허설 5장면 OK(73초).
+- 커밋: `_private/COMMIT_COMMANDS.md` 23번.
+
 ## 콩이 도우미 — 결과 (2026-11-04, `_private/HELPER_PROMPT.md`)
 - **분류 순서** (앱 `engine/pet/HelperRouter`, 오프라인): 응급 말(PetDistress) → 앱 기능 6개(다음 쉼표·쉬할 곳·실내 온도·대기·충전·병원) → 카드 triggers(띄어쓰기 무시, 응급 카드 먼저) → 남은 신고 종류 → 모름(위험 낱말이면 병원 안내). 규칙이 모르고 위험 낱말이 없을 때만 서버 `POST /helper/ask`(임베딩 `embeddinggemma` ≥ 0.55 → LLM 분류 확신 ≥ 0.6 → 카드 줄만 근거로 2~3문장 → 근거 검사, 실패면 카드 줄 그대로). 서버가 없거나 7초 넘으면 규칙 결과로.
 - **임계값**: 한국어 코사인 점수가 겹친다(범위 밖 최고 0.42, 맞힌 문항 최저 0.33) → 임베딩만으로는 범위 밖을 가르지 못해 VECTOR_MIN 0.55(거의 안 씀) + LLM 분류(엄격한 "직접 답할 때만" 규칙)로. `docs/plan/helper_eval.md`.

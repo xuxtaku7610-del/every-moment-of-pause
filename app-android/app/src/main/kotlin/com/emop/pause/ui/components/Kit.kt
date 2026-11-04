@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -437,17 +438,26 @@ fun PetPhoto(modifier: Modifier = Modifier, shape: Shape = CircleShape, vararg e
     // v10-3: 보호자가 폰으로 올린 사진(기기 저장) → 시연 데이터면 콩이 사진·그림 → 그 밖은 기본 실루엣 (지어낸 사진을 쓰지 않는다)
     val photo = (petId ?: LocalPrimaryPetId.current)?.let { LocalPetPhotos.current[it] }
     val c = Pause.colors
-    when {
-        photo != null -> Image(photo, null, modifier.clip(shape), contentScale = ContentScale.Crop)
-        LocalDemoPhoto.current -> {
-            val names = if (shape == CircleShape) arrayOf(*extra, "demo_pet", "pet_kongi_avatar", "pet_kongi") else arrayOf(*extra, "demo_pet", "pet_kongi")
-            ArtSlot(*names, modifier = modifier, shape = shape) { DogIllustration(Modifier.fillMaxSize()) }
-        }
-        else -> Box(modifier.clip(shape).background(c.surfaceAlt), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Pets, "반려견 사진 없음", Modifier.fillMaxSize(0.45f), tint = c.sub)
+    val circle = shape == CircleShape
+    // 모든 경우 같은 틀: 자르기 → 배경 채우기 → 그림 (11/04). 투명 PNG·자기 원 테두리가 있는 그림도 가장자리에 화면 배경(다크면 검정)이 비치지 않게.
+    Box(modifier.clip(shape).background(c.surfaceAlt), contentAlignment = Alignment.Center) {
+        when {
+            photo != null -> Image(photo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            LocalDemoPhoto.current -> {
+                val names = if (circle) arrayOf(*extra, "demo_pet", "pet_kongi_avatar", "pet_kongi") else arrayOf(*extra, "demo_pet", "pet_kongi")
+                val img = rememberAssetImage(*names)
+                // pet_kongi_avatar.png는 그림 안에 원이 그려져 있고 테두리 3~4px이 반투명 → 원형이면 7% 키워 그 테두리를 잘림선 밖으로
+                val edge = if (circle) Modifier.graphicsLayer { scaleX = PHOTO_EDGE_SCALE; scaleY = PHOTO_EDGE_SCALE } else Modifier
+                if (img != null) Image(img, null, Modifier.fillMaxSize().then(edge), contentScale = ContentScale.Crop)
+                else DogIllustration(Modifier.fillMaxSize())
+            }
+            else -> Icon(Icons.Rounded.Pets, "반려견 사진 없음", Modifier.fillMaxSize(0.45f), tint = c.sub)
         }
     }
 }
+
+/** 원형 반려견 그림 확대 비율: 그림 원 테두리(반지름의 ~3%)가 반투명이라 7% 키워 잘라 낸다 (PetPhotoEdgeTest가 그림으로 확인). */
+internal const val PHOTO_EDGE_SCALE = 1.07f
 
 /** 프로필 id → 사진 (MainActivity가 PhotoStore에서 넣는다). */
 val LocalPetPhotos = staticCompositionLocalOf<Map<Long, ImageBitmap>> { emptyMap() }
