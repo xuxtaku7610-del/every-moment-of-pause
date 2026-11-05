@@ -6,7 +6,7 @@
 
 **반려견을 태우고 운전하는 보호자를 위한 Pleos Connect 차량용 앱**
 
-[시연 영상](#) <!-- TODO 11/13: 영상 주소 --> · [APK 다운로드](#) <!-- TODO 11/13: Releases 주소 -->
+[시연 영상](#) <!-- TODO 11/13: 영상 주소 --> · [APK 다운로드](https://github.com/xuxtaku7610-del/every-moment-of-pause/releases/tag/v1.0.0)
 
 </div>
 
