@@ -1,4 +1,4 @@
-"""녹화 원본 자동 촬영 (2026-11-03) — docs/recording.md 장면 순서대로 장면별 mp4.
+"""녹화 원본 자동 촬영 (2026-11-03, v10 3분 흐름으로 다시 11/05) — docs/recording.md 장면 순서대로 장면별 mp4.
 
     python scripts/record_scenes.py                 # 전체 (시작 전 확인: 기기·서버·기본 내비 안내)
     python scripts/record_scenes.py --only 1,7,8    # 일부 장면만 (번호)
@@ -7,7 +7,7 @@
 
 - 장면 이동·입력은 scripts/rehearsal.py의 함수(start·wait_for·tap·nodes)를 그대로 쓴다.
 - 차 화면: `adb shell screenrecord --size 1920x1080` → artifacts/recording/<날짜>/NN-<장면>.mp4 (소리 없음, 편집 없음).
-- 병원 접수함(1280×800)·보호자 대기 페이지(390×844): Playwright가 있으면 webm 영상, 없으면 설치된 Chrome 헤드리스로
+- 보호자 대기 페이지·병원 접수함·기록 페이지(모두 390×844, 폰 PIP용): Playwright가 있으면 webm 영상, 없으면 설치된 Chrome 헤드리스로
   1초 간격 PNG 묶음(편집에서 PIP로). Playwright는 server/.venv에 있다(11/03) — `server\.venv\Scripts\python scripts/record_scenes.py`.
 - 장면 목록·길이·파일은 artifacts/recording/<날짜>/index.md.
 """
@@ -62,14 +62,24 @@ class Recorder:
                 self.proc.wait(timeout=15)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
-        time.sleep(1.5)
+        # 기기 안 screenrecord가 끝날 때까지 (11/05: 끝나기 전에 가져오면 파일이 비어 "파일 없음"이 됐다)
+        for _ in range(20):
+            if not run("shell", "pidof", "screenrecord").strip():
+                break
+            time.sleep(0.5)
+        time.sleep(1.0)
         dst = self.out / f"{self.name}.mp4"
-        run("pull", f"/sdcard/rec_{self.name}.mp4", str(dst))
-        run("shell", "rm", "-f", f"/sdcard/rec_{self.name}.mp4")
+        for _ in range(3):
+            run("pull", f"/sdcard/rec_{self.name}.mp4", str(dst))
+            if dst.exists() and dst.stat().st_size > 0:
+                break
+            time.sleep(2)
+        if dst.exists() and dst.stat().st_size > 0:
+            run("shell", "rm", "-f", f"/sdcard/rec_{self.name}.mp4")
         return (dst if dst.exists() and dst.stat().st_size > 0 else None), secs
 
 
-def web_record(url: str, out: Path, name: str, size: tuple[int, int], seconds: int, action=None) -> str:
+def web_record(url: str, out: Path, name: str, size: tuple[int, int], seconds: int, action=None, scroll: bool = False) -> str:
     """웹 페이지 녹화: Playwright(webm) → 없으면 Chrome 헤드리스 1초 간격 PNG. 돌려주는 값은 index에 적을 한 줄."""
     try:
         from playwright.sync_api import sync_playwright
@@ -86,6 +96,8 @@ def web_record(url: str, out: Path, name: str, size: tuple[int, int], seconds: i
             for i in range(seconds):
                 if action and i == seconds // 2:
                     action()
+                if scroll and i >= 3:
+                    pg.mouse.wheel(0, 260)
                 time.sleep(1)
             ctx.close()
             b.close()
@@ -116,19 +128,28 @@ def nav_guiding() -> bool:
 
 
 def split() -> None:
+    if SPLIT["on"]:
+        return
     run("shell", "monkey", "-p", NAV_PKG, "-c", "android.intent.category.LAUNCHER", "1")
     time.sleep(3)
     r.start()
     time.sleep(2)
     run("shell", "input", "swipe", "2547", "720", "1700", "720", "800")
+    SPLIT["on"] = True
     time.sleep(6)
 
 
 def unsplit() -> None:
+    if not SPLIT["on"]:
+        return
     run("shell", "input", "swipe", "1705", "720", "2555", "720", "800")
+    SPLIT["on"] = False
     time.sleep(3)
     r.start()
     time.sleep(2)
+
+
+SPLIT = {"on": False}  # 지금 분할 창인지 (같은 손잡이를 두 번 끌지 않게)
 
 
 def clinic_url() -> str | None:
@@ -159,7 +180,7 @@ def main() -> int:
         print("주의: 서버(:8000) 응답 없음 — 병원 사전 접수·보호자 페이지 장면은 화면만 찍힌다")
     guiding = nav_guiding()
     if not guiding:
-        msg = ("기본 내비가 안내 중이 아니다. 분할 창 장면(2·3)은 옆 기본 내비가 실제 길 안내 화면이어야 한다(v10-1: 회전 카드는 같이가개에서 뺐다).\n"
+        msg = ("기본 내비가 안내 중이 아니다. 분할 창 장면(3·4·7·9)과 내비 전체 화면 장면(2)은 기본 내비가 실제 길 안내 화면이어야 한다(v10-1: 회전 카드는 같이가개에서 뺐다).\n"
                "  1) 기본 내비 → \"어디로 갈까요?\" → 최근 목록 '강릉씨티호텔' 오른쪽 화살표(바로 안내)\n"
                "  2) 아래 카드에 \"안내 종료\"가 보이면 안내 중")
         if a.no_wait:
@@ -169,7 +190,10 @@ def main() -> int:
             input("안내를 걸었으면 Enter (그만두려면 Ctrl+C) ")
             guiding = nav_guiding()
             print("안내 중 확인" if guiding else "여전히 안내 중이 아님 — 분할 창 장면을 전체 창으로 찍는다")
-    r.start(sim="pet-trip", onboard="done", scene="none", seek=0, action="pause", speed=1, demo=False, compare=False, emergency="none")
+    # 녹화 전 앱 새로 띄우기 (docs/recording.md). captureClean = "시연 데이터" 표시 숨김(디버그 전용)
+    run("shell", "am", "force-stop", "com.emop.pause")
+    time.sleep(2)
+    r.start(sim="pet-trip", onboard="done", scene="none", seek=0, action="pause", speed=1, demo=False, compare=False, emergency="none", captureClean=True)
     if a.share_base:
         r.start(shareBase=a.share_base)
     time.sleep(3)
@@ -193,12 +217,27 @@ def main() -> int:
         rows.append((name, title, secs, note if f else "파일 없음" + (f" · {note}" if note else "")))
         print(f"    {secs:.0f}초 {f.name if f else '파일 없음'} {note}", flush=True)
 
-    def s1():  # 출발 체크
+    def find(*labels: str):
+        for t, xy in r.nodes():
+            if t in labels:
+                return xy
+        return None
+
+    def page_url(marker: str) -> str | None:
+        """화면 글자에서 /wait/·/report/ 주소를 찾아 노트북에서 열 수 있는 주소로."""
+        for t, _ in r.nodes():
+            m = re.search(re.escape(marker) + r"\S+", t)
+            if m:
+                return BASE + m[0]
+        return None
+
+    # v10 3분 흐름 (docs/recording.md 2장, 2026-11-05). 장면 번호 = 영상 순서.
+    def s1():  # 0:00 출발 전: 오늘 타는 아이·체크·이대로 출발
         r.start(seek=0, action="pause")
         r.wait_for("출발 전 체크", 20)
-        time.sleep(2)
+        time.sleep(3)
         for label in ("하네스·켄넬", "물", "배변봉투"):
-            xy = next((xy for t, xy in r.nodes() if t == label), None)
+            xy = find(label)
             if xy:
                 r.tap(xy)
                 time.sleep(1.2)
@@ -208,56 +247,109 @@ def main() -> int:
             r.tap(xy)
         time.sleep(3)
 
-    def s2():  # 분할 창 고속도로
-        r.start(seek=1800, action="play", speed=1)
+    def s2():  # 0:15 기본 내비 전체 화면 + 뒤에서 굽은 길 예보 음성·상주 알림
+        r.start(seek=8748, action="play", speed=1)
+        ok = r.wait_for("다음 쉼표", 20)
+        run("shell", "monkey", "-p", NAV_PKG, "-c", "android.intent.category.LAUNCHER", "1")  # 같이가개는 뒤로
+        time.sleep(22)  # 예보(약 8,770초)는 TripService 음성 + 상주 알림 한 줄
+        run("shell", "cmd", "statusbar", "expand-notifications")
+        time.sleep(5)
+        run("shell", "cmd", "statusbar", "collapse")
+        time.sleep(2)
+        return None if ok else "주행 화면이 안 뜸"
+
+    def s3():  # 0:35 분할 창(조용한 패널) + [눌러서 말하기] "콩이가 헥헥거려"
+        r.start(seek=2400, action="play", speed=1, cabin=31)
         r.wait_for("다음 쉼표", 20)
         if guiding:
+            split()  # 조용한 패널을 먼저 보여 준다
+        time.sleep(5)
+        # 분할 창에서 am start로 말을 넣으면 런처가 분할을 풀 수 있다 → 넣은 뒤 다시 분할
+        r.start(say="콩이가 헥헥거려")
+        ok = r.wait_for("괜찮아졌어요", 15)
+        if guiding and ok:
+            SPLIT["on"] = False
             split()
-        time.sleep(10)
-        return None if guiding else "전체 창(내비 안내 없음)"
-
-    def s3():  # 고갯길 예보
-        r.start(seek=8748, action="play", speed=1)
-        ok = r.wait_for("덜 흔들려요", 40)
-        time.sleep(8)
-        if guiding:
-            unsplit()
-        return None if ok else "예보가 40초 안에 안 나옴"
-
-    def s4():  # 정차 후 주행 자극 보기 → 고갯길 비교
-        r.start(seek=5240, action="play", speed=1)
-        r.wait_for("잠깐 다녀올게", 25)
-        xy = r.wait_for("주행 자극 보기", 3)
-        if not xy:
-            # 쉼표 화면 왼쪽 버튼 줄 맨 아래(긴급 도움 밑)라 첫 화면 밖일 수 있다 → 한 번 위로 끌어 올린다
-            run("shell", "input", "swipe", "1300", "1100", "1300", "500", "600")
-            time.sleep(1.5)
-            xy = r.wait_for("주행 자극 보기", 5)
+        time.sleep(6)
+        xy = find("괜찮아졌어요")
         if xy:
             r.tap(xy)
-            time.sleep(6)
-            r.start(emergency="none")
-        r.start(seek=0, action="pause")
         time.sleep(2)
-        r.start(compare=True)
-        time.sleep(10)
-        r.start(compare=False)
-        return None if xy else "주행 자극 보기 버튼 없음"
+        if not ok:
+            return "안내가 안 뜸"
+        return None if guiding else "전체 창(내비 안내 없음)"
 
-    def s5():  # 이상 신고 (주행 중 음성)
-        subprocess.run(["adb", "logcat", "-c"], env=r.ENV)
-        r.start(seek=2400, action="play", speed=1, cabin=24)
-        r.wait_for("다음 쉼표", 20)
-        time.sleep(2)
-        r.start(say="콩이가 축 처졌어")
-        ok = r.wait_for("동물병원으로", 15)
+    def s4():  # 0:55 배변 임박 쉼표 추천 → 경유지
+        r.start(seek=4620, action="play", speed=1)
+        ok = r.wait_for("배변 시간이 다가와요", 90)
+        time.sleep(5)
+        if ok:
+            r.start(say="응")
+            r.wait_for("경로에", 10)
+            time.sleep(4)
+        return None if ok else "배변 임박 쉼표가 90초 안에 안 나옴"
+
+    def s5():  # 1:15 휴게소 정차: 운전석 문 → 대기 제안 → 잠깐 대기(+ 보호자 폰 페이지) → 대기 종료하기
+        if guiding:
+            unsplit()
+        r.start(seek=5240, action="play", speed=1)
+        r.wait_for("잠깐 다녀올게", 25)
+        time.sleep(14)  # 5,252초 운전석 문 → 대기 모드 제안 한 줄
+        r.start(seek=5540, action="play", speed=1, say="잠깐 다녀올게")
+        ok = r.wait_for("주인이", 25)
         time.sleep(4)
-        return None if ok else "응급 안내가 안 뜸"
+        url = page_url("/wait/")
+        if not url:
+            xy = r.wait_for("설정", 5)
+            if xy:
+                r.tap(xy)
+                time.sleep(2)
+                url = page_url("/wait/")
+                close = r.wait_for("설정 닫기", 3)
+                if close:
+                    r.tap(close)
+        web = ""
+        if url and server:
+            web = "보호자 폰 " + web_record(url, out, "05b-guardian-wait", (390, 844), 10)
+        time.sleep(3)
+        xy = find("대기 종료하기", "돌아왔어요")
+        if xy:
+            r.tap(xy)
+            time.sleep(3)
+        if not ok:
+            return "대기 화면이 안 뜸"
+        return web or "보호자 페이지 주소 없음"
 
-    def s6():  # 병원 사전 접수 + 접수함(브라우저)
-        xy = next((xy for t, xy in r.nodes() if t == "동물병원으로"), None)
+    def s6():  # 1:40 콩이 도우미 (정차) "쉬할 데 있어?" → 경유지로 넣기
+        r.start(seek=5300, action="play", speed=1, emergency="none")
+        r.wait_for("콩이 도우미", 25)
+        time.sleep(2)
+        r.start(ask="쉬할 데 있어?")
+        ok = r.wait_for("쉬할 곳", 15)
+        time.sleep(5)
+        xy = r.wait_for("경유지로 넣기", 5)
+        if xy:
+            r.tap(xy)
+            time.sleep(3)
+        return None if ok else "도우미 답이 안 뜸"
+
+    def s7():  # 1:50 주행 중 "초콜릿 먹은 것 같아" → 응급 안내 → 동물병원으로 → "네" → 사전 접수 (+ 병원 접수함)
+        subprocess.run(["adb", "logcat", "-c"], env=r.ENV)
+        # 전체 창: [동물병원으로]가 기본 내비 목적지를 병원으로 바꿔 안내가 끝나므로 분할 창 장면(9)보다 나중에 찍는다
+        unsplit()
+        r.start(seek=2460, action="play", speed=1, cabin=24)
+        r.wait_for("다음 쉼표", 20)
+        time.sleep(3)
+        r.start(ask="콩이가 초콜릿 먹은 것 같아")
+        xy = None
+        for _ in range(15):  # 제목 "가까운 동물병원으로 안내할게요"가 아니라 버튼(글자가 정확히 같은 것)
+            xy = find("동물병원으로")
+            if xy:
+                break
+            time.sleep(1)
         if not xy:
-            return "동물병원으로 버튼 없음(5번 장면 뒤에 찍는다)"
+            return "응급 안내(동물병원으로)가 안 뜸"
+        time.sleep(4)
         r.tap(xy)
         for _ in range(8):
             time.sleep(2)
@@ -273,89 +365,93 @@ def main() -> int:
         if not (url and server):
             time.sleep(5)
             return "접수함 링크 없음(서버 확인)"
-        full = BASE + url if url.startswith("/") else url.replace("10.0.2.2", "127.0.0.1")
+        full = BASE + url if url.startswith("/") else re.sub(r"http://[^/]+", BASE, url)
         reply = lambda: urllib.request.urlopen(urllib.request.Request(full + "/reply?r=ready", method="POST")).read()  # noqa: E731
-        web = web_record(full, out, "06b-clinic-inbox", (1280, 800), 12, action=reply)
+        web = web_record(full, out, "07b-clinic-inbox", (390, 844), 12, action=reply)
         r.wait_for("바로 봐요", 20)
         time.sleep(3)
         return f"접수함 {web}"
 
-    def s7():  # 휴게소 문 열림 → 잠깐 대기(새 화면) + 보호자 페이지
-        r.start(seek=5240, action="play", speed=1)
+    def s8():  # 2:15 정차 후 흔들림 그래프(주행 자극 보기) → 고갯길 비교
+        if guiding:
+            unsplit()
+        r.start(seek=5240, action="play", speed=1, emergency="none")
         r.wait_for("잠깐 다녀올게", 25)
-        time.sleep(14)  # 5252초 운전석 문 → 제안 한 줄
-        r.start(seek=5540, action="play", speed=1, say="잠깐 다녀올게")
-        ok = r.wait_for("주인이", 25)
-        time.sleep(6)
-        page = None
-        xy = r.wait_for("설정", 5)
-        if xy:
-            r.tap(xy)
-            time.sleep(2)
-            page = next((t for t, _ in r.nodes() if "/wait/" in t), None)
-            close = r.wait_for("설정 닫기", 3)
-            if close:
-                r.tap(close)
-            time.sleep(3)
-        web = ""
-        if page and server:
-            full = page if page.startswith("http") else BASE + page
-            full = re.sub(r"http://[^/]+", BASE, full)
-            web = " · 보호자 페이지 " + web_record(full, out, "07b-guardian-wait", (390, 844), 8)
-        return (None if ok else "대기 화면이 안 뜸") if not web else ("대기 화면이 안 뜸" if not ok else web.strip(" ·"))
-
-    def s8():  # 정차 중 긴급 도움
-        r.start(emergency="none")
-        xy = next((xy for t, xy in r.nodes() if t in ("대기 종료하기", "돌아왔어요")), None)
-        if xy:
-            r.tap(xy)
-        r.start(seek=5240, action="play", speed=1)
-        xy = r.wait_for("긴급 도움", 25)
+        xy = r.wait_for("주행 자극 보기", 3)
         if not xy:
-            return "긴급 도움 버튼 없음"
+            run("shell", "input", "swipe", "1300", "1100", "1300", "500", "600")
+            time.sleep(1.5)
+            xy = r.wait_for("주행 자극 보기", 5)
+        if xy:
+            r.tap(xy)
+            time.sleep(7)
+        r.start(seek=0, action="pause")
         time.sleep(2)
-        r.tap(xy)
-        xy = r.wait_for("위험 물질 섭취", 10)
-        if xy:
+        r.start(compare=True)
+        time.sleep(9)
+        r.start(compare=False)
+        return None if xy else "주행 자극 보기 버튼 없음"
+
+    def s9():  # 2:30 목적지 앞 주변 추천(반려용품점)
+        r.start(seek=10040, action="play", speed=1)
+        if guiding:
+            split()
+        ok = r.wait_for("들를게요", 90)
+        time.sleep(7)
+        name = next((t for t, _ in r.nodes() if " 앞 · " in t), "")
+        if ok:
+            r.start(say="나중에")
             time.sleep(2)
-            r.tap(xy)
-        ok = r.wait_for("바로 동물병원에 연락해요", 10)
-        time.sleep(6)
-        r.start(emergency="none")
-        return None if ok else "응급 카드가 안 뜸"
+        if not ok:
+            return "주변 추천이 90초 안에 안 나옴"
+        return f"카드 {name}" if name else None
 
-    def s9():  # 도착 뒷문 → 콩이 내렸나요?
-        r.start(seek=10905, action="play", speed=1)
-        ok = r.wait_for("내렸어요", 40)
-        time.sleep(4)
-        return None if ok else "도착 체크가 안 뜸"
-
-    def s10():  # 리포트
-        xy = r.wait_for("내렸어요", 10)
+    def s10():  # 2:40 뒷문 → 콩이 내렸나요 → 도착 요약 → 폰으로 기록 받기 (+ 기록 페이지)
+        if guiding:
+            unsplit()
+        r.start(seek=10843, action="play", speed=1)
+        time.sleep(8)
+        r.start(door="rear")
+        xy = r.wait_for("내렸어요", 60)
+        r.start(door="none")
+        if not xy:
+            return "콩이 내렸나요가 안 뜸"
+        time.sleep(10)  # 점프 따라잡기 끝난 뒤 (BLOCKED 11/02)
+        xy = find("내렸어요")
         if xy:
-            time.sleep(10)  # 점프 따라잡기 끝난 뒤 (BLOCKED 11/02)
             r.tap(xy)
-        ok = r.wait_for("오늘의 길", 15)
-        time.sleep(6)
-        d = r.wait_for("주행 자극 자세히 보기", 5)
-        if d:
-            r.tap(d)
-            time.sleep(6)
-        return None if ok else "리포트가 안 뜸"
+        ok = r.wait_for("폰으로 기록 받기", 15)
+        time.sleep(4)
+        if ok:
+            r.tap(ok)
+        url = None
+        for _ in range(10):
+            url = page_url("/report/")
+            if url:
+                break
+            time.sleep(1)
+        time.sleep(3)
+        if url and server:
+            return "기록 페이지 " + web_record(url, out, "10b-phone-report", (390, 844), 10, scroll=True)
+        return None if ok else "도착 요약이 안 뜸"
 
-    for no, key, title, fn in [
-        (1, "depart", "출발 체크", s1),
-        (2, "highway-split", "분할 창 고속도로", s2),
-        (3, "forecast", "고갯길 예보", s3),
-        (4, "stimulus-compare", "정차 후 주행 자극 보기 · 고갯길 비교", s4),
-        (5, "distress", "이상 신고 (주행 중 음성)", s5),
-        (6, "intake", "병원 사전 접수 (+ 접수함 브라우저)", s6),
-        (7, "rest-door-wait", "휴게소 문 열림 · 잠깐 대기 (+ 보호자 페이지)", s7),
-        (8, "emergency", "정차 중 긴급 도움", s8),
-        (9, "arrival-door", "도착 뒷문 → 콩이 내렸나요?", s9),
-        (10, "report", "도착 후 기록 리포트", s10),
-    ]:
-        scene(no, key, title, fn)
+    scenes = [
+        (1, "depart", "0:00 출발 전 (오늘 타는 아이·체크·이대로 출발)", s1),
+        (2, "nav-forecast", "0:15 기본 내비 전체 화면 + 뒤에서 굽은 길 예보", s2),
+        (3, "split-talk", "0:35 분할 창 + 눌러서 말하기 '콩이가 헥헥거려'", s3),
+        (4, "potty-suggest", "0:55 배변 임박 쉼표 추천 → 경유지", s4),
+        (5, "rest-door-wait", "1:15 휴게소 운전석 문 → 대기 제안 → 잠깐 대기 (+ 보호자 폰)", s5),
+        (6, "helper-rest", "1:40 콩이 도우미 '쉬할 데 있어?'", s6),
+        (7, "helper-emergency-intake", "1:50 주행 중 '초콜릿 먹은 것 같아' → 병원 사전 접수 (+ 접수함)", s7),
+        (8, "stimulus-compare", "2:15 정차 후 흔들림 그래프 · 고갯길 비교", s8),
+        (9, "nearby", "2:30 목적지 앞 주변 추천", s9),
+        (10, "arrival-summary", "2:40 뒷문 → 콩이 내렸나요 → 도착 요약 → 폰으로 기록 받기 (+ 기록 페이지)", s10),
+    ]
+    # 찍는 순서: 7(병원으로 → 내비 목적지가 병원, 주변 추천도 멈춤)은 9 뒤에. 파일 번호는 영상 순서 그대로.
+    run_order = [1, 2, 3, 4, 5, 6, 8, 9, 7, 10]
+    by_no = {no: (key, title, fn) for no, key, title, fn in scenes}
+    for no in run_order:
+        scene(no, *by_no[no])
 
     lines = [f"# 녹화 원본 {dt.date.today().isoformat()}", "",
              f"- 기기 녹화: `adb shell screenrecord --size 1920x1080` (소리 없음, 편집 없음) · 기본 내비 안내: {'예' if guiding else '아니오(분할 창 장면은 전체 창)'} · 서버: {'예' if server else '아니오'}",

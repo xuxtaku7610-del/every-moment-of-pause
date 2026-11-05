@@ -1,4 +1,17 @@
-# QA 점검표 — 같이가개 test_plan P0 (2026-10-29, 저녁 갱신)
+# QA 점검표 — 같이가개 test_plan P0 (2026-10-29, 최종 점검 2026-11-05)
+
+## 최종 점검 (2026-11-05, 에뮬레이터 Pleos_Connect_API34, 디버그 빌드, pet-trip, 앱 재시작 없이 이어서)
+| 회차 | 명령 | 장면 | 걸린 시간(초) | 결과 |
+| --- | --- | --- | --- | --- |
+| 기본 1 | `python scripts/rehearsal.py` | 출발 13 · 고속도로 3 · PT1 13 · PT2 29 · PT3 19 | 76 | 통과 |
+| 기본 2 | 같음 | 12 · 2 · 11 · 29 · 18 | 73 | 통과 |
+| 기본 3 | 같음 | 12 · 2 · 12 · 30 · 18 | 75 | 통과 |
+| 전체 | `--all` | 13장면(예비 8 포함) | 224 | 통과 |
+| 점프 | `--jumps 20` | 장면 점프 20회 → 쉼표 추천 버튼 | 102 | 통과 |
+
+- 테스트: `./gradlew test` 종료 0(고유 앱 383 — 설정 스위치 고침 V10-05 +1, 릴리스 변형 실패 0), pytest 102 passed(PostgreSQL 포함).
+- 릴리스 확인(서명 값 없어 assembleRelease 대신 `:app:mergeReleaseAssets`·`compressReleaseAssets`): 카드 12장, `_drafts`·`_candidates` 0, 내장 장소 327·병원 5,063(샘플 0).
+- 콩이 도우미 평가 85문항: 11/04 결과 그대로(분류 85/85, 응급 우선 20/20, 금지 내용 0) — docs/plan/helper_eval.md.
 
 ## 내비 전체 화면에서 계속 동작 (v10-1, 2026-11-04 05:36~05:41, 에뮬레이터 Pleos_Connect_API34, 디버그 빌드, pet-trip)
 | 확인 | 결과 | 근거 |
@@ -39,7 +52,7 @@
 - 같은 날 이전 빌드(감시 9초)에서도 3회 연속 통과: 71·68·67초 (docs/PROGRESS.md).
 
 
-- **고유 테스트 수 (2026-11-04 v10-3, 기획서에 넣을 값): 앱 369개 · 서버 88개, 모두 통과.** (v10-3: 여러 마리 core/model +2, 체크 기억·폰 기록 app +2 → app 144, 서버 기록·사진·보호자 2명·정리 +6. v10-2: 흔들림 그래프 값·비교 수치 app +3 → app 142. v10-1: 안내 빈도·자동 시작·말하기 app +8, 조용히·안 타요 말 voice +1 → app 139 · voice 31. 11/03 UI v9 353 — UI v9 마무리: 내장 실제 데이터 app +3. UI v9: 주변 추천 app +10 − 도착 전 산책 3(주변 추천으로 합침), 배변 임박 engine/planner +4, 쇼핑 분류 서버 +1. 그 전 11/03: 긴급 도움 작은 수정 core/uistate +1, 시연 주행 안내 띠 app +7) 앱은 모듈별로 한 빌드 변형만 센다(안드로이드 모듈은 `testDebugUnitTest`, JVM 모듈은 `test`) — `./gradlew test`는 안드로이드 모듈을 디버그·릴리스로 두 번 돌려 결과 파일 합이 513이 되지만 같은 테스트다. 내역: app 131 · engine/pet 40 · engine/planner 41 · voice 30 · engine/motion 23 · core/uistate 20 · data 18 · core/model 11 · engine/fatigue 11 · engine/needs 10 · sim 7 · core/vehicle 4 · engine/pause 4 · core/restriction 3 (소스의 `@Test` 326개 + 매개변수 테스트 1개 14경우). 서버 `pytest --collect-only` 82.
+- **고유 테스트 수 (2026-11-05 최종 점검, 기획서에 넣을 값): 앱 383개 · 서버 102개, 모두 통과.** 앱 내역(11/05): app 154 · engine/pet 44 · engine/planner 41 · voice 31 · engine/motion 23 · core/uistate 20 · data 18 · core/model 13 · engine/fatigue 11 · engine/needs 10 · sim 7 · core/vehicle 4 · engine/pause 4 · core/restriction 3. 릴리스 변형(`testReleaseUnitTest`)도 같은 수·실패 0. (이전 값 11/04 v10-3: 앱 369 · 서버 88 — v10-3: 여러 마리 core/model +2, 체크 기억·폰 기록 app +2 → app 144, 서버 기록·사진·보호자 2명·정리 +6. v10-2: 흔들림 그래프 값·비교 수치 app +3 → app 142. v10-1: 안내 빈도·자동 시작·말하기 app +8, 조용히·안 타요 말 voice +1 → app 139 · voice 31. 11/03 UI v9 353 — UI v9 마무리: 내장 실제 데이터 app +3. UI v9: 주변 추천 app +10 − 도착 전 산책 3(주변 추천으로 합침), 배변 임박 engine/planner +4, 쇼핑 분류 서버 +1. 그 전 11/03: 긴급 도움 작은 수정 core/uistate +1, 시연 주행 안내 띠 app +7) 앱은 모듈별로 한 빌드 변형만 센다(안드로이드 모듈은 `testDebugUnitTest`, JVM 모듈은 `test`) — `./gradlew test`는 안드로이드 모듈을 디버그·릴리스로 두 번 돌려 결과 파일 합이 513이 되지만 같은 테스트다. 내역: app 131 · engine/pet 40 · engine/planner 41 · voice 30 · engine/motion 23 · core/uistate 20 · data 18 · core/model 11 · engine/fatigue 11 · engine/needs 10 · sim 7 · core/vehicle 4 · engine/pause 4 · core/restriction 3 (소스의 `@Test` 326개 + 매개변수 테스트 1개 14경우). 서버 `pytest --collect-only` 82.
 - (이전 기록) 앱 단위 테스트: `./gradlew test` **243 통과, 실패 0** (debug, 10/29). 서버: `pytest` **61 통과**(PostgreSQL 3개 포함, Docker Desktop 켬).
 - 근거: **자동** = 단위·시나리오 테스트(이름에 ID), **에뮬레이터** = `Pleos_Connect_API34`에서 시뮬레이터 `pet-trip`으로 확인(캡처는 로컬 `artifacts/pet/`, 저장소에 없음), **미검증** = 사람 확인이 필요.
 - 화면은 최소 레이아웃(디자인 v5 대기). 모양 항목은 다시 본다.

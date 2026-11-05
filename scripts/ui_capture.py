@@ -187,6 +187,48 @@ def emergency_vets() -> bool:
     return ok
 
 
+def helper_rest() -> bool:
+    # 휴게소 정차 → 콩이 도우미 "쉬할 데 있어?" → 답 1개 이상 (리허설 helper_rest와 같은 길)
+    if not sim(5300, "콩이 도우미", timeout=25, settle=2):
+        return False
+    r.start(ask="쉬할 데 있어?")
+    ok = r.wait_for("쉬할 곳", 15) is not None
+    time.sleep(2)
+    return ok
+
+
+def stimulus_live() -> bool:
+    # 휴게소 정차(시뮬레이터 실제 값) → "주행 자극 보기" = 엔진 값 흔들림 그래프
+    if not sim(5240, "잠깐 다녀올게", timeout=25, settle=2):
+        return False
+    xy = r.wait_for("주행 자극 보기", 3)
+    if not xy:
+        subprocess.run(["adb", "shell", "input", "swipe", "1300", "1100", "1300", "500", "600"], capture_output=True, env=r.ENV)
+        time.sleep(1.5)
+        xy = r.wait_for("주행 자극 보기", 5)
+    if not xy:
+        return False
+    r.tap(xy)
+    time.sleep(4)
+    return True
+
+
+def summary_qr() -> bool:
+    # 도착 요약 + [폰으로 기록 받기] 누른 뒤 QR (서버 필요)
+    if not summary():
+        return False
+    xy = r.wait_for("폰으로 기록 받기", 5)
+    if not xy:
+        return False
+    r.tap(xy)
+    for _ in range(10):
+        if any("/report/" in t for t, _ in r.nodes()):
+            break
+        time.sleep(1)
+    time.sleep(2)
+    return True
+
+
 def compare() -> bool:
     depart()
     time.sleep(2)
@@ -232,6 +274,10 @@ SCREENS = {
     "18c-emergency-toxin": lambda: emergency("toxin"),
     "18d-emergency-vets": emergency_vets,
     "18e-emergency-fixture": lambda: fixture("emergency_card"),
+    # 11/05 README v10: 콩이 도우미 정차 답 · 실제 흔들림 그래프 · 도착 요약 [폰으로 기록 받기] QR
+    "20-helper": helper_rest,
+    "21-stimulus-live": stimulus_live,
+    "13d-summary-qr": summary_qr,
 }
 
 

@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** test_plan F8-01: 온보딩 멀미 민감도 진단 — 질문 3개 → 3단계, 다 답해야 결과. */
+/** test_plan F8-01: 온보딩 흔들림에 예민한 정도(보호자 응답) — 질문 3개 → 3단계, 다 답해야 결과. */
 class MotionQuizTest {
     @Test
     fun `F8-01 답 합계로 3단계를 고른다`() {

@@ -171,6 +171,8 @@ data class AppState(
     val helperText: String = "",
     val helperListening: Boolean = false,
     val helperBusy: Boolean = false,
+    /** 설정 값(SettingsStore)이 바뀐 횟수 — [bump]가 늘린다. 같은 값 copy()는 StateFlow가 버려 설정 스위치가 다시 그려지지 않았다(11/05). */
+    val settingsRev: Int = 0,
 )
 
 @HiltViewModel
@@ -453,7 +455,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun bump() = _app.update { it.copy() }
+    private fun bump() = _app.update { it.copy(settingsRev = it.settingsRev + 1) }
 
     /**
      * [눌러서 말하기] (v10-1 2번): 받아쓰기 8초 → 들은 말을 기존 분류 그대로([reply]) — 이상 신고·응급 4가지·잠깐 다녀올게·

@@ -37,8 +37,8 @@ sources: 기관 · 문서명 · 직접 연 주소 (날짜, 확인 상태)
 ### 초안 14장 (`_drafts/`, 모두 `reviewed: false`)
 | id | 제목 성격 | 출처(11/04 페이지 열어 확인, 사용자 대조 전) | 빈틈(대조할 때 볼 것) |
 | --- | --- | --- | --- |
-| heatstroke | 응급 · VET | RSPCA heatstroke · dogs in hot cars | "시원한 물, 담그지 않음"으로 씀 — 원문은 얼음을 금지하지 않음 |
-| foreign_object | 응급 · VET | Merck emergency · RSPCA first aid | 양말·뼈 같은 예시는 원문에 없음 |
+| heatstroke | 응급 · VET | RSPCA heatstroke · dogs in hot cars | 11/05 검수 카드와 같은 문구 "시원한 물로 몸을 적셔요(물에 담그지는 않아요)"로 통일 |
+| foreign_object | 응급 · VET | Merck emergency · RSPCA first aid | 11/05 양말·뼈 예시 삭제, "삼킨 것"으로 |
 | sting | 돌봄 | Merck minor injuries | |
 | wait_heat | 대기 · WAIT_MODE | RSPCA dogs in hot cars | 에어컨 켠 경우는 원문에 없음 |
 | water | 돌봄 | RSPCA holiday · Merck travel kit | |
@@ -49,7 +49,7 @@ sources: 기관 · 문서명 · 직접 연 주소 (날짜, 확인 상태)
 | charging_walk | 충전 중 산책 | RSPCA hot walks | |
 | senior | 노견 | RSPCA senior dogs | |
 | brachy | 단두종 | RSPCA genetics/caring | |
-| barking | 짖음 | RSPCA barking | 차 안 짖음 자료는 없음(일반 짖음만) |
+| barking | 짖음 | RSPCA barking | 차 안 짖음 자료는 없음(일반 짖음만) — 11/05 이번에는 내보내지 않음(보류) |
 | arrival_rest | 도착 뒤 | RSPCA environment | |
 
 ### 검수 방법 (사용자)

@@ -46,7 +46,7 @@ object ScreenRouter {
         i.waiting && i.mode == AppMode.PAUSE -> Route.WAIT
         i.overlay == Overlay.SETTINGS && i.setupAllowed -> Route.SETTINGS
         i.overlay == Overlay.PET && i.setupAllowed -> Route.PET
-        // 첫 실행: 3단계 온보딩(반려견 프로필 → 차량 연동 → 멀미 민감도 진단) — v5 11번
+        // 첫 실행: 3단계 온보딩(반려견 프로필 → 차량 연동 → 흔들림에 예민한 정도(보호자 응답)) — v5 11번
         i.needsProfile && i.mode == AppMode.PREPARE && i.setupAllowed -> Route.ONBOARDING
         i.overlay == Overlay.PLACES -> Route.PLACES
         i.overlay == Overlay.VETS -> Route.VETS

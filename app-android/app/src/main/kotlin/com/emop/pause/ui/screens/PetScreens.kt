@@ -722,7 +722,7 @@ fun PetProfileScreen(ui: PetEditUi, on: On) {
     }
 }
 
-/** 첫 실행 3단계: 반려견 프로필 → 차량 연동(신호 확인 결과) → 멀미 민감도 진단(질문 3개 → 3단계 결과). */
+/** 첫 실행 3단계: 반려견 프로필 → 차량 연동(신호 확인 결과) → 흔들림에 예민한 정도(보호자 응답)(질문 3개 → 3단계 결과). */
 @Composable
 fun OnboardingScreen(ui: OnboardingUi, on: On) {
     val c = Pause.colors

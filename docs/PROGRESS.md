@@ -3,6 +3,19 @@
 세션이 끊기면 이 파일 + `todo.md` + `docs/BLOCKED.md` + `_private/PIVOT_PROMPT.md`만 보고 이어 간다. 최신이 위.
 규칙: git add·commit·push 하지 않는다. 작업 단위마다 아래 "커밋 대기열 (같이가개)"에 메시지와 파일만 남기고, 커밋은 사용자가 직접 한다.
 
+## 최종 완성 (2026-11-05, 11/8 동결 전 마지막 묶음 — 새 기능 없음)
+- 시작 메모리: PC 남은 17.0GB(에뮬레이터 켠 뒤 11.1GB). Docker Desktop이 꺼져 있어 켜고 `docker compose up -d db` → 서버 health ok(db·llm).
+- **A README 이미지 v10** (사용자가 기본 내비 안내를 건 뒤): `docs/readme/` 12장 — 분할 창 847×1210(같이가개 쪽만): drive(기본 내비 안내 중 분할)·forecast(분할)·suggest·nearby(1/3 창 `--split third` — 분할 손잡이 12초 사이에 버튼이 지나가서), 전체 1682×1210: depart(오늘 타는 아이 보리·콩이 칩 + 지난번과 같아요, 디버그 `--es pets 콩이,보리`)·helper("쉬할 데 있어?" 답)·stimulus(이동 기록 "주행 자극 자세히 보기" 그래프 — 휴게소 정차 "주행 자극 보기"는 출발 뒤 고속도로뿐이라 5/100 평평)·emergency·wait·arrival·summary(QR, `--es shareBase http://10.0.2.2:8000` — 실제 IP 아님), phone 1704×1784(보호자 대기 페이지 + 기록 페이지 390×844 2배 나란히). 모두 `--clean`, 그림 청크만 남김. README "화면 구성" 4줄×3칸 12칸, report.png는 파일은 두고 표에서만 뺌(옛 표의 고갯길 비교·병원 접수함 칸도 12칸 지시에 따라 뺌).
+- **음성 실패 문구**: 에뮬레이터는 마이크가 없어 쉼표·주변 추천 카드가 8초 뒤 "잘 못 들었어요. 버튼으로 골라 주세요."가 된다 → 캡처는 설정 "음성으로 제안"을 끈 상태(실제 설정, 카드 + 버튼 + "…라고 말해도 돼요")로 찍고 다시 켰다.
+- **버그 고침 (캡처 중 발견)**: 설정 스위치(음성으로 제안·움직임 줄이기)를 눌러도 설정 화면을 다시 열 때까지 그대로 보였다 — `MainViewModel.bump()`가 같은 값 `copy()`라 StateFlow가 버림. `AppState.settingsRev`를 늘리게 고침, `SettingsRevTest`(V10-05). 화면 모양은 그대로.
+- **스토어 스크린샷**: 01-depart(칩)·02-drive-split(기본 내비 안내 중 분할)·03-forecast(같은 분할)·04-suggest(버튼 상태, 앱 영역 가운데) 다시, 05~08은 v10 그대로.
+- **B 대표 이미지**: `scripts/make_banner.py`(HTML + Pretendard를 Playwright·설치된 Chrome으로 찍음 — Pillow를 새로 설치하지 않으려고, PNG는 그림 청크만 남김)로 새 drive·forecast를 넣어 `docs/readme/banner.png` 1600×760 다시 만듦. 옛 배너의 C2PA 청크도 함께 없어짐(저장소 바이너리 도구 이름 검색 0).
+- **C 시연 대본·녹화**: `docs/demo_script.md` 맨 앞 "3분 시연 흐름 (v10)" 표(장면 10 + 닫는 자막, 180초, 조작·화면·자막 25자 이하·내레이션 4~5음절/초), 옛 PT 3장면 표는 `<details>`로. `docs/recording.md` 0장 순서·2장 표를 같은 표로. "주행 자극은 차량 흔들림 기준 · 반려견 측정 아님"(28자)은 화면 아래 고정 2줄. `scripts/record_scenes.py` 장면을 v10 순서 10개로(녹화 전 force-stop, `captureClean`, 폰 PIP 3개 모두 390×844, 기록 페이지는 스크롤). 녹화 실행은 A와 같은 이유로 대기.
+- **D 돌봄 카드 초안**: heatstroke = 검수 카드 문구 "시원한 물로 몸을 적셔요(물에 담그지는 않아요)"로 통일(머리 이야기 뺌), foreign_object = triggers의 양말·뼈 삭제·"삼킨 것" 추가, 본문 "삼킨 것과 삼킨 시각", wait_heat 그대로, barking 보류(false). 나머지 10장 대조표 `_private/care_review_drafts.md`(페이지 12개 모두 열림) — 그대로 6 · 1문장 수정 3(potty_signal·senior·arrival_rest) · 2문장 수정 1(reststop_walk), 10장 합계 일치 25 / 부분 9 / 근거 없음 1. `reviewed`는 모두 그대로 false. content/care/README.md 초안 표 빈틈 열에 결정 반영.
+- **E 점검(진행 중)**: `./gradlew test` 종료 0, 고유 **앱 382 → 383**(설정 스위치 고침 V10-05 뒤, 릴리스 변형 단위 테스트 포함 실패 0), pytest **102 passed**. 릴리스 assets(`mergeReleaseAssets`·`compressReleaseAssets`, 서명 없이): 카드 12장, `_drafts`·`_candidates` 0, 내장 장소 327·병원 5,063(샘플 0). 리허설 기본 3회 연속(앱 재시작 없이) 76·73·75초 모두 OK, `--all` 13장면 224초 OK, `--jumps 20` 102초 OK → docs/qa_report.md 맨 위 표. 숫자 맞추기: qa_report(369·88)·release_notes(353·82, --all 9장면)를 383·102·13장면으로, README 리허설 "70초 안팎" → "75초 안팎".
+- 문구 검사: 반려견 상태 뜻 "진단"은 코드 주석·옛 디자인 문서 4곳("멀미 민감도 진단")뿐 → "흔들림에 예민한 정도(보호자 응답)". 나머지 "정상"(대관령 정상·영업/정상·[N] 정상 표기), "측정"(차량·시간 측정), "감지"(wording 금지 목록)는 반려견 상태 뜻이 아님. 【 】 0(README TODO 11/13 두 개는 HTML 주석). "claude"·"anthropic": 텍스트는 .gitignore·.dockerignore 무시 규칙뿐(PROGRESS 옛 기록 3곳의 도구 이름은 지움), 바이너리는 `docs/readme/banner.png`(C2PA) — B에서 새로 만들면 없어진다. 이메일은 Pleos 공개 문의 주소 1개(BLOCKED.md), 전화번호 형태는 테스트 CSV의 인허가 관리번호뿐.
+- 커밋: `_private/COMMIT_COMMANDS.md` 24번~.
+
 ## 원형 반려견 사진 가장자리 (2026-11-04, 사용자 지시)
 - **원인**: `pet_kongi_avatar.png`(272×271)는 그림 안에 원이 그려져 있고 원 테두리 픽셀이 반투명(짧은 변 기준 원 안 2,091px). `PetPhoto`가 이 그림을 그대로 원형으로 잘라, 가장자리에 뒤 면 색이 비쳤다(다크면 검은 띠, 라이트면 들쭉날쭉한 흰 테). 같은 부품이라 출발·주행·도착·도착 요약·프로필·온보딩·탄 아이 칩 모두 같은 문제였고, 도착 요약(160dp)에서 가장 크게 보였다.
 - **고침** (`ui/components/Kit.kt` `PetPhoto`): 모든 경우 한 틀 = 자르기 → 배경(`surfaceAlt`) 채우기 → 그림. 원형 그림은 `PHOTO_EDGE_SCALE` 1.07배로 키워 반투명 테두리를 잘림선 밖으로(1.04는 39px 남음, 1.07은 0). 폰으로 올린 사진·실루엣도 같은 틀.
@@ -264,14 +277,14 @@
 - 읽은 Pleos 페이지: 심사 가이드 5개 하위 페이지(콘텐츠 안전·기능 성능·주의분산·등록 정보·개인정보 보안), 제출 가이드, UI 디자인 가이드 소개, 주행 안전 설계, 지역별 주행 제한, 앱 카테고리, 태깅 가이드, Basic button(숫자는 그림 안이라 못 읽음), AAOS 주의분산 가이드. 못 찾음: IARC 페이지 링크, 한국 주행 제한 규정.
 - `docs/store/`: data_inventory.md(코드 기준 표 + 불일치 12), privacy.md + `docs/privacy.html`(외부 리소스 없음), distraction_check.md, listing.md, screenshots 8장(1700×1212, 앱 영역 1:1, 테두리만 채움), icon-512.png(런처 벡터 렌더, 24KB).
 - 스크린샷: `scripts/ui_capture.py`에 장면 2개(07b 응급 신고 → 동물병원, 13b 도착 뒷문) 추가. `triplog()`는 점프 뒤 15초 기다렸다가 "내렸어요"를 누른다(바로 누르면 리포트 휴식 0번, BLOCKED 11/02).
-- C2PA 제거: v3·v4·v5·v5/assets 29장 + `docs/design/ui_design.png` 1장(다른 도구의 C2PA, 지난 "claude" 검색에 안 걸렸던 것) = 30장, `caBX` 청크만 뺐다. 제거 전후 IHDR+압축 해제 IDAT SHA-256이 모두 같다. 저장소 그림 100장 재검사 → 남은 C2PA·도구 이름 0.
+- C2PA 제거: v3·v4·v5·v5/assets 29장 + `docs/design/ui_design.png` 1장(다른 도구의 C2PA, 지난 도구 이름 검색에 안 걸렸던 것) = 30장, `caBX` 청크만 뺐다. 제거 전후 IHDR+압축 해제 IDAT SHA-256이 모두 같다. 저장소 그림 100장 재검사 → 남은 C2PA·도구 이름 0.
 - 큰 발견(코드 결정 필요, BLOCKED): 주행 중 음성 신고가 마이크와 이어져 있지 않음, 반려견 이름·메모가 서버로 가고 "함께 보내기"가 자동으로 켜짐, 라이트 테마 대비 4.23·4.34.
 - `./gradlew test testDebugUnitTest` exit 0, 실패 0.
 
 ## 공개 전 정리 + 리포트 간소화 (2026-11-02 오전)
 - 지운 것: `docs/design/mockups/` 전체 19개(옛 「쉼표」 시안 PNG 17장 01-drive~17-icon·overview.png·mockups.html). 가리키던 `docs/design/UI_SPEC.md`(폐기 문서)는 맨 위에 "삭제함" 한 줄 + 참조 16곳을 "(삭제) mockups/…"로.
-- 도구 이름 표기: docs/BLOCKED.md·docs/PROGRESS.md·todo.md → "코딩 에이전트"·"에이전트 지침 파일"·"(에이전트)", .gitignore 주석 2곳(무시 규칙 `.claude/`·`CLAUDE.md`는 그대로). .dockerignore는 주석에 없음(규칙 `.claude/`만).
-- 다시 검색(추적·새 파일 449개, gitignore 제외, 바이너리 포함, 대소문자 무시): 텍스트는 .gitignore·.dockerignore의 무시 규칙뿐. **PNG 29장**(docs/design/v3 2·v4 2·v5 2·v5/assets 23)에 `caBX` 청크 = C2PA 콘텐츠 자격 증명(생성 도구 출처 기록, "com.anthropic.claude.provided")이 있다. v5/assets는 앱 assets로 APK에 들어간다. 생성형 AI 그림의 출처 기록이라 지우지 않고 보고만 함(licenses/ASSETS.md "생성형 AI 디자인 도구"와 같은 사실). JPG 14장은 JFIF만, 텍스트 메타데이터 없음. exiftool이 없어(전역 설치는 묻고) Python으로 PNG 청크·JPEG APP 세그먼트를 직접 읽음.
+- 도구 이름 표기: docs/BLOCKED.md·docs/PROGRESS.md·todo.md → "코딩 에이전트"·"에이전트 지침 파일"·"(에이전트)", .gitignore 주석 2곳(무시 규칙은 그대로). .dockerignore는 주석에 없음(무시 규칙만).
+- 다시 검색(추적·새 파일 449개, gitignore 제외, 바이너리 포함, 대소문자 무시): 텍스트는 .gitignore·.dockerignore의 무시 규칙뿐. **PNG 29장**(docs/design/v3 2·v4 2·v5 2·v5/assets 23)에 `caBX` 청크 = C2PA 콘텐츠 자격 증명(생성 도구 출처 기록)이 있다. v5/assets는 앱 assets로 APK에 들어간다. 생성형 AI 그림의 출처 기록이라 지우지 않고 보고만 함(licenses/ASSETS.md "생성형 AI 디자인 도구"와 같은 사실). JPG 14장은 JFIF만, 텍스트 메타데이터 없음. exiftool이 없어(전역 설치는 묻고) Python으로 PNG 청크·JPEG APP 세그먼트를 직접 읽음.
 - 루트 문서의 「쉼표」 표현(그대로 둠, 재사용 설명·현재 용어): architecture.md 3·103·139·221행(쉼표에서 가져온 것 설명), "반려견 맞춤 쉼표"·"쉼표 화면"·"오늘의 쉼표"(현재 기능 이름), `engine:fatigue` 운전자 피로(F2 요인), api_spec.md 190행("쉼표 구분" = 쉼표 문자), 2.10 `passengerSummary.children`(서버 필드 그대로, 인원 수만)·2.11 `fatigue_peak` 이벤트·예시 "부산" 목적지. 파워냅·원정대·라디오·아직 멀었어는 루트 2개 문서에 없음(2.11에 "kid_question 삭제" 이력 한 줄).
 - LICENSE 새로(All rights reserved, 공모전 심사·열람 목적만, 예외: OSM ODbL 1.0·공공데이터 3종 제공처 조건·서드파티 라이브러리 각 라이선스 → licenses/ASSETS.md·README §7). 실명 없음. README §7·ASSETS.md 맨 위에 연결.
 - 리포트 간소화(화면 모양 바뀜 — 사용자 지시): 첫 화면 = 요약 한 줄 + 시간순 타임라인(한 줄 요약·"맞춤 정도"는 스크롤 밖 아래 고정). 앱 바 "주행 자극 자세히 보기"(↔ "타임라인 보기")를 누르면 주행 자극 그래프 + 병원에 보여 줄 내용(공유 버튼·지난 기록). 병원 공유 내용(`ShareReport`)은 그대로. 고갯길 비교·"주행 자극 보기"는 그대로 정차 중 버튼.
