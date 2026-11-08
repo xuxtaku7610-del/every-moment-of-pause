@@ -6,7 +6,7 @@
 
 **반려견을 태우고 운전하는 보호자를 위한 Pleos Connect 차량용 앱**
 
-[시연 영상](#) <!-- TODO 11/13: 영상 주소 --> · [APK 폴더](apk/) · [Release v1.0.0](https://github.com/xuxtaku7610-del/every-moment-of-pause/releases/tag/v1.0.0)
+[시연 영상](https://youtu.be/D9Sbmw7kEKw) · [APK 폴더](apk/) · [Release v1.0.0](https://github.com/xuxtaku7610-del/every-moment-of-pause/releases/tag/v1.0.0)
 
 </div>
 
@@ -98,10 +98,10 @@
 제출한 APK는 서버 없이 동작합니다.
 
 1. Pleos Playground에서 **Pleos Connect Emulator 2.1.0** AVD를 만들고 실행합니다.
-2. 저장소의 [`apk/`](apk/) 폴더에 있는 `_같이가개_release.apk` 파일을 받아 설치합니다. 같은 파일이 [Release v1.0.0](https://github.com/xuxtaku7610-del/every-moment-of-pause/releases/tag/v1.0.0)에도 있습니다.
+2. 저장소의 [`apk/`](apk/) 폴더에 있는 `EMOP_같이가개_release.apk`를 받아 설치합니다. 같은 파일이 [Release v1.0.0](https://github.com/xuxtaku7610-del/every-moment-of-pause/releases/tag/v1.0.0)에도 있습니다.
    ```powershell
    adb uninstall com.emop.pause
-   adb install <받은 APK 파일 이름>
+   adb install EMOP_같이가개_release.apk
    ```
 3. 앱을 켜고 출발 전 화면에서 10초쯤 기다리면 **시연 주행 시작** 버튼이 나옵니다. 누르면 서울에서 강릉까지 가는 시연 주행이 시작됩니다.
 4. 왼쪽 위 로고를 다섯 번 누르면 발표 패널이 열립니다. 원하는 장면으로 건너뛰거나, 음성 대신 응답을 넣을 수 있습니다.
